@@ -62,6 +62,7 @@ class RegionsViewSet(viewsets.ModelViewSet):
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
+    serializer_class = CategorySerializzer
 
 
 class FeatureStoreAdminsViewSet(viewsets.ModelViewSet):
@@ -71,5 +72,5 @@ class FeatureStoreAdminsViewSet(viewsets.ModelViewSet):
 
 class FeutureUsersViewSet(viewsets.ModelViewSet):
     queryset = FeatureUsers.objects.all()
-    serializer_class = FeatureUsers
+    serializer_class = FeatureUsersSerializer
 
