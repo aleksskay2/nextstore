@@ -6,6 +6,8 @@ import Home from './pages/Home'
 import './App.css'
 import AddProductUser from './pages/AddProductUser'
 import Header from './components/Header'
+import RegisterPage from './pages/RegisterPage'
+import LoginPage from './pages/LoginPage'
 
 
 
@@ -17,7 +19,9 @@ function App() {
       <Header/>
       <Routes>
           <Route path='/' element={<Home/>}/>
-          <Route path = '/store-admins' element={<ProductList/>}/>
+          <Route path='/register' element={<RegisterPage/>}/>
+          <Route path='/login' element={<LoginPage/>}/>
+          <Route path = 'productuser/' element={<ProductList/>}/>
           <Route path='/add-product' element={<AddProductUser/>}/>
           
       </Routes>

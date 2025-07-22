@@ -1,9 +1,15 @@
 from rest_framework import serializers
-from .models import Admins, StoreAdmins, Users, SelectionObject, Regions, Category, FeatureStoreAdmins ,FeatureUsers
+
+from .models import Admins, Product,  SelectionObject, Regions, Category, FeatureProduct, CustomUser
 from django.contrib.auth import get_user_model
 
 
 User = get_user_model()
+
+
+
+
+
 
 
 class CategorySerializzer(serializers.ModelSerializer):
@@ -12,30 +18,21 @@ class CategorySerializzer(serializers.ModelSerializer):
         fields = ['id', 'CategoryName']
 
 
-class FeatureStoreAdminSerializer(serializers.ModelSerializer):
-    class Meta: 
-        model  = FeatureStoreAdmins
-        fields = ['id','nameFeature','valueFeature','fk_storeAdmins']
-
-
-class FeatureUsersSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FeatureUsers
-        fields = ['id', 'nameFeature', 'valueFeature', 'fk_Users']
-
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password']
+        fields = ('username', 'email', 'password', 'phone', 'region')
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data.get('email'),
-            password=validated_data['password']
+        user = CustomUser.objects.create_user(
+            username = validated_data['username'],
+            email = validated_data.get('email'),
+            password = validated_data['password'],
+            phone = validated_data['phone'],
+            region = validated_data['region'],
         )
         return user 
 
@@ -47,10 +44,17 @@ class RegionsSerializer(serializers.ModelSerializer):
         fields = '__all__'
     
 
-class StoreAdminsSerializer(serializers.ModelSerializer):
+class ProductSerializer(serializers.ModelSerializer):
     class Meta:
-        model = StoreAdmins
+        model = Product
         fields = '__all__'
+        read_only_fields = ['user', 'productType']
+
+
+class FeatureProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeatureProduct
+        fiels = '__all__'
 
 
 class AdminsSerializer(serializers.ModelSerializer):
@@ -59,10 +63,6 @@ class AdminsSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class UsersSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Users
-        fields = '__all__'
 
     
 class SelectionObjectSerializer(serializers.ModelSerializer):

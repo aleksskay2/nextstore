@@ -11,7 +11,7 @@ const ProductList = () => {
 
     const fetchProducts = async ()  => {
        try{
-            const response = await api.get('store-admins/')
+            const response = await api.get('productuser/')
             setProducts(response.data)
            
         }
@@ -28,10 +28,15 @@ const ProductList = () => {
             {console.log(products)}
             {products.map(product => (
                     <div key={product.id}>
-                        <h3>{product.nameProductAdmin}</h3>
-                        <p>{product.priceAdmin}</p>
-                        <p>{product.addressProductAdmin}</p>
+                        <h3>{product.productName}</h3>
+                        <p>{product.price}</p>
+                        <p>{product.address}</p>
+                        <p>{product.productType}</p>
+                        <p>{product.storeName}</p>
+                        <div><img src={product.image} alt="" width={200} /></div>
+                        <hr />
                     </div>
+                    
                 ))}
         </div>
     )

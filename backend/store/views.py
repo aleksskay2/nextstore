@@ -1,53 +1,63 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from rest_framework.filters import SearchFilter
 from .serializers import RegisterSerializer
 from django.shortcuts import render
 from rest_framework import viewsets
-from .models import Admins, StoreAdmins, Users, SelectionObject, Regions, Users, Category, FeatureUsers, FeatureStoreAdmins
-from .serializers import AdminsSerializer, StoreAdminsSerializer, UsersSerializer, SelectionObjectSerializer, RegionsSerializer
+from .models import Admins, Product, SelectionObject, Regions, Category, FeatureProduct, CustomUser
+from .serializers import AdminsSerializer, ProductSerializer,  SelectionObjectSerializer, RegionsSerializer
 from .serializers import (
     CategorySerializzer,
-    FeatureStoreAdminSerializer,
-    FeatureUsersSerializer
+    FeatureProductSerializer,
+   
 )
 
 
 # Create your views here.
 
 
-
-class RegisterView(APIView):
-    def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"message:", "Пользователь"},status=status.HTTP_201_CREATED)
-        return repr(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+def index(request): 
+       return render(request,'index.html')
 
 
-def index(request):
-    return render(request,'index.html')
+class RegisterView(generics.CreateAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = RegisterSerializer
+
+
+
+class OwnerProductViewSet(viewsets.ModelViewSet):
+   
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Product.objects.filter(user =self.request.user, productType= 'owner' )
+
+    def perform_create(self, serializers):
+        return serializers.save(user=self.request.user, productType='owner')
+
+
+
 
 class AdminsViewSet(viewsets.ModelViewSet):
     queryset = Admins.objects.all()
     serializer_class = AdminsSerializer
 
 
-class StoreAdminsViewSet(viewsets.ModelViewSet):
-    queryset = StoreAdmins.objects.all()
-    serializer_class = StoreAdminsSerializer
+class ProductUserViewSet(viewsets.ModelViewSet):
+    serializer_class = ProductSerializer
+    queryset = Product.objects.all()
     filterBackends = [SearchFilter]
-    searchFields = ['nameProductAdmin', 'regionProductAdmin', ' priceAdmin', 'addressProductAdmin']
+    searchFields = ['productТame',  ' price', 'address']
 
-
-class UsersViewSet(viewsets.ModelViewSet):
-    queryset = Users.objects.all()
-    serializer_class = UsersSerializer
-    filterBackend = [SearchFilter]
-    searchFields = ['productNameUser', 'priceUser', 'addressStoreUser', 'regionUser']
-
+    def get_querySet(self):
+        productType = self.request.query_params.get('type')
+        if productType == 'user':
+            return Product.objects.filter(productType="user")
+        return Product.objects.all()
+        
 
 class SelectionObjectViewSet(viewsets.ModelViewSet):
     queryset = SelectionObject.objects.all()
@@ -65,12 +75,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
     serializer_class = CategorySerializzer
 
 
-class FeatureStoreAdminsViewSet(viewsets.ModelViewSet):
-    queryset = FeatureStoreAdmins.objects.all()
-    serializer_class = FeatureStoreAdminSerializer
+class FeatureProductViewSet(viewsets.ModelViewSet):
+    queryset = FeatureProduct.objects.all()
+    serializer_class = FeatureProductSerializer
 
-
-class FeutureUsersViewSet(viewsets.ModelViewSet):
-    queryset = FeatureUsers.objects.all()
-    serializer_class = FeatureUsersSerializer
 

@@ -7,12 +7,14 @@ import api from '../api/axios'
 
 const AddProductUser = () => {
     const [formData, setFormData] = useState({
-        storeUserName:'',
-        priceUser:'',
-        productNameUser:'',
-        addressUserStore:'',
-        regionUser:'',
-        fk_Category:'',
+        storeName:'',
+        productName:'',
+        price:'',
+        address:'',
+        region:'',
+        weight:"", 
+        category: '', 
+        image:null,
     })
 
     const [image, setImage] = useState(null)
@@ -58,16 +60,20 @@ const AddProductUser = () => {
         e.preventDefault()
         
         const data = new FormData()
+        data.append('productType', 'owner')
         for(const key in formData)
+        {
             data.append(key, formData[key])
+        }
+           
 
         if (image) {
-            data.append('imageUserStore', image)
+            data.append('image', image)
         }
 
         try {
-            const link = api.get('users/');
-            const response = await axios.post('http://127.0.0.1:8000/api/users/', data, {
+            const link = api.get('productuser/');
+            const response = await axios.post('http://127.0.0.1:8000/api/productuser/', data, {
                 headers:{
                     'Content-Type':'multipart/form-data',
                 },
@@ -80,17 +86,17 @@ const AddProductUser = () => {
     }
     return (
         <form onSubmit={handleSubmit}>
-            <input type="text" name="storeUserName" placeholder="Название магазина" onChange={handleChange} />
+            <input type="text" name="storeName" placeholder="Название магазина" onChange={handleChange} />
             <br /><br />
-            <input type="text" name="productNameUser" placeholder="Товар" onChange={handleChange} />
+            <input type="text" name="productName" placeholder="Товар" onChange={handleChange} />
              <br /><br />
-            <input type="text" name="priceUser" placeholder="Цена" onChange={handleChange} />
+            <input type="text" name="price" placeholder="Цена" onChange={handleChange} />
             <br /><br />
-            <input type="text" name="addressUserStore" placeholder="Адрес" onChange={handleChange} />
+            <input type="text" name="address" placeholder="Адрес" onChange={handleChange} />
           <br /><br />
-            <input type="date" name="dateUpdateUser" value={dateUpdate}  readOnly onChange={handleChange} />
+            <input type="date" name="dateUpdate" value={dateUpdate}  readOnly onChange={handleChange} />
         <br /><br />
-            <select name="regionUser" onChange={handleChange}>
+            <select name="region" onChange={handleChange}>
                 <option value="">Выбери регион</option>
                 {/* {console.log('regions', regions)} */}
                 {regions.map(region => (
@@ -98,7 +104,7 @@ const AddProductUser = () => {
                 ))}
             </select>
             <br /><br />
-            <select name="fk_Category" onChange={handleChange}>
+            <select name="category" onChange={handleChange}>
                 
                 <option value="">Выбери категории</option>
                 {
@@ -109,7 +115,7 @@ const AddProductUser = () => {
                 }
             </select>
             <br /><br />
-            <input type="file" accept="image/" onChange={handleImageChange} />
+            <input type="file" accept="image/*" onChange={handleImageChange} />
            <br /><br />
             <button type="submit">Добавить товар</button>
             

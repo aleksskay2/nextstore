@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 
 # Create your models here.
 
@@ -53,32 +54,40 @@ class SelectionObject(models.Model):
         return self.nameObject
 
 
+class Product(models.Model):
+    PRODUCT_TYPE_CHOICES = (
+        ('admin', 'StoreAdmin'),
+        ('user', 'User'),
+    )
+    productType = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='products',
+        null=False,
+        blank=False,
+        default=1,
+    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    storeName = models.CharField(max_length=100, null=True, blank=True)  # для user или admin, если нужно
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    productName = models.CharField(max_length=100)
+    image = models.ImageField(upload_to='product_images/', null=True, blank=True)
+    address = models.CharField(max_length=100)
+    dateUpdate = models.DateField(auto_now_add=True, null=True, blank=True)
+    weight = models.CharField(max_length=50, null=True, blank=True)
+    region = models.ForeignKey(Regions, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True)
 
-
-class StoreAdmins(models.Model):
-    nameStoreAdmin = models.CharField(max_length=100)
-    priceAdmin = models.DecimalField(max_digits=10, decimal_places=2)
-    addressProductAdmin = models.CharField(max_length=100)
-    imageProductAdmin = models.ImageField(upload_to='store_images')
-    nameProductAdmin = models.CharField(max_length=100)
-    dateUpdateAdmin = models.DateField(auto_now_add=True,  null=True, blank=True)
-    weightProductAdmin = models.CharField(max_length=50, null=True, blank=True)
-    regionProductAdmin = models.ForeignKey(Regions, on_delete=models.CASCADE)
-    fk_Category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True )
-
-    def __str__(self):
-        return self.nameProductAdmin
     
     
-    class Meta:
-        verbose_name  = "FeatureStoreAdmin"
-        verbose_name_plural = "FeatureStoreAdmins"
+   
 
 
-class FeatureStoreAdmins(models.Model):
+class FeatureProduct(models.Model):
     nameFeature = models.CharField(max_length=100)
     valueFeatur = models.CharField(max_length=100)
-    fk_StoreAdmins = models.ForeignKey(StoreAdmins, on_delete=models.CASCADE, related_name='feature')
+    fk_Products = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='feature')
     
     class Meta:
         verbose_name  = "FeatureStoreAdmin"
@@ -90,7 +99,7 @@ class Admins(models.Model):
     loginAdmin = models.CharField(max_length=100)
     mailAdmin = models.CharField(max_length=100)
     passwordAdmin = models.CharField(max_length=100)
-    fk_StoreAdmin = models.ForeignKey(StoreAdmins, on_delete=models.CASCADE)
+    fk_Product = models.ForeignKey(Product, on_delete=models.CASCADE)
 
 
     class Meta:
@@ -102,39 +111,11 @@ class Admins(models.Model):
 
 
 
-class Users(models.Model):
-    storeUserName = models.CharField(max_length=100)
-    priceUser = models.DecimalField(max_digits=10, decimal_places=2)
-    productNameUser = models.CharField(max_length=100)
-    imageUserStore = models.ImageField(upload_to='user_images/', null=True, blank=True)
-    addressUserStore = models.CharField(max_length=100)
-    dateUpdateUser = models.DateField(auto_now_add=True,  null=True, blank=True)
-    regionUser = models.ForeignKey(Regions,on_delete=models.CASCADE)
-    fk_Category = models.ForeignKey(Category,  on_delete=models.CASCADE, null=True, blank=True  )
-
-
-    class Meta:
-        verbose_name  = "User"
-        verbose_name_plural = "Users"
 
 
 
-    def __str__(self):
-        return self.productNameUser
 
 
-class FeatureUsers(models.Model):
-    nameFeature = models.CharField(max_length=100)
-    valueFeature = models.CharField(max_length=255)
-    fk_Users = models.ForeignKey(Users, on_delete=models.CASCADE, related_name='features')
-
-
-    class Meta:
-        verbose_name  = "FeatureUser"
-        verbose_name_plural = "FeatureUsers"
-
-    def __str__(self):
-        return f"{self.NameFeature}:{self.valueFeature}"
 
 
 

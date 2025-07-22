@@ -1,18 +1,19 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import AdminsViewSet, StoreAdminsViewSet, UsersViewSet,SelectionObjectViewSet, RegionsViewSet
+from .views import AdminsViewSet, ProductUserViewSet,SelectionObjectViewSet, RegionsViewSet
 from .views import RegisterView
-from .views import CategoryViewSet, FeatureStoreAdminsViewSet, FeutureUsersViewSet
+from .views import CategoryViewSet, FeatureProductViewSet, OwnerProductViewSet
 
 router = DefaultRouter()
+router.register(r'owner-products', OwnerProductViewSet, basename='owner-products')
 router.register(r'admins', AdminsViewSet)
-router.register(r'store-admins', StoreAdminsViewSet)
-router.register(r'users', UsersViewSet)
+router.register(r'productuser', ProductUserViewSet)
 router.register(r'selectionobject', SelectionObjectViewSet)
 router.register(r'regions', RegionsViewSet)
-router.register(r'feature-users', FeutureUsersViewSet)
-router.register(r'feuture-store-admins', FeatureStoreAdminsViewSet)
+router.register(r'feuture-product', FeatureProductViewSet)
 router.register(r'categories', CategoryViewSet)
+
+
 
 urlpatterns = [
     path('register/', RegisterView.as_view()),
