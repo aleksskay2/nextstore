@@ -10,8 +10,8 @@ const UserProductList = () =>{
     }, [])
 
     const fetchUserProduct = async () => {
-        try {
-            const users = 
-        }
+        // try {
+        //     const users = 2
+        // }
     }
 }

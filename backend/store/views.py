@@ -1,5 +1,10 @@
 from rest_framework import generics
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
 from rest_framework import status
 from rest_framework.filters import SearchFilter
 from .serializers import RegisterSerializer
@@ -21,10 +26,26 @@ def index(request):
        return render(request,'index.html')
 
 
+class UserInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            'id':user.id,
+            'username':user.username,
+            'email':user.email
+        })
+
+
+
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = RegisterSerializer
 
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class OwnerProductViewSet(viewsets.ModelViewSet):
@@ -35,9 +56,20 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Product.objects.filter(user =self.request.user, productType= 'owner' )
 
-    def perform_create(self, serializers):
-        return serializers.save(user=self.request.user, productType='owner')
+    def perform_create(self, serializer):
+        return serializer.save(user=self.request.user,
+                                 productType = 'owner')
 
+
+class MyProductViewSet(viewsets.ModelViewSet):
+    serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Product.objects.filter( owner = self.request.user, productType = 'owner')
+    
+    def perform_create(self, serializer):
+        return serializer.save(owner = self.request.user, productType='owner')
 
 
 
@@ -50,12 +82,12 @@ class ProductUserViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
     filterBackends = [SearchFilter]
-    searchFields = ['productТame',  ' price', 'address']
+    searchFields = ['productТame',  'price', 'address']
 
-    def get_querySet(self):
+    def get_queryset(self):
         productType = self.request.query_params.get('type')
-        if productType == 'user':
-            return Product.objects.filter(productType="user")
+        if productType in ['owner', 'user']:
+            return Product.objects.filter(productType=productType)
         return Product.objects.all()
         
 

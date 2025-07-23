@@ -1,14 +1,16 @@
 import { useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const LoginForm = () => {
     const [formData, setFormData] = useState({username:'', password: ''});
     const [message, setMessage] = useState('')
+    const navigate = useNavigate()
 
 
     const handleChange = e => {
-        setFormData( prev =>({
-            ...prev, [e.target.name]: e.target.value}))
+        setFormData( prev =>(
+            {...prev, [e.target.name]: e.target.value}))
     }
 
 
@@ -21,6 +23,7 @@ const LoginForm = () => {
             localStorage.setItem('access', response.data.access)
             localStorage.setItem('refresh', response.data.refresh)
             alert('Вы успешно вошли')
+            navigate('/')
         }
         catch(error){
             console.log(error.response?.data)

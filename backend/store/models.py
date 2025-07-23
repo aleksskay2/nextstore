@@ -56,7 +56,7 @@ class SelectionObject(models.Model):
 
 class Product(models.Model):
     PRODUCT_TYPE_CHOICES = (
-        ('admin', 'StoreAdmin'),
+        ('owner', 'Owner'),
         ('user', 'User'),
     )
     productType = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES)
