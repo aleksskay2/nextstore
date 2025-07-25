@@ -22,6 +22,7 @@ const AddProductUser = () => {
     const [categories, setCategories] = useState([])
     const [regions, setRegions] = useState([])
     const [dateUpdate, setDateUpdate] = useState('')
+    const [errors, setErrors] = useState({})
 
     // получаем категории и регионы
      useEffect(() => {
@@ -57,9 +58,32 @@ const AddProductUser = () => {
         setImage(e.target.files[0])
     }
 
+ // Проверка обязательных полей
+    const validationFrom = () => {
+       
+
+        const newErrors = {}
+        if (!formData.storeName.trim())  newErrors.storeName = '"Название магазина не заполнено" '; 
+        if (!formData.productName.trim())  newErrors.productName = '"Имя товара не заполнено" '; 
+        if (!formData.address.trim())   newErrors.address = ' "Адрес магазина не заполнено" '; 
+        if (!formData.region)  newErrors.region = 'поле "Имя региона не заполнено" '; 
+        if (!formData.category)  newErrors.category = '"Категория  не выбрано" '; 
+        if (!formData.price.trim() && formData.price <= 0) 
+             newErrors.price = 'Цена не заполнено или меньше либо равно 0!" '; 
+        
+        
+        setErrors(newErrors)
+        return Object.keys(newErrors).length === 0;
+    }
+
+
     const handleSubmit = async e => {
         e.preventDefault()
-          {console.log('formData', formData)}
+
+        if (!validationFrom()) {
+            alert('Обязательные поля не заполнены!')
+            return;
+        }
         
         const data = new FormData()
     
@@ -74,41 +98,54 @@ const AddProductUser = () => {
         }
 
         const token = localStorage.getItem('access');
-        const isAuthenticated = !! token;
+        const isAuthenticated = !!token;
 
         const endPoint = isAuthenticated ? 
         'http://127.0.0.1:8000/api/owner-products/'
         : 'http://127.0.0.1:8000/api/products/';
 
         try {
+            console.log('endPoint = ', endPoint)
+            const token = localStorage.getItem('access')
             
-            const response = await axios.post(endPoint, data, {
-                headers:{
-                    'Content-Type':'multipart/form-data',
-                    ...(isAuthenticated && {Authorization: `Bearer ${token}`}
+                const response = await axios.post(endPoint, data, {
+                    headers:{
+                        'Content-Type':'multipart/form-data',
+                        ...(isAuthenticated && {Authorization: `Bearer ${token}`}
 
-                    ),
-                },
-            })
+                        ),
+                    },
+                })
+           
+           
             alert('Товар добавлен')
         } catch(error) {
             console.error('Ошибка при добавлении товара:', error.response?.date || error);
             alert('Ошибка при добавлении товара')
         }
     }
+    
     return (
         <form onSubmit={handleSubmit}>
           
             <input type="text" name="storeName" placeholder="Название магазина" onChange={handleChange} />
-            <br /><br />
+            {errors && <p style={{color:'red'}}>{errors.storeName}</p>}
+          
             <input type="text" name="productName" placeholder="Товар" onChange={handleChange} />
-             <br /><br />
-            <input type="text" name="price" placeholder="Цена" onChange={handleChange} />
-            <br /><br />
+            {errors && <p style={{color:'red'}}>{errors.productName}</p>}
+
+            
+            <input type="number" name="price" placeholder="Цена" onChange={handleChange} />
+            {errors && <p style={{color:'red'}}>{errors.price}</p>}
+
+           
             <input type="text" name="address" placeholder="Адрес" onChange={handleChange} />
-          <br /><br />
+            {errors && <p style={{color:'red'}}>{errors.address}</p>}
+
+      
             <input type="date" name="dateUpdate" value={dateUpdate}  readOnly onChange={handleChange} />
-        <br /><br />
+            <br />
+            <br />
             <select name="region" onChange={handleChange}>
                 <option value="">Выбери регион</option>
                 {/* {console.log('regions', regions)} */}
@@ -116,7 +153,8 @@ const AddProductUser = () => {
                     <option key={region.id} value={region.id}>{region.nameRegions}</option>
                 ))}
             </select>
-            <br /><br />
+            {errors && <p style={{color:'red'}}>{errors.region}</p>}
+            
             <select name="category" onChange={handleChange}>
                 
                 <option value="">Выбери категории</option>
@@ -127,16 +165,14 @@ const AddProductUser = () => {
                     ))
                 }
             </select>
-            <br /><br />
-            {/* <select name="productType" onChange={handleChange}>
-                <option value="">Выберите владельца</option>
-                <option value="owner">Владелец</option>
-                <option value="user">Люди</option>
-            </select> */}
+            {errors && <p style={{color:'red'}}>{errors.category}</p>}
+         
+          
             <br />
             <br />
             <input type="file" accept="image/*" onChange={handleImageChange} />
-             <br /><br />
+            
+            <br /><br />
             <button type="submit">Добавить товар</button>
             
         </form>

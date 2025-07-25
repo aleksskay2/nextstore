@@ -1,7 +1,9 @@
 from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
@@ -54,11 +56,11 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Product.objects.filter(user =self.request.user, productType= 'owner' )
+        return Product.objects.filter(user =self.request.user, productUser= 'owner' )
 
     def perform_create(self, serializer):
-        return serializer.save(user=self.request.user,
-                                 productType = 'owner')
+        serializer.save(owner=self.request.user,
+                                 productUser = 'owner')
 
 
 class MyProductViewSet(viewsets.ModelViewSet):
@@ -66,10 +68,13 @@ class MyProductViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Product.objects.filter( owner = self.request.user, productType = 'owner')
+        return Product.objects.filter( owner = self.request.user,
+                                       productUser = 'owner')
     
     def perform_create(self, serializer):
-        return serializer.save(owner = self.request.user, productType='owner')
+        return serializer.save(owner = self.request.user, productUser='owner')
+
+
 
 
 
@@ -85,11 +90,51 @@ class ProductUserViewSet(viewsets.ModelViewSet):
     searchFields = ['productТame',  'price', 'address']
 
     def get_queryset(self):
-        productType = self.request.query_params.get('type')
-        if productType in ['owner', 'user']:
-            return Product.objects.filter(productType=productType)
+        productUser = self.request.query_params.get('type')
+        if productUser in ['owner', 'user']:
+            return Product.objects.filter(productUser=productUser)
         return Product.objects.all()
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.is_authenticated:
+            #Авторизованный пользователь
+            serializer.save(owner=user, productUser='owner')
+        else :
+            #Неавторизованный пользователь
+            serializer.save(productUser = 'user')
         
+
+class DeleteUserProductView(APIView):
+    permission_classes = []
+
+    def delete(self, request, pk):
+        try:
+            product = Product.objects.get(pk=pk, productUser='user')
+            product.delete()
+            return Response({'detail':'Товар удален'}, status=status.HTTP_204_NO_CONTENT)
+        except Product.DoesNotExist:
+            return Response({'detail':'Товар не найдет или нельзя его удалить!'},
+                             status=status.HTTP_404_NOT_FOUND)
+
+
+class EditUserProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.filter(productUser = 'user')
+    serializer_class = ProductSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+    def update(self, request, *args, **kwargs):
+        isinstance = self.get_object()
+        serializer = self.get_serializer(
+            isinstance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+
+
+
 
 class SelectionObjectViewSet(viewsets.ModelViewSet):
     queryset = SelectionObject.objects.all()

@@ -63,7 +63,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = '__all__'
-        read_only_fields = ['user', 'productType']
+        read_only_fields = ['owner', 'productUser']
 
 
 class FeatureProductSerializer(serializers.ModelSerializer):

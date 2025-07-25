@@ -59,16 +59,17 @@ class Product(models.Model):
         ('owner', 'Owner'),
         ('user', 'User'),
     )
-    productType = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES)
+    productUser = models.CharField(max_length=10, choices=PRODUCT_TYPE_CHOICES)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='products',
-        null=False,
-        blank=False,
-        default=1,
+        null=True,
+        blank=True,
+        
     )
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                              null=True, blank=True)
     storeName = models.CharField(max_length=100, null=True, blank=True)  # для user или admin, если нужно
     price = models.DecimalField(max_digits=10, decimal_places=2)
     productName = models.CharField(max_length=100)

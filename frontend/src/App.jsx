@@ -10,6 +10,8 @@ import RegisterPage from './pages/RegisterPage'
 import LoginPage from './pages/LoginPage'
 import MyProducts from './pages/MyProducts'
 import PrivateRoute from './components/PrivateRoute'
+import EditUserProduct from './components/EditUserProduct'
+import EditOwnerProduct from './components/EditOwnerProduct'
 
 
 
@@ -25,9 +27,17 @@ function App() {
           <Route path='/login' element={<LoginPage/>}/>
           <Route path = 'products/' element={<ProductList/>}/>
           <Route path='/add-product' element={<AddProductUser/>}/>
+          <Route path='/edit-user-product/:id' element={<EditUserProduct/>}/>
+          
           <Route path='my-products' element={
             <PrivateRoute>
-            <MyProducts/></PrivateRoute>} /> 
+            <MyProducts/></PrivateRoute>} />
+            
+          <Route path='/edit-product/:id' element={<PrivateRoute>
+            <EditOwnerProduct/>
+          </PrivateRoute>}>
+
+          </Route>
       </Routes>
    </Router>
   )
