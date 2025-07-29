@@ -10,8 +10,11 @@ from .serializers import CustomTokenObtainPairSerializer
 from rest_framework import status
 from rest_framework.filters import SearchFilter
 from .serializers import RegisterSerializer
+
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import render
-from rest_framework import viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, filters
 from .models import Admins, Product, SelectionObject, Regions, Category, FeatureProduct, CustomUser
 from .serializers import AdminsSerializer, ProductSerializer,  SelectionObjectSerializer, RegionsSerializer
 from .serializers import (
@@ -50,6 +53,17 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
+class LogoutView(APIView):
+    def post(self, request):
+        try:
+            refresh_token = request.data['refresh']
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response(status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class OwnerProductViewSet(viewsets.ModelViewSet):
    
     serializer_class = ProductSerializer
@@ -86,14 +100,18 @@ class AdminsViewSet(viewsets.ModelViewSet):
 class ProductUserViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
-    filterBackends = [SearchFilter]
-    searchFields = ['productТame',  'price', 'address']
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    search_fields = ['productName',  'price', 'address','region__nameRegions']
+  
+    ordering_fields = ['price']
+    filterset_fields = ['region']
 
     def get_queryset(self):
         productUser = self.request.query_params.get('type')
+        queryset = Product.objects.all()
         if productUser in ['owner', 'user']:
             return Product.objects.filter(productUser=productUser)
-        return Product.objects.all()
+        return Product.objects.order_by('price')
     
     def perform_create(self, serializer):
         user = self.request.user

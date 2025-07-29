@@ -19,7 +19,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['region'] = user.region 
         token['phone'] = user.phone
         return token
-
+    
+    def validate(self, attrs):
+        return super().validate(attrs)
 
 
 

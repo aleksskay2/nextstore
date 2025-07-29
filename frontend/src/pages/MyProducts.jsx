@@ -13,12 +13,8 @@ const MyProducts = () => {
 
     const fetchProducts = async () =>  {
         try {
-            const token = localStorage.getItem('access')
-            const response = await api.get('my-products/', {
-                headers:{
-                    Authorization :`Bearer ${token}`
-                }
-            })
+            
+            const response = await api.get('my-products/')
 
             setProducts(response.data)
         }
@@ -30,17 +26,16 @@ const MyProducts = () => {
     // Удаление товара из пункта Мои товары
     const handleDelete = async (id) => {
         try {
-            const token = localStorage.getItem('access')
-            const response =  await api.delete(`my-products/${id}`, {
-                headers:{
-                    Authorization :`Bearer ${token}`
-                }
-            })
+          
+            const response =  await api.delete(`my-products/${id}`)
             
             setProducts(products.filter(prod => prod.id != id))
         }
         catch (error){
             console.error('error', error)
+            if (error.response?.status === 401){
+                navigate('/login')
+            }
         }
     }
 
@@ -54,7 +49,7 @@ const MyProducts = () => {
             (<div> У вас пока нет товаров</div>):(
                 <ol>
                     {products.map(prod => (
-                        <li key={products.id}>
+                        <li key={prod.id}>
                             <p>{prod.storeName}</p>
                             
                             <p>{prod.productName}</p>

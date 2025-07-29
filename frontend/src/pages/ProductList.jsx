@@ -2,6 +2,8 @@ import React, {useState, useEffect} from 'react'
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios'
 import EditUserProduct from '../components/EditUserProduct';
+import SearchAndSort from '../components/SearchAndSort';
+import RegionFilter from '../components/RegionFilter'
 
 const ProductList = () => {
     const [products, setProducts] = useState([])
@@ -12,7 +14,7 @@ const ProductList = () => {
     const fetchProducts = async (filter)  => {
      
        try{
-            let url = 'http://127.0.0.1:8000/api/products/'
+            let url = 'products/'
             if (filter === 'owner')
                 url += '?type=owner'
             else
@@ -29,10 +31,25 @@ const ProductList = () => {
        }
     }
 
+    const handleRegionFilter = (filteredProducts) => {
+        setProducts(filteredProducts)
+    }
+
+    useEffect(() => {
+        const fetchProducts = async () => {
+            const response = await api.get('products/');
+            setProducts(response.data)
+        };
+        fetchProducts();
+    }, [activeFilter])
+
     useEffect( () => {
         fetchProducts(activeFilter)
         
     },[activeFilter])
+
+
+
 
     // Для удаления данных с productUser = 'user'
     const handleDelete = async (id) => {
@@ -54,10 +71,10 @@ const ProductList = () => {
 
     const buttonStyle =(isActive) => ({
         padding:'10px 20px',
-        backgroundColor:isActive ? '#fCAF50':'#e0e0e0',
-        color:isActive ? 'white' : 'black',
+        backgroundColor: activeFilter === isActive ? '#fCAF50':'rgb(197 223 243)',
+        color:isActive === activeFilter? 'white' : 'black',
         border: 'none',
-        borderRadius:'pointer',
+        borderRadius:'5px',
         gap:'20px'
     })
 
@@ -65,8 +82,22 @@ const ProductList = () => {
     const navigate = useNavigate()
 
 
+    const handleClearSearch = () => {
+        setProducts([])
+        fetchProducts(activeFilter)
+    }
+
     return (
+        
         <div>
+
+          
+            <SearchAndSort  onFilter={(results) => setProducts(results)} onResults={(results)  => setProducts(results)} 
+                onClear={handleClearSearch}    
+            />
+            <br />
+       
+            {console.log('activeFilter', activeFilter)}
             <div style={{display:'flex', justifyContent:'center', gap:'10px', marginBottom:'20px'}}>
                 <button onClick={() => setActiveFilter('all')}  style={buttonStyle('all')}  >Все </button>
                 <button onClick={() => setActiveFilter('owner')} style={buttonStyle('owner')} >Владельцы</button>
@@ -81,6 +112,7 @@ const ProductList = () => {
                         <p>{product.address}</p>
                         <p>{product.productUser}</p>
                         <p>{product.storeName}</p>
+                        <p>{product.region}</p>
                         
                            {  (product.image == "http://127.0.0.1:8000/media/media") ?
                         ( <div>Нет фото</div>)

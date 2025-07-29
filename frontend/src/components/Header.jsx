@@ -1,7 +1,7 @@
 import {Link, useNavigate} from 'react-router-dom'
 import { parseJwt } from '../utils/jwt';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/axios';
 
 const Header = () => {
     const token = localStorage.getItem('access');
@@ -26,18 +26,13 @@ const Header = () => {
         }
         try {
               const response = 
-              await axios.get('http://127.0.0.1:8000/api/user', {
-                headers:{
-                
-                    Authorization: `Bearer ${token}`
-                }    
-                
-            })
+              await api.get('user/')
             console.log('response', response)
             setUser(response.data)
         }
         catch (error) {
             console.log('error', error)
+           
             setUser(null)
         }
         finally {
@@ -45,11 +40,25 @@ const Header = () => {
         }
     } 
     
-    const handleLogout = () => {
-        localStorage.removeItem('access')
+    const handleLogout = async () => {
+
+        try {
+            const refresh = localStorage.getItem('refresh')
+            if (refresh) {
+                await api.post('/logout/', {refresh});
+            }
+        }
+        catch(error) {
+            console.log('Ошибка при выходе', error.response?.data || error.message);
+        }
+        finally {
+              localStorage.removeItem('access')
         localStorage.removeItem('refresh')
         setUser(null)
         navigate("/login")
+        }
+
+      
       
     }
 
@@ -61,6 +70,8 @@ const Header = () => {
              <Link to="/">Главная</Link> |
             <Link to="products/">Список товаров</Link>|
             <Link to="/add-product">Добавить товар</Link>
+
+            
 
 
             {/* {userData ? (
@@ -86,7 +97,7 @@ const Header = () => {
                         <>
                          <Link to="/login" className="hover:text-gray-300">Войти</Link>|
                         <Link to="/register" >Регистрация</Link>
-                    
+                
                         </>
                         )
                       
@@ -104,85 +115,3 @@ export default Header;
 
 
 
-
-// import { Link, useNavigate } from 'react-router-dom';
-// import { useEffect, useState } from 'react';
-// import axios from 'axios';
-// import { parseJwt } from '../utils/jwt';
-
-// const Header = () => {
-//   const [user, setUser] = useState(null);
-//   const [isLoading, setIsLoading] = useState(true);
-//   const navigate = useNavigate();
-//   const token = localStorage.getItem('access');
-
-
-//   useEffect(() => {
-//     const fetchUser = async () => {
-//       if (!token) {
-//         setIsLoading(false);
-//         return;
-//       }
-
-//       try {
-//         const response = await axios.get('http://127.0.0.1:8000/api/user', {
-//           headers: {
-//             Authorization: `Bearer ${token}`,
-//           },
-//         });
-//         setUser(response.data);
-//       } catch (error) {
-//         console.error('Ошибка при загрузке данных пользователя:', error);
-//         setUser(null);
-//         if (error.response?.status === 401) {
-//           localStorage.removeItem('access');
-//           localStorage.removeItem('refresh');
-//           navigate('/login');
-//         }
-//       } finally {
-//         setIsLoading(false);
-//       }
-//     };
-
-//     fetchUser();
-//   }, [token, navigate]);
-
-//   const handleLogout = () => {
-//     localStorage.removeItem('access');
-//     localStorage.removeItem('refresh');
-//     setUser(null);
-//     navigate('/login');
-//   };
-
-//   return (
-//     <nav >
-//       <div>
-//         <div >
-//           <Link to="/" >Главная</Link>
-//           <Link to="/products" >Список товаров</Link>
-//           <Link to="/add-product" >Добавить товар</Link>
-//         </div>
-//         <div >
-//           {isLoading ? (
-//             <span>Загрузка...</span>
-//           ) : user ? (
-//             <>
-//               <span>Привет, {user.username}</span>
-//               <button
-//                 onClick={handleLogout}>
-//                 Выйти
-//               </button>
-//             </>
-//           ) : (
-//             <>
-//               <Link to="/login">Войти</Link>
-//               <Link to="/register" >Регистрация</Link>
-//             </>
-//           )}
-//         </div>
-//       </div>
-//     </nav>
-//   );
-// };
-
-// export default Header;

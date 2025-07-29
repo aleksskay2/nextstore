@@ -77,6 +77,7 @@ const AddProductUser = () => {
     }
 
 
+    
     const handleSubmit = async e => {
         e.preventDefault()
 
@@ -98,25 +99,21 @@ const AddProductUser = () => {
         }
 
         const token = localStorage.getItem('access');
-        const isAuthenticated = !!token;
+        const isAuthenticated = token;
 
-        const endPoint = isAuthenticated ? 
+        const endPoint = isAuthenticated ?
         'http://127.0.0.1:8000/api/owner-products/'
-        : 'http://127.0.0.1:8000/api/products/';
+        :'http://127.0.0.1:8000/api/products/';
 
         try {
             console.log('endPoint = ', endPoint)
             const token = localStorage.getItem('access')
             
-                const response = await axios.post(endPoint, data, {
+                const response = await api.post(endPoint, data, {
                     headers:{
                         'Content-Type':'multipart/form-data',
-                        ...(isAuthenticated && {Authorization: `Bearer ${token}`}
-
-                        ),
                     },
                 })
-           
            
             alert('Товар добавлен')
         } catch(error) {

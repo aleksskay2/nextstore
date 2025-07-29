@@ -88,12 +88,12 @@ const EditUserProduct = () => {
         const isAuthenticated = !! token;
 
         const endPoint =
-        `http://127.0.0.1:8000/api/edit-user-products/${id}/`
+        `edit-user-products/${id}/`
         
 
         try {
             
-            const response = await axios.patch(endPoint, data, {
+            const response = await api.patch(endPoint, data, {
                 headers:{
                     'Content-Type':'multipart/form-data'
                     
