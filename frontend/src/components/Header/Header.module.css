@@ -1,0 +1,15 @@
+@media (min-width:320px) {
+    .header {
+    background-color: #ABDEF4;
+    padding: 10px;
+    text-align: center;
+    color:rgb(219, 54, 54);
+    font-size: 18px;
+    letter-spacing: 10px;
+    font-style: italic;
+    font-weight: 900;
+   
+    
+}
+}
+

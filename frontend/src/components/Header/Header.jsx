@@ -1,7 +1,8 @@
 import {Link, useNavigate} from 'react-router-dom'
-import { parseJwt } from '../utils/jwt';
+import { parseJwt } from '../../utils/jwt';
 import { useEffect, useState } from 'react';
-import api from '../api/axios';
+import api from '../../api/axios';
+import styles from './Header.module.css'
 
 const Header = () => {
     const token = localStorage.getItem('access');
@@ -64,43 +65,32 @@ const Header = () => {
 
 
     return (
-        <nav>
-           {console.log('access',parseJwt(localStorage.getItem("access")))}
+        <>
+       
+        <div className="container">
+ <nav>
 
-             <Link to="/">Главная</Link> |
-            <Link to="products/">Список товаров</Link>|
-            <Link to="/add-product">Добавить товар</Link>
-
+            {/* <Link to="/">Главная</Link> | */}
             
-
-
-            {/* {userData ? (
-                <span>{userData.username}</span>
-            ):(
-                 <Link to='/login'>Войти</Link>
-            )} */}
             <div>
-                 {   console.log('user', user)}
-                
-                
                 {
                  isLoading ? (
                     <span> ... Загрузка</span>
                  ):
-                    user ? (
+                user ? (
                         <>
                             <span>Привет, {user.username}</span>
                             <Link to="/my-products" style={{marginRight:'1rem'}}>Мои товары</Link>
                             <button onClick={handleLogout}>Выйти</button>
                         </>
-                    ):(
+                    ):
+                    (
                         <>
-                         <Link to="/login" className="hover:text-gray-300">Войти</Link>|
+                        <Link to="/login" className="hover:text-gray-300">Войти</Link>|
                         <Link to="/register" >Регистрация</Link>
                 
                         </>
-                        )
-                      
+                    )  
                 }
             </div>
           
@@ -108,6 +98,10 @@ const Header = () => {
 
           
         </nav>
+
+        </div>
+       
+        </>
     )
   
 }

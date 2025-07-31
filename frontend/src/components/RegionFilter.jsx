@@ -54,9 +54,6 @@ const RegionFilter = ({onFilter}) => {
         }
     }
 
-
-
-
     const handleChange = async (e) => {
         const regionId = e.target.value;
         console.log('regionId', regionId)
@@ -70,14 +67,6 @@ const RegionFilter = ({onFilter}) => {
             onFilter(response.data)
         }
     }
-
-    // const handleChange = (e) => {
-    //     setRegions(e.target.value)
-    //     setSelectRegion(e.target.value)
-    //     console.log('selectRegion to regFilter change  = ', selectRegion)
-    // }
-
-
 
     return (
         <select value={selectRegion} onChange={(e) =>handleChange(e)} 

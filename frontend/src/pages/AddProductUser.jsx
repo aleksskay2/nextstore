@@ -36,12 +36,9 @@ const AddProductUser = () => {
       const fetchCategories = async ()  => {
        try{
             const responseCategories = await api.get('categories/')
-            // console.log('res.data', responseCategories.data)
             setCategories(responseCategories.data)
             const responseRegions = await api.get('regions/')
-            // {console.log(responseRegions)}
             setRegions(responseRegions.data)
-            
         }
        catch(error) {
             console.error(error)
@@ -60,8 +57,6 @@ const AddProductUser = () => {
 
  // Проверка обязательных полей
     const validationFrom = () => {
-       
-
         const newErrors = {}
         if (!formData.storeName.trim())  newErrors.storeName = '"Название магазина не заполнено" '; 
         if (!formData.productName.trim())  newErrors.productName = '"Имя товара не заполнено" '; 
@@ -71,13 +66,10 @@ const AddProductUser = () => {
         if (!formData.price.trim() && formData.price <= 0) 
              newErrors.price = 'Цена не заполнено или меньше либо равно 0!" '; 
         
-        
         setErrors(newErrors)
         return Object.keys(newErrors).length === 0;
     }
 
-
-    
     const handleSubmit = async e => {
         e.preventDefault()
 

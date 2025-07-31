@@ -104,7 +104,7 @@ class ProductUserViewSet(viewsets.ModelViewSet):
     search_fields = ['productName',  'price', 'address','region__nameRegions']
   
     ordering_fields = ['price']
-    filterset_fields = ['region']
+    filterset_fields = ['region', 'category']
 
     def get_queryset(self):
         productUser = self.request.query_params.get('type')

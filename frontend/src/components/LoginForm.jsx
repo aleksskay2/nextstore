@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { parseJwt } from "../utils/jwt";
 
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +27,8 @@ const LoginForm = () => {
             }
                
         };
+
+
         checkAuth();
     }, [navigate])
 
@@ -75,3 +78,4 @@ const LoginForm = () => {
     )
 }
 export default LoginForm;
+

@@ -5,13 +5,14 @@ import ProductList  from './pages/ProductList'
 import Home from './pages/Home'
 import './App.css'
 import AddProductUser from './pages/AddProductUser'
-import Header from './components/Header'
+import Header from './components/Header/Header'
 import RegisterPage from './pages/RegisterPage'
 import LoginPage from './pages/LoginPage'
 import MyProducts from './pages/MyProducts'
 import PrivateRoute from './components/PrivateRoute'
 import EditUserProduct from './components/EditUserProduct'
 import EditOwnerProduct from './components/EditOwnerProduct'
+import Layout from './components/Layout'
 
 
 
@@ -20,7 +21,7 @@ function App() {
 
   return (
    <Router>
-      <Header/>
+      <Layout/>
       <Routes>
           <Route path='/' element={<Home/>}/>
           <Route path='/register' element={<RegisterPage/>}/>

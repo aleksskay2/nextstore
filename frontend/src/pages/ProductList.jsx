@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios'
 import EditUserProduct from '../components/EditUserProduct';
 import SearchAndSort from '../components/SearchAndSort';
-import RegionFilter from '../components/RegionFilter'
+// import RegionFilter from '../components/RegionFilter'
+import SelCategory from '../components/SelCategory';
 
 const ProductList = () => {
     const [products, setProducts] = useState([])
     const [activeFilter, setActiveFilter] = useState('all')
     const [editId, setEditId] = useState(null)
+    const [categories, setCategories ] = useState([])
    
 
     const fetchProducts = async (filter)  => {
@@ -43,9 +45,9 @@ const ProductList = () => {
         fetchProducts();
     }, [activeFilter])
 
+
     useEffect( () => {
         fetchProducts(activeFilter)
-        
     },[activeFilter])
 
 
@@ -87,17 +89,22 @@ const ProductList = () => {
         fetchProducts(activeFilter)
     }
 
+
+
+
+
     return (
         
         <div>
-
-          
-            <SearchAndSort  onFilter={(results) => setProducts(results)} onResults={(results)  => setProducts(results)} 
-                onClear={handleClearSearch}    
+            <SearchAndSort  onFilter={(results) => setProducts(results)} 
+                onResults={(results)  => setProducts(results)} onClear={handleClearSearch}    
             />
+            <SelCategory onResults={(results) => setProducts(results)}/>
+          
+          
             <br />
        
-            {console.log('activeFilter', activeFilter)}
+           
             <div style={{display:'flex', justifyContent:'center', gap:'10px', marginBottom:'20px'}}>
                 <button onClick={() => setActiveFilter('all')}  style={buttonStyle('all')}  >Все </button>
                 <button onClick={() => setActiveFilter('owner')} style={buttonStyle('owner')} >Владельцы</button>
@@ -127,9 +134,7 @@ const ProductList = () => {
                                         
                                 <button onClick={() =>navigate(`/edit-user-product/${product.id}`)}>
                                         Ред
-                                    </button> 
-                  
-                            
+                                    </button>                                        
                             </>
                                
                             ) }

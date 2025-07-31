@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import styles from './SearchAndSort.module.css'
 
 const SearchFilterSort = ({ onFilter, onResults, onClear}) => {
   const [query, setQuery] = useState("");
@@ -31,15 +32,7 @@ const SearchFilterSort = ({ onFilter, onResults, onClear}) => {
     }, [query])
 
 
-  // Автопоиск с фильтром по региону и сортировкой по цене
-//   useEffect(() => {
-//     if (!debouncedQuery) {
-//       onClear();
-//       return;
-//     }
-//     fetchProducts(debouncedQuery, region);
-//   }, [debouncedQuery, region]);
-
+  
     
     const fetchProducts = async (searchTerm, regionId) => {
         try {
@@ -85,18 +78,6 @@ const SearchFilterSort = ({ onFilter, onResults, onClear}) => {
     }
 
 
-
-    // const handleKeyDown = (e) => {
-    //     if (e.key === "Enter") {
-    //     e.preventDefault();
-    //     if (!query.trim()) {
-    //         onClear();
-    //         return;
-    //     }
-    //     fetchProducts(query.trim(), region);
-    //     }
-    // };
-
     const handleKeyDown = (e) => {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -130,9 +111,9 @@ const SearchFilterSort = ({ onFilter, onResults, onClear}) => {
 
 
   return (
-    <div>
+    <div  className="container">
         <div>
-            <select value={region} onChange={(e) => handleChange(e)}>
+            <select className={styles}  value={region} onChange={(e) => handleChange(e)}>
                 <option value="">Все регионы</option>
                 {regions.map((r) => (
                 <option key={r.id} value={r.id}>
