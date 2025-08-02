@@ -1,0 +1,11 @@
+.categ-add__category {
+      
+    border-radius: 6px;
+    text-align: center;
+    margin: 0px 0px 9px 0px;
+    width: 120px;
+    height: 20px;
+    font-size: 14px;
+    background-color: #ABDEF4;
+    border:none;
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {BrowserRouter as Router, Routes, Route} from 'react-router-dom'
-import ProductList  from './pages/ProductList'
+import ProductList  from './pages/ProductList/ProductList'
 
 import Home from './pages/Home'
 import './App.css'
@@ -13,6 +13,7 @@ import PrivateRoute from './components/PrivateRoute'
 import EditUserProduct from './components/EditUserProduct'
 import EditOwnerProduct from './components/EditOwnerProduct'
 import Layout from './components/Layout'
+import Profile from './pages/Profile/Profile'
 
 
 
@@ -29,6 +30,7 @@ function App() {
           <Route path = 'products/' element={<ProductList/>}/>
           <Route path='/add-product' element={<AddProductUser/>}/>
           <Route path='/edit-user-product/:id' element={<EditUserProduct/>}/>
+          <Route path='/profile' element={<Profile/>}/>
           
           <Route path='my-products' element={
             <PrivateRoute>

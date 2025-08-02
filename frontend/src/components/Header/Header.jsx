@@ -65,44 +65,45 @@ const Header = () => {
 
 
     return (
-        <>
+        <div></div>
+//         <>
        
-        <div className="container">
- <nav>
+//         <div className="container">
+//  <nav>
 
-            {/* <Link to="/">Главная</Link> | */}
+//             {/* <Link to="/">Главная</Link> | */}
             
-            <div>
-                {
-                 isLoading ? (
-                    <span> ... Загрузка</span>
-                 ):
-                user ? (
-                        <>
-                            <span>Привет, {user.username}</span>
-                            <Link to="/my-products" style={{marginRight:'1rem'}}>Мои товары</Link>
-                            <button onClick={handleLogout}>Выйти</button>
-                        </>
-                    ):
-                    (
-                        <>
-                        <Link to="/login" className="hover:text-gray-300">Войти</Link>|
-                        <Link to="/register" >Регистрация</Link>
+//             <div>
+//                 {
+//                  isLoading ? (
+//                     <span> ... Загрузка</span>
+//                  ):
+//                 user ? (
+//                         <>
+//                             <span>Привет, {user.username}</span>
+//                             <Link to="/my-products" style={{marginRight:'1rem'}}>Мои товары</Link>
+//                             <button onClick={handleLogout}>Выйти</button>
+//                         </>
+//                     ):
+//                     (
+//                         <>
+//                         <Link to="/login" className="hover:text-gray-300">Войти</Link>|
+//                         <Link to="/register" >Регистрация</Link>
                 
-                        </>
-                    )  
-                }
-            </div>
+//                         </>
+//                     )  
+//                 }
+//             </div>
           
           
 
           
-        </nav>
+//         </nav>
 
-        </div>
+//         </div>
        
-        </>
-    )
+//         </>
+     )
   
 }
 export default Header;

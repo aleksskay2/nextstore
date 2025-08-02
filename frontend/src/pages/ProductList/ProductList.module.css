@@ -1,0 +1,57 @@
+@media (max-width:500px) {
+    .header__container {
+        margin: 0 15px;
+    }
+    .region {
+        display: flex;
+        background-color:rgb(193, 180, 180);
+    }
+    .region__container {
+        display: flex;
+          
+    }
+
+    .region-enter__title {
+       
+    }
+
+    .region__item {
+        
+    }
+    .categ-add__container {
+        display: flex;
+        justify-content: center;
+    }
+    .categ-add__body {
+        display: flex;
+        width: 92%;
+        justify-content: space-between;
+    }
+
+    .categ-add__add {
+         
+        border-radius: 6px;
+        text-align: center;
+        box-shadow: 3px 2px rgb(196, 192, 192);
+        margin: 0px 0px 9px 0px;
+        width: 148px;
+        height: 20px;
+        font-size: 16px;
+        background-color: #ABDEF4;
+        color:#000;
+        
+    }
+
+
+}
+
+
+ /* <div className="categ-add">
+                <div className="categ-add__container">
+                    <div className="categ-add__body">
+                        <SelCategory className={styles['categ-add__category']} onResults={(results) => setProducts(results)}/>
+                        <Link  className={styles['categ-add__add']} to="/add-product">Добавить товар</Link>
+                    </div>
+                  
+                </div>
+            </div> */

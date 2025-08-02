@@ -6,8 +6,8 @@ const Layout = () => {
     return(
         <>
             <Header/>
-            <Link to="products/">Список товаров</Link>|
-            <Link to="/add-product">Добавить товар</Link>
+            {/* <Link to="products/">Список товаров</Link>| */}
+            {/* <Link to="/add-product">Добавить товар</Link> */}
             <BottomNavbar/>
 
         </>

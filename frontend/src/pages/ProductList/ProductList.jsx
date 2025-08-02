@@ -1,17 +1,28 @@
 import React, {useState, useEffect} from 'react'
-import { useNavigate } from 'react-router-dom';
-import api from '../api/axios'
-import EditUserProduct from '../components/EditUserProduct';
-import SearchAndSort from '../components/SearchAndSort';
+import { Link,useNavigate } from 'react-router-dom';
+import api from '../../api/axios'
+import EditUserProduct from '../../components/EditUserProduct';
+import SearchAndSort from '../../components/SearchAndSort';
 // import RegionFilter from '../components/RegionFilter'
-import SelCategory from '../components/SelCategory';
+import SelCategory from '../../components/SelCategory';
+import styles from './ProductList.module.css'
 
 const ProductList = () => {
     const [products, setProducts] = useState([])
     const [activeFilter, setActiveFilter] = useState('all')
     const [editId, setEditId] = useState(null)
-    const [categories, setCategories ] = useState([])
+    const [query, setQuery ] = useState('')
+	 const [debouncedQuery, setDebouncedQuery] = useState("");
    
+
+	
+   useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedQuery(query.trim());
+            
+        }, (1500));
+        return () => clearTimeout(timer);
+    }, [query])
 
     const fetchProducts = async (filter)  => {
      
@@ -90,18 +101,67 @@ const ProductList = () => {
     }
 
 
+    // кнопка Найти
+
+     const handleClick = () => {
+       
+        buttonStyle()
+        fetchProductSearch(query)
+    }
+
+    const handleTextQuery = (text ) => {
+        setQuery(text)
+		console.log('text in Найти - ', query)
+		if (!text)
+        fetchProductSearch(text); // передаём напрямую
+        
+    }
+    const fetchProductSearch = async (searchTerm) => {
+        try {
+            const response = await api('products/', {
+                params:{
+                        search:searchTerm,
+                        ordering:'price'
+                    }
+            }
+            )      
+            setProducts(response.data)
+            console.log('query in Найти - ', query)
+        }
+
+        catch(error) {
+            console.error('error in SearchAndSort', error)
+        }
+    }
+
+
 
 
 
     return (
-        
-        <div>
-            <SearchAndSort  onFilter={(results) => setProducts(results)} 
-                onResults={(results)  => setProducts(results)} onClear={handleClearSearch}    
+        <>
+       
+            <SearchAndSort onTextQuery={handleTextQuery}  onFilter={(results) => setProducts(results)} 
+                    onResults={(results)  => setProducts(results)} onClear={handleClearSearch}    
             />
-            <SelCategory onResults={(results) => setProducts(results)}/>
-          
-          
+            <div className={styles['categ-add']}>
+                <div className={styles['categ-add__container']}>
+                    <div className={styles['categ-add__body']}>
+                        <SelCategory className={styles['categ-add__category']} onResults={(results) => setProducts(results)}/>
+                        <Link  className={styles['categ-add__add']} to="/add-product">Добавить товар</Link>
+                    </div>
+                  
+                </div>
+            </div>           
+
+             <div>
+
+
+            <button onClick={handleClick}>
+                Найти
+            </button>
+        </div>
+
             <br />
        
            
@@ -143,7 +203,8 @@ const ProductList = () => {
                     </div>
                     
                 ))}
-        </div>
+       
+        </>
     )
 
   

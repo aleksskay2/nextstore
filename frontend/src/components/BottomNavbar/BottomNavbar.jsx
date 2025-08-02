@@ -1,7 +1,8 @@
 import styles from './BottomNavbar.module.css'
 import icon from '../../assets/images/LetterS.png'
 import favorite from '../../assets/images/favorite.png'
-import iconsearch from '../../assets/icons/search.svg'
+import iconuser from '../../assets/icons/user.png'
+import { Link } from 'react-router-dom'
 
 const BottomNavbar = () =>{
     return(
@@ -10,9 +11,11 @@ const BottomNavbar = () =>{
                 <div className={styles['item-bar']}>
                     <div className={styles['item-bar__content']}>
                         <div className={styles['item-bar__image']}>
-                            <img src={iconsearch} alt="not logo" />
+                            <img src={icon} alt="not logo" />
                         </div>
-                        <div className={styles['item-bar__title']}>Поиск</div>
+                        <div >
+                            <Link className={styles['item-bar__title']} to="products/">Главная</Link>
+                        </div>
                     </div>
                 </div>
                 <div className={styles['bottom-bar__right']}>
@@ -27,9 +30,12 @@ const BottomNavbar = () =>{
                     <div className={styles['item-bar']}>
                         <div className={styles['item-bar__content']}>
                             <div className={styles['item-bar__image']}>
-                                <img src={icon} alt="not logo" />
+                                <img src={iconuser} alt="not logo" />
                             </div>
-                            <div className={styles['item-bar__title']}>Профиль</div>
+                            <div >
+                                <Link className={styles['item-bar__title']} to="/profile"
+                                >Профиль</Link>
+                            </div>
                         </div>
                     </div>
 

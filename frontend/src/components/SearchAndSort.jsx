@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import styles from './SearchAndSort.module.css'
+import iconsearch from '../assets/images/LetterS.png'
 
-const SearchFilterSort = ({ onFilter, onResults, onClear}) => {
+const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [region, setRegion] = useState("");
@@ -72,11 +73,13 @@ const SearchFilterSort = ({ onFilter, onResults, onClear}) => {
 
 
     const handleChangeSearch = (e) => {
-        setQuery(e.target.value)   
+        setQuery(e.target.value) 
+       
         if (!(e.target.value))
         onClear() 
     }
 
+   
 
     const handleKeyDown = (e) => {
         if (e.key === "Enter") {
@@ -108,39 +111,76 @@ const SearchFilterSort = ({ onFilter, onResults, onClear}) => {
     }
 
 
+    const insQuert = (e) => {
+        setQuery(e.target.value)
+    }
+
+    const textQuery = (e) => {
+        {
+        setQuery(e.target.value)    
+        onTextQuery(e.target.value)  // ← используем актуальное значение
+        console.log('key query', e.target.value)
+    }
+        
+        
+    }
 
 
   return (
-    <div  className="container">
-        <div>
-            <select className={styles}  value={region} onChange={(e) => handleChange(e)}>
-                <option value="">Все регионы</option>
-                {regions.map((r) => (
-                <option key={r.id} value={r.id}>
-                    {r.nameRegions}
-                </option>
-                ))}
-            </select>
+    <>       
+        
+         <div className={styles['header']}>
+            <div className={styles['header__container']}>
+                <div className={styles["region"]}>
+                    <div className={styles['region__container']}>
+                      
+                        <div className={styles['region__item']}> 
+                            <div className={styles['region__title']}>Регион</div>
+                                <select name="regions" className={styles['region__list']}  value={region}
+                                    onChange={(e) => handleChange(e)}>
+
+                                        <option value="">Все регионы</option>
+                                        {regions.map((r) => (
+                                        <option key={r.id} value={r.id}>
+                                            {r.nameRegions}
+                                        </option>
+                                    ))}
+                            </select>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
         </div>
+        <div></div>
+        
+        
  
 
-
-        <input
-            type="text"
-            placeholder="Поиск товара..."
-            value={query}
-            onChange={(e) =>  handleChangeSearch(e) }
-            onKeyDown={handleKeyDown}
-        />
-        
-        <div>
-            <button onClick={handleClick}>
-                Найти
-            </button>
+        <div className="search">
+            <div className={styles['search__container']}>
+                    <input
+                        className={styles['search__text']}
+                        type="text"
+                        placeholder="Поиск товара..."
+                        value={query}
+                        name="search"
+                        onChange={textQuery}
+                        onKeyDown={handleKeyDown}
+                    />
+                    <div className={styles['search__logo']}>
+                        <img src={iconsearch} alt="" />
+                    </div>
+            </div>
         </div>
+       
+        
+       
     
+</>
 
-    </div>
+    
 
 
   );

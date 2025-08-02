@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../api/axios";
+import styles from './SelCategory.module.css'
 
 
 const SelCategory = ({ onResults}) => {
@@ -40,9 +41,9 @@ const SelCategory = ({ onResults}) => {
 
     return (
         <div>
-             <select name="category" onChange={handleChangeCategories}>
+             <select className={styles['categ-add__category']} name="category" onChange={handleChangeCategories}>
                 
-                <option value="">Выбери категории</option>
+                <option value=""> категории</option>
                 {
                   
                     categories.map(cat => (
