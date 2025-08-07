@@ -1,29 +1,38 @@
 import React, {useState, useEffect} from 'react'
 import { Link,useNavigate } from 'react-router-dom';
+// import {ReactComponent as TrashIcon} from '../../assets/icons/basket.svg'
 import api from '../../api/axios'
 import EditUserProduct from '../../components/EditUserProduct';
 import SearchAndSort from '../../components/SearchAndSort';
 // import RegionFilter from '../components/RegionFilter'
 import SelCategory from '../../components/SelCategory';
 import styles from './ProductList.module.css'
+import delIcon from '../../assets/images/deletePng.png'
+
+
 
 const ProductList = () => {
     const [products, setProducts] = useState([])
     const [activeFilter, setActiveFilter] = useState('all')
     const [editId, setEditId] = useState(null)
     const [query, setQuery ] = useState('')
-	 const [debouncedQuery, setDebouncedQuery] = useState("");
-   
+	const [selectedCategory, setSelectedCategory] = useState('')
+    const [selectedRegion, setSelectedRegion] = useState('')
+    const [textSearch, setTextSearch] = useState('')
+
+   const handleCategorySelect = (categoryId) => {
+    setSelectedCategory(categoryId)
+   }
+
+   const handleRegionSelect = (regionId) => {
+        setSelectedRegion(regionId)
+   }
 
 	
-   useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedQuery(query.trim());
-            
-        }, (1500));
-        return () => clearTimeout(timer);
-    }, [query])
-
+    const handleTextSearch = (textSearch) =>{
+        setTextSearch(textSearch)
+    }
+  
     const fetchProducts = async (filter)  => {
      
        try{
@@ -34,6 +43,57 @@ const ProductList = () => {
                 if (filter === 'user')
                     url += '?type=user'
             
+            if (textSearch) 
+            {
+                if (url === 'products/' ){
+                    url += `?search=${textSearch}`
+                   
+                }
+                else
+                if (url ==='products/?type=owner'|| url ==='products/?type=user')
+                url += `&search=${textSearch}`
+                
+            }
+               
+            console.log('url', url)
+
+            if (selectedCategory ) {
+                if (url === 'products/' ){
+                    if (selectedRegion === '0' ) 
+                    {
+                        url += `?category=${selectedCategory}`    
+                        console.log('selReg - ' , selectedRegion)        
+                    }
+                    else {
+                        url += `?category=${selectedCategory}&region=${selectedRegion}`
+                        console.log('selReg - ' , selectedRegion)
+                    }
+                   
+                }
+                else
+                {
+                    if (selectedRegion === '0') 
+                    {
+                        url += `&category=${selectedCategory}`            
+                    }
+                    else {
+                         if (url ==='products/?type=owner'|| url ==='products/?type=user')
+                        url += `&category=${selectedCategory}&region=${selectedRegion}` 
+                    }
+                    
+                }
+               
+               
+            }
+            else {
+               if (selectedRegion === '0' || selectedRegion === '') {
+                   url = `products/` 
+               }
+                
+                 
+            }
+
+            console.log('url', url)
             const response = await api.get(url)
          
             setProducts(response.data)
@@ -48,13 +108,26 @@ const ProductList = () => {
         setProducts(filteredProducts)
     }
 
-    useEffect(() => {
-        const fetchProducts = async () => {
-            const response = await api.get('products/');
-            setProducts(response.data)
-        };
-        fetchProducts();
-    }, [activeFilter])
+
+    // useEffect(() => {
+    //     const fetchProductsFirst = async () => {
+    //         // if (textSearch) {
+    //         //     console.log('resp', products)
+    //         //     console.log('query', textSearch)
+    //         //     setProducts(products.filter(prod => 
+    //         //             prod.productUser === 'owner'))
+    //         //      console.log('respAfter', products)
+
+    //         // }
+    //         {
+    //             const response = await api.get('products/');
+    //             setProducts(response.data)
+                
+    //         }
+           
+    //     };
+    //     fetchProductsFirst();
+    // }, [])
 
 
     useEffect( () => {
@@ -83,8 +156,8 @@ const ProductList = () => {
 
 
     const buttonStyle =(isActive) => ({
-        padding:'10px 20px',
-        backgroundColor: activeFilter === isActive ? '#fCAF50':'rgb(197 223 243)',
+       
+        backgroundColor: activeFilter === isActive ? 'rgb(95 109 122)':'rgb(197 223 243)',
         color:isActive === activeFilter? 'white' : 'black',
         border: 'none',
         borderRadius:'5px',
@@ -101,32 +174,18 @@ const ProductList = () => {
     }
 
 
-    // кнопка Найти
 
-     const handleClick = () => {
-       
-        buttonStyle()
-        fetchProductSearch(query)
-    }
-
-    const handleTextQuery = (text ) => {
-        setQuery(text)
-		console.log('text in Найти - ', query)
-		if (!text)
-        fetchProductSearch(text); // передаём напрямую
-        
-    }
-    const fetchProductSearch = async (searchTerm) => {
+    const fetchProductSearch = async (query) => {
         try {
             const response = await api('products/', {
                 params:{
-                        search:searchTerm,
+                        search:query,
                         ordering:'price'
                     }
             }
             )      
             setProducts(response.data)
-            console.log('query in Найти - ', query)
+            
         }
 
         catch(error) {
@@ -135,74 +194,143 @@ const ProductList = () => {
     }
 
 
-
-
-
     return (
         <>
-       
-            <SearchAndSort onTextQuery={handleTextQuery}  onFilter={(results) => setProducts(results)} 
+            <SelCategory  
+            selectedRegion={selectedRegion} onCategorySelect={handleCategorySelect} 
+             className={styles['categ-add__category']} onResults={(results) => setProducts(results)}/>
+           
+            <SearchAndSort 
+                onTextSearch={handleTextSearch}
+                onRegionSelect={handleRegionSelect}
+                
+                selectedCategory={selectedCategory}
+                query={query} setQuery={setQuery}  onFilter={(results) => setProducts(results)} 
                     onResults={(results)  => setProducts(results)} onClear={handleClearSearch}    
             />
-            <div className={styles['categ-add']}>
-                <div className={styles['categ-add__container']}>
-                    <div className={styles['categ-add__body']}>
-                        <SelCategory className={styles['categ-add__category']} onResults={(results) => setProducts(results)}/>
-                        <Link  className={styles['categ-add__add']} to="/add-product">Добавить товар</Link>
-                    </div>
-                  
-                </div>
-            </div>           
+                      
 
-             <div>
-
-
-            <button onClick={handleClick}>
-                Найти
-            </button>
-        </div>
-
-            <br />
-       
-           
-            <div style={{display:'flex', justifyContent:'center', gap:'10px', marginBottom:'20px'}}>
-                <button onClick={() => setActiveFilter('all')}  style={buttonStyle('all')}  >Все </button>
-                <button onClick={() => setActiveFilter('owner')} style={buttonStyle('owner')} >Владельцы</button>
-                <button onClick={() => setActiveFilter('user')}  style={buttonStyle('user')} >Люди</button>
-            </div>
-            <h2>Товары</h2>
             
-            {products.map(product => (
-                    <div key={product.id}>
-                        <h3>{product.productName}</h3>
-                        <p>{product.price}</p>
-                        <p>{product.address}</p>
-                        <p>{product.productUser}</p>
-                        <p>{product.storeName}</p>
-                        <p>{product.region}</p>
-                        
-                           {  (product.image == "http://127.0.0.1:8000/media/media") ?
-                        ( <div>Нет фото</div>)
-                        :(<div><img src={product.image} alt="" width={150}/></div>)
-                    }
-                        { product.productUser === 'user' && (
-                            <>
-                                <button onClick={() => handleDelete(product.id)}>
-                                        Удалить
-                                    </button>
-                                         
+            
+           
+       
+            <div className={styles['product']}>
+                <div className={styles['product__container']}>
+                    <div className={styles['product__body']}>
+                        <div className={styles['product__buttons']}>
+                            
+                            <button className={`${styles['product__button']} ${styles['product__buttons__all']}`}
+                                onClick={() => setActiveFilter('all')}  style={buttonStyle('all')}  >Все 
+                            </button>
+                            <button className={`${styles['product__button']} ${styles['product__buttons__owners']}`}  
+                                onClick={() => setActiveFilter('owner')}                     
+                                style={buttonStyle('owner')} >
+                                Владельцы
+                            </button>
+                            <button className={`${styles['product__button']} ${styles['product__buttons__users']}`}  
+                                onClick={() => setActiveFilter('user')}
+                                style={buttonStyle('user')} >Люди
+                            </button>
                                         
-                                <button onClick={() =>navigate(`/edit-user-product/${product.id}`)}>
-                                        Ред
-                                    </button>                                        
-                            </>
-                               
-                            ) }
-                          
-                        <hr />
+                        </div>
+
+                        <div className={styles['product__item']}>
+                            {
+                                (!(products.length)) && (
+                                    <div className={styles['product__count']}>
+                                        Нет товара
+                                    </div>
+                                )
+                            }
+
+                            {products.map(product => (
+                            <Link  to={`${product.id}`} className={styles['item-product']} key={product.id}>
+                                 { (product.productUser === 'user') && (
+                                    
+                                    <div className={styles['item-product__btns']}>
+                                        <button  className={styles['item-product__edit']} 
+                                        onClick={() =>navigate(`/edit-user-product/${product.id}`)}>
+                                                ...
+
+                                            
+                                        </button>     
+                                        <button  className={styles['item-product__delete']} 
+                                        onClick={() => handleDelete(product.id)}>
+                                            <img src={delIcon} alt="" />
+                                        </button>
+                                    </div>
+                                                                              
+                                    ) }    
+                                    <div className={styles['item-product__content']}>
+                                            <div className={styles['item-product__img-price']} >
+                                        
+                                    {   
+                                        (product.image == "http://127.0.0.1:8000/media/media") ?
+                                        ( <div>Нет фото</div>):
+                                        (<div className={styles['item-product__image']} >
+                                            <img src={product.image} alt="" /></div>)
+                                    }     
+                                    <div className={styles['item-product__price']} >
+                                        {product.price}
+                                    </div>
+                                    
+                                </div>
+                             
+                                <div className={styles['item-product__info']}>
+                                   
+                                    
+                                     <div className={styles['item-product__product-name']}>
+                                        {product.productName}
+                                    </div > 
+                                     <div className={styles['item-product__weight']}>
+                                        {product.weight}
+                                    </div >
+                                    
+                                   
+                                    <div className={styles['']}>
+                                        {product.productUser}
+                                    </div>
+                                    <div className={styles['item-product__title']}>
+                                        Имя магазина:
+                                    </div>
+                                    <div className={styles['item-product__store-name']} >
+                                        {product.storeName}
+                                    </div>
+                                    <div  className={styles['item-product__region']}>
+                                        {product.region}
+                                    </div>
+                                
+                                </div>
+                                 
+                            </div>
+                              
+                             
+                            
+                            <div className={styles['item-product__address']}>
+                                        {product.address} 
+                            </div>    
+                            
+
+                                
+
+                                    
+                                      
+                        </Link  >
+                                        
+                                    ))
+                                } 
+                            
+                            </div>
+                   
+                        
                     </div>
-                    
-                ))}
+                </div>
+            </div>
+           
+            
+          
+            
+           
        
         </>
     )

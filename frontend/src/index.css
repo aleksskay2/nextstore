@@ -5,7 +5,10 @@
 	box-sizing: border-box;
 }
 
-
+a {
+	text-decoration: none;
+	list-style-type: none;
+}
 
 
 a:hover {
@@ -30,6 +33,10 @@ body {
 }
 
 
+#root{
+	padding: 10px 0px;
+}
+
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
@@ -46,8 +53,4 @@ button:hover {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
-}
-
-select {
-	font-size: 16px;
 }

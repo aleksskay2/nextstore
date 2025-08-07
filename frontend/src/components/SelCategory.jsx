@@ -3,8 +3,11 @@ import api from "../api/axios";
 import styles from './SelCategory.module.css'
 
 
-const SelCategory = ({ onResults}) => {
+const SelCategory = ({selectedRegion, onCategorySelect,  onResults, query, setQuery}) => {
+    
     const [categories, setCategories] = useState([])
+    const [selectedCategory, setSelectedCategory] = useState('');
+
     
      useEffect(() => {
         fetchCategories()
@@ -14,7 +17,8 @@ const SelCategory = ({ onResults}) => {
       const fetchCategories = async () => {
        try{
             const responseCategories = await api.get('categories/')
-            setCategories(responseCategories.data)
+            setCategories(responseCategories.data.slice().reverse())
+           
             
         }
        catch(error) {
@@ -24,14 +28,18 @@ const SelCategory = ({ onResults}) => {
 
 
     const handleChangeCategories = async (e) => {
-          try {
-            const response = await api(`products/?category=${e.target.value}&ordering=price`, {
-                
-            }
-            )      
-            console.log('e.CatProd = ' , e.target.value)
-            onResults(response.data)
 
+          try {
+                if (selectedRegion !== '0') {
+                    const response = 
+                    await api(`products/?category=${e.target.value}&region=${selectedRegion}&ordering=price`, {    
+                }
+            )      
+        
+            onResults(response.data)
+            }
+                
+          
         }
 
         catch(error) {
@@ -39,9 +47,62 @@ const SelCategory = ({ onResults}) => {
         }
     }
 
+    const handleSelectCategory = async (categoryId) => {
+         
+        let newCategid = categoryId
+        
+
+        if (selectedCategory === categoryId) {
+            newCategid = ''
+        }
+
+        setSelectedCategory(newCategid) 
+        onCategorySelect(newCategid)
+
+        try {
+            let response ;
+            const params = {}
+            if (newCategid ) params.category = newCategid
+            if (selectedRegion && selectedRegion !== '0') params.region = selectedRegion;
+            if (query) params.search = query;
+
+            const queryString = new URLSearchParams(params).toString();
+            const url = `/products${queryString ? `?${queryString}`:''}`
+
+            response = await api.get(url);
+            onResults(response.data)
+        }   
+        catch(error) {
+            console.error('Ошибка при выборе категории', error)
+        }
+         
+       
+    }
+ 
+
     return (
         <div>
-             <select className={styles['categ-add__category']} name="category" onChange={handleChangeCategories}>
+            <div className={styles['category-buttons-wrapper']} >
+             
+                    
+                    {categories.map((cat) => (
+                        <button 
+                        className=
+                        {`${styles['category-btn']}
+                        ${selectedCategory === cat.id ? styles.active:''}`}
+                        onClick={() => handleSelectCategory(cat.id)}  key={cat.id} >
+                            {cat.CategoryName}
+                        </button>
+                    ))}
+                
+
+
+            </div>
+        
+            
+
+
+             {/* <select className={styles['categ-add__category']} name="category" onChange={handleChangeCategories}>
                 
                 <option value=""> категории</option>
                 {
@@ -50,7 +111,7 @@ const SelCategory = ({ onResults}) => {
                         <option key={cat.id} value={cat.id}>{cat.CategoryName}</option>
                     ))
                 }
-            </select>
+            </select> */}
         </div>
     )
 

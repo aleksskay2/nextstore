@@ -79,6 +79,7 @@ class Product(models.Model):
     weight = models.CharField(max_length=50, null=True, blank=True)
     region = models.ForeignKey(Regions, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True)
+    description = models.CharField(max_length=2000, null=True, blank=True )
 
     
     

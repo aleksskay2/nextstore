@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import api from "../api/axios";
 import styles from './SearchAndSort.module.css'
 import iconsearch from '../assets/images/LetterS.png'
+import { Link } from "react-router-dom";
 
-const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [region, setRegion] = useState("");
-  const [regions, setRegions] = useState([]);
+const SearchAndSort = ({onTextSearch, onRegionSelect, selectedCategory,
+     onFilter, onResults, onClear}) => {
+    const [query, setQuery] = useState("");
+    const [region, setRegion] = useState("");
+    const [regions, setRegions] = useState([]);
+    const [regId, setRegId] = useState()
+
 
   // Получение списка регионов
   useEffect(() => {
@@ -22,16 +25,7 @@ const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
     fetchRegions();
   }, []);
 
-  // Дебаунс для query
-
-   useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedQuery(query.trim());
-            
-        }, (500));
-        return () => clearTimeout(timer);
-    }, [query])
-
+  
 
   
     
@@ -50,19 +44,35 @@ const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
         }
     }
 
-    const handleClick = () => {
-        fetchProductSearch()
-    }
+    
 
     const fetchProductSearch = async () => {
         try {
-            const response = await api('products/', {
-                params:{
-                        search:query,
-                        ordering:'price'
+            console.log('fetchProds regId = ', regId)
+            let response 
+            if (regId){
+               
+                 response = await api(`products/?region=${regId}`, {
+                    params:{
+                            search:query,
+
+                            ordering:'price'
+                        }
                     }
-            }
-            )      
+                    )      
+                    }
+            else {
+                response = await api(`products/`, {
+                    params:{
+                            search:query,
+
+                            ordering:'price'
+                        }
+                    }
+                    )      
+                }
+            
+           
             onResults(response.data);
         }
 
@@ -72,13 +82,7 @@ const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
     }
 
 
-    const handleChangeSearch = (e) => {
-        setQuery(e.target.value) 
-       
-        if (!(e.target.value))
-        onClear() 
-    }
-
+   
    
 
     const handleKeyDown = (e) => {
@@ -90,39 +94,67 @@ const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
 
 
     const handleChange = async (e) => {
-        if (query)
-        {
-            setRegion(e.target.value)
-        }
-        else {
-            const regionId = e.target.value;
-            console.log('regionId', regionId)
-           
-            if (regionId) {
-                const response = await api.get(`products/?region=${regionId}`);
-                onFilter(response.data)
+        const selectedRegId = e.target.value;
+        onRegionSelect(selectedRegId)
+        
+        setRegion(selectedRegId)
+        try {
+            let response ;
+            if (selectedRegId === '0') {
+                if (query) {
+                    response =await api.get(`products/?category=${selectedCategory}&search=${query}`)
+                }
+                else if (selectedCategory) {
+                     response = await api.get(`products/?category=${selectedCategory}`)
+                } else {
+                    response = await api.get(`products/?search=${query}`)
+                }
             }
             else {
-                const response = await api.get('products/')
-                onFilter(response.data)
-            }    
+                if (query) {
+                    response = await api.get(`products/?region=${selectedRegId}&category=${selectedCategory}&search=${query}`)
+                }
+                else {
+                   response =  await api.get(`products/?region=${selectedRegId}&category=${selectedCategory}`)
+                }
+            }
+            onFilter(response.data)
+            console.log('resp hear - ', response.data)
+        }catch(error) {
+            console.error('Ошибка при выборе региона', error)
         }
+
+        
         
     }
 
 
-    const insQuert = (e) => {
-        setQuery(e.target.value)
-    }
+ 
 
-    const textQuery = (e) => {
+    const handleChangeSearch = (e) => {
         {
-        setQuery(e.target.value)    
-        onTextQuery(e.target.value)  // ← используем актуальное значение
-        console.log('key query', e.target.value)
+            const value = e.target.value;
+            setQuery(value)
+            onTextSearch(e.target.value)
+            if (!value.trim())
+            {
+                onClear();
+            }
+            console.log('clear')
+        
+       
+     }
+        
+        
     }
-        
-        
+
+     // кнопка Найти
+
+     const handleClick = () => {
+       
+        // buttonStyle()
+        if (query)
+        fetchProductSearch(query)
     }
 
 
@@ -131,15 +163,49 @@ const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
         
          <div className={styles['header']}>
             <div className={styles['header__container']}>
+
+                <div className="search">
+                    <div className={styles['search__container']}>
+                            <input
+                                className={styles['search__text']}
+                                type="text"
+                                placeholder="Поиск товара..."
+                                value={query}
+                                name="search"
+                                onChange={handleChangeSearch}
+                                onKeyDown={handleKeyDown}
+                            />
+                            <div className={styles['search__logo']}>
+                                <img src={iconsearch} alt="" />
+                            </div>
+                    </div>
+                </div>
+
+                <div className={styles['btn-search']}>
+                <button className={styles['btn-search__button']}  onClick={handleClick}>
+                    Найти
+                </button>
+             </div>
+
+
                 <div className={styles["region"]}>
                     <div className={styles['region__container']}>
                       
-                        <div className={styles['region__item']}> 
-                            <div className={styles['region__title']}>Регион</div>
-                                <select name="regions" className={styles['region__list']}  value={region}
-                                    onChange={(e) => handleChange(e)}>
+                <div className={styles['categ-add']}>
+                    <div className={styles['categ-add__container']}>
+                        <div className={styles['categ-add__body']}>
+                            
+                            <Link  className={styles['categ-add__add']} to="/add-product">Добавить товар</Link>
+                        </div>
+                        
+                    </div>
+                </div> 
 
-                                        <option value="">Все регионы</option>
+                        <div className={styles['region__item']}> 
+                          
+                                <select name="regions" className={styles['region__list']}  value={region}
+                                    onChange={ handleChange}>
+                                        <option value="0">Все регионы</option>
                                         {regions.map((r) => (
                                         <option key={r.id} value={r.id}>
                                             {r.nameRegions}
@@ -151,6 +217,9 @@ const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
 
 
                 </div>
+
+
+
             </div>
         </div>
         <div></div>
@@ -158,22 +227,7 @@ const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
         
  
 
-        <div className="search">
-            <div className={styles['search__container']}>
-                    <input
-                        className={styles['search__text']}
-                        type="text"
-                        placeholder="Поиск товара..."
-                        value={query}
-                        name="search"
-                        onChange={textQuery}
-                        onKeyDown={handleKeyDown}
-                    />
-                    <div className={styles['search__logo']}>
-                        <img src={iconsearch} alt="" />
-                    </div>
-            </div>
-        </div>
+        
        
         
        
@@ -186,4 +240,4 @@ const SearchFilterSort = ({onTextQuery,  onFilter, onResults, onClear}) => {
   );
 };
 
-export default SearchFilterSort;
+export default SearchAndSort;

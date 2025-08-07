@@ -14,6 +14,7 @@ import EditUserProduct from './components/EditUserProduct'
 import EditOwnerProduct from './components/EditOwnerProduct'
 import Layout from './components/Layout'
 import Profile from './pages/Profile/Profile'
+import ProductDetail from './pages/ProductDetail/ProductDetail'
 
 
 
@@ -31,6 +32,7 @@ function App() {
           <Route path='/add-product' element={<AddProductUser/>}/>
           <Route path='/edit-user-product/:id' element={<EditUserProduct/>}/>
           <Route path='/profile' element={<Profile/>}/>
+          <Route path='products/:id' element={<ProductDetail/>}/>
           
           <Route path='my-products' element={
             <PrivateRoute>

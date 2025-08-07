@@ -1,8 +1,8 @@
  
     .region__list {
-        width: 188px;
+        width: 140px;
         height: 20px;
-        font-size: 16px;
+        font-size: 14px;
         background-color: #ABDEF4;
     }   
 
@@ -27,7 +27,7 @@
     .region__container {
         display: flex;
         flex:0 1 100%; 
-        justify-content:right;
+        justify-content:space-between;
     }
 
     .region-enter__title {
@@ -36,13 +36,13 @@
     }
 
     .region__item {
-        flex:0 1 30%;
+        
     }
     .region__title {
         font-size: 14px;
     }
     .region__list {
-        font-size: 14px;
+       
         border-radius: 6px;
         text-align: center;
         box-shadow: 3px 2px rgb(196, 192, 192);
@@ -55,9 +55,10 @@
         display: flex;
         /* background-color: gray; */
         justify-content:center;
+        margin: 0px 0px 13px 0px;
     }
     .search__text {
-        flex:0 1 86%;
+        flex:0 1 82%;
         margin-right: 5px;
         background-color: #F5F7FF;
         border-radius: 7px;
@@ -74,28 +75,47 @@
         width: 27px;
         height: 27px;
     }
-/* 
-  <div className="search">
-            <div className={styles['search__container']}>
-                    <input
-                        className={styles['search__text']}
-                        type="text"
-                        placeholder="Поиск товара..."
-                        value={query}
-                        name="search"
-                        onChange={(e) =>  handleChangeSearch(e) }
-                        onKeyDown={handleKeyDown}
-                    />
-                    <div className="search__logo">
-                        <img src={iconsearch} alt="" />
-                    </div>
-            </div>
-        </div>        */
 
+    .btn-search {
+        display: flex;
+        justify-content: center;
 
+    }
+    .btn-search__button {
+        background-color: #9FE79F;
+        width: 89%;
+        border-radius: 15px;
+        border: none;
+        font-size: 14px;
+        margin: 0px 0px 10px 0px;
+    }
 
+    .title-search {
+        text-align: center;
+    }
 
+    .categ-add__container {
+        display: flex;
+        justify-content: center;
+    }
+    .categ-add__body {
+        display: flex;
+        width: 92%;
+        justify-content: space-between;
+    }
 
-
+    .categ-add__add {
+         
+        border-radius: 6px;
+        text-align: center;
+        box-shadow: 3px 2px rgb(196, 192, 192);
+        margin: 0px 0px 9px 0px;
+        width: 148px;
+        height: 20px;
+        font-size: 16px;
+        background-color: #ABDEF4;
+        color:#000;
+        
+    }
 }
 
