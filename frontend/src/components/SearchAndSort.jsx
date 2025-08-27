@@ -3,6 +3,7 @@ import api from "../api/axios";
 import styles from './SearchAndSort.module.css'
 import iconsearch from '../assets/images/LetterS.png'
 import { Link } from "react-router-dom";
+import addPlus from '../assets/icons/add_insert_plus_1588.png'
 
 const SearchAndSort = ({onTextSearch, onRegionSelect, selectedCategory,
      onFilter, onResults, onClear}) => {
@@ -195,7 +196,8 @@ const SearchAndSort = ({onTextSearch, onRegionSelect, selectedCategory,
                     <div className={styles['categ-add__container']}>
                         <div className={styles['categ-add__body']}>
                             
-                            <Link  className={styles['categ-add__add']} to="/add-product">Добавить товар</Link>
+                            <Link  className={styles['categ-add__add']} to="/add-product">
+                            <img className={styles['categ-add__add-photo']} src={addPlus}  alt="" /></Link>
                         </div>
                         
                     </div>

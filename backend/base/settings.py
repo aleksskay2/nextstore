@@ -42,7 +42,7 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=35),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
     'ROTATE_REFRESH_TOKENS':True,
     'BLACKLIST_AFTER_ROTATION':True,
@@ -68,8 +68,18 @@ INSTALLED_APPS = [
     'django_filters',
     'store', 
     'corsheaders',
+    'channels'
    
 ]
+
+CHANNEL_LAYERS ={
+    'default':{
+        'BACKEND':"channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts":[("127.0.0.1", 6379)],
+        }
+    }
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -109,7 +119,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'base.wsgi.application'
+ASGI_APPLICATION = 'base.asgi.application'
 
 
 # Database

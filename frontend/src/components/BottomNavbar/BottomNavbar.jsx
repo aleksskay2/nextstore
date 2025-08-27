@@ -8,40 +8,47 @@ const BottomNavbar = () =>{
     return(
         <div className={styles['bottom-bar']}>
             <div className={styles['bottom-bar__container']}>
-                <div className={styles['item-bar']}>
+                <Link  className={styles['item-bar']} to="products/"  >
                     <div className={styles['item-bar__content']}>
                         <div className={styles['item-bar__image']}>
                             <img src={icon} alt="not logo" />
                         </div>
                         <div >
-                            <Link className={styles['item-bar__title']} to="products/">Главная</Link>
+                            <div className={styles['item-bar__title']} >Главная</div>
                         </div>
                     </div>
-                </div>
+                </Link>
                 <div className={styles['bottom-bar__right']}>
-                    <div className={styles['item-bar']}>
+
+                    <Link className={styles['item-bar']} to='/bookmarks'>
                         <div className={styles['item-bar__content']}>
                             <div className={styles['item-bar__image']}>
                                 <img src={favorite} alt="not logo" />
                             </div>
                             <div className={styles['item-bar__title']}>Избранное</div>
                         </div>
-                    </div>
-                    <div className={styles['item-bar']}>
+                    </Link>
+
+                    <Link className={styles['item-bar']} to='/messages'>
+                        <div className={styles['item-bar__content']}>
+                            <div className={styles['item-bar__image']}>
+                                <img src={favorite} alt="not logo" />
+                            </div>
+                            <div className={styles['item-bar__title']}>Сообщения</div>
+                        </div>
+                    </Link>
+                    <Link to="/profile" className={styles['item-bar']}>
                         <div className={styles['item-bar__content']}>
                             <div className={styles['item-bar__image']}>
                                 <img src={iconuser} alt="not logo" />
                             </div>
                             <div >
-                                <Link className={styles['item-bar__title']} to="/profile"
-                                >Профиль</Link>
+                                <div className={styles['item-bar__title']} 
+                                >Профиль</div>
                             </div>
                         </div>
-                    </div>
-
-                </div>
-               
-                
+                    </Link>
+                </div>            
             </div>
         </div>
     )       

@@ -1,21 +1,26 @@
 import { useEffect, useState } from "react";
 import { parseJwt } from "../utils/jwt";
 
+
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 
 const LoginForm = () => {
     const [formData, setFormData] = useState({username:'', password: ''});
     const [message, setMessage] = useState('')
+    const [myId, setMyId] = useState('')
     const navigate = useNavigate()
 
     useEffect(() => {
         const checkAuth = async () => {
             const access = localStorage.getItem('access')
+           
+
+            
             if (access) {
                 try {
                     await api.get('/product/');
-                    navigate('/')
+                    navigate('products/')
                 }
                 catch(error) {
                     console.error('Tokey недействителен', error.response?.data ||
@@ -37,6 +42,8 @@ const LoginForm = () => {
     const handleChange = e => {
         setFormData( prev =>(
             {...prev, [e.target.name]: e.target.value}))
+            
+          
     }
 
 
@@ -48,6 +55,8 @@ const LoginForm = () => {
             const response = await api.post('token/', formData);
             localStorage.setItem('access', response.data.access)
             localStorage.setItem('refresh', response.data.refresh)
+            localStorage.setItem('user_id', myId)
+            console.log('myid -' , myId)
             alert('Вы успешно вошли')
             navigate('/')
         }

@@ -1,8 +1,8 @@
  
     .region__list {
         width: 140px;
-        height: 20px;
-        font-size: 14px;
+        height: 18px;
+        font-size: 13.5px;
         background-color: #ABDEF4;
     }   
 
@@ -22,6 +22,7 @@
     }
     .region {
         display: flex;
+        
        
     }
     .region__container {
@@ -110,12 +111,17 @@
         text-align: center;
         box-shadow: 3px 2px rgb(196, 192, 192);
         margin: 0px 0px 9px 0px;
-        width: 148px;
-        height: 20px;
+        width: 50px;
+        height: 18px;
         font-size: 16px;
         background-color: #ABDEF4;
         color:#000;
         
+    }
+
+    .categ-add__add-photo  {
+        width: 10px;
+        height: 10px;
     }
 }
 

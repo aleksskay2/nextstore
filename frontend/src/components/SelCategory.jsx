@@ -14,10 +14,21 @@ const SelCategory = ({selectedRegion, onCategorySelect,  onResults, query, setQu
     }, [])
 
 
+    const subcateg = []
       const fetchCategories = async () => {
        try{
             const responseCategories = await api.get('categories/')
-            setCategories(responseCategories.data.slice().reverse())
+            setCategories(responseCategories.data)
+            console.log('Cat_res - ', responseCategories.data)
+            for( let item of responseCategories.data)
+                if (item.subcategories.length ) {
+                    console.log('Cat_res_sub - ', item.subcategories)
+                    for(let itemSub of item.subcategories) {
+                        if (!subcateg.includes(itemSub.CategoryName))
+                        subcateg.push(itemSub.CategoryName)
+                    }
+                }
+            console.log('subcateg - ', subcateg)
            
             
         }
@@ -37,6 +48,7 @@ const SelCategory = ({selectedRegion, onCategorySelect,  onResults, query, setQu
             )      
         
             onResults(response.data)
+           
             }
                 
           
@@ -46,6 +58,10 @@ const SelCategory = ({selectedRegion, onCategorySelect,  onResults, query, setQu
             console.error('error in SearchAndSort', error)
         }
     }
+
+
+   
+
 
     const handleSelectCategory = async (categoryId) => {
          
@@ -67,10 +83,13 @@ const SelCategory = ({selectedRegion, onCategorySelect,  onResults, query, setQu
             if (query) params.search = query;
 
             const queryString = new URLSearchParams(params).toString();
+            console.log('querY - ', queryString)
             const url = `/products${queryString ? `?${queryString}`:''}`
 
+         
             response = await api.get(url);
             onResults(response.data)
+             console.log('cat - ', response.data)
         }   
         catch(error) {
             console.error('Ошибка при выборе категории', error)
@@ -102,19 +121,15 @@ const SelCategory = ({selectedRegion, onCategorySelect,  onResults, query, setQu
             
 
 
-             {/* <select className={styles['categ-add__category']} name="category" onChange={handleChangeCategories}>
-                
-                <option value=""> категории</option>
-                {
-                  
-                    categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.CategoryName}</option>
-                    ))
-                }
-            </select> */}
+             
         </div>
     )
 
 }
 
 export default SelCategory;
+
+
+
+
+

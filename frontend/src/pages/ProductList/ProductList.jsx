@@ -2,27 +2,35 @@ import React, {useState, useEffect} from 'react'
 import { Link,useNavigate } from 'react-router-dom';
 // import {ReactComponent as TrashIcon} from '../../assets/icons/basket.svg'
 import api from '../../api/axios'
-import EditUserProduct from '../../components/EditUserProduct';
+import EditUserProduct from '../Product/EditUserProduct'
 import SearchAndSort from '../../components/SearchAndSort';
 // import RegionFilter from '../components/RegionFilter'
 import SelCategory from '../../components/SelCategory';
 import styles from './ProductList.module.css'
-import delIcon from '../../assets/images/deletePng.png'
+
+import {FaHeart, FaRegHeart} from 'react-icons/fa'
+import ProductItem from '../ProductItem/ProductItem';
+import useStore from '../../components/store/store';
 
 
 
 const ProductList = () => {
     const [products, setProducts] = useState([])
-    const [activeFilter, setActiveFilter] = useState('all')
+    const {activeFilter, setActiveFilter} = useStore()
     const [editId, setEditId] = useState(null)
     const [query, setQuery ] = useState('')
 	const [selectedCategory, setSelectedCategory] = useState('')
     const [selectedRegion, setSelectedRegion] = useState('')
     const [textSearch, setTextSearch] = useState('')
+    const [bookmarks, setBookmarks] = useState([])
+    
 
    const handleCategorySelect = (categoryId) => {
     setSelectedCategory(categoryId)
    }
+
+
+
 
    const handleRegionSelect = (regionId) => {
         setSelectedRegion(regionId)
@@ -43,19 +51,9 @@ const ProductList = () => {
                 if (filter === 'user')
                     url += '?type=user'
             
-            if (textSearch) 
-            {
-                if (url === 'products/' ){
-                    url += `?search=${textSearch}`
-                   
-                }
-                else
-                if (url ==='products/?type=owner'|| url ==='products/?type=user')
-                url += `&search=${textSearch}`
-                
-            }
+           
                
-            console.log('url', url)
+           
 
             if (selectedCategory ) {
                 if (url === 'products/' ){
@@ -86,16 +84,44 @@ const ProductList = () => {
                
             }
             else {
-               if (selectedRegion === '0' || selectedRegion === '') {
-                   url = `products/` 
+               if ((selectedRegion === '0' || selectedRegion === '') && (filter === 'user') ) {
+                   url = `products/?type=user` 
+               }
+               if ((selectedRegion === '0' || selectedRegion === '') && (filter === 'owner') ) {
+                   url = `products/?type=owner` 
                }
                 
                  
             }
 
-            console.log('url', url)
+
+
+             if (textSearch) 
+            {
+                if (url === 'products/' ){
+                    url += `?search=${textSearch}`
+                   
+                }
+                else {
+                    
+                                
+                    if (url ==='products/?type=owner'|| url ==='products/?type=user') {
+                       
+                        url += `&search=${textSearch}`
+                        console.log('text url', url)  
+                    }
+                  
+
+                }
+               
+
+                
+            }
+
+
+            console.log('url--', url)
             const response = await api.get(url)
-         
+                  console.log('respList -', response.data)
             setProducts(response.data)
            
         }
@@ -109,25 +135,6 @@ const ProductList = () => {
     }
 
 
-    // useEffect(() => {
-    //     const fetchProductsFirst = async () => {
-    //         // if (textSearch) {
-    //         //     console.log('resp', products)
-    //         //     console.log('query', textSearch)
-    //         //     setProducts(products.filter(prod => 
-    //         //             prod.productUser === 'owner'))
-    //         //      console.log('respAfter', products)
-
-    //         // }
-    //         {
-    //             const response = await api.get('products/');
-    //             setProducts(response.data)
-                
-    //         }
-           
-    //     };
-    //     fetchProductsFirst();
-    // }, [])
 
 
     useEffect( () => {
@@ -148,9 +155,33 @@ const ProductList = () => {
         }
     }
 
-    const handleEdit = (id) =>{
-        setEditId(id)
-    }
+    // const handleEdit = (id) =>{
+    //     setEditId(id)
+    // }
+
+    useEffect(() => {
+        const fetchBookmarks = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token ) return;
+                
+                const response = await api.get('bookmarks/', {
+                    headers:{Authorization: `Bearer ${token}`}
+                })
+
+                setBookmarks(response.data.map(bookmark => bookmark.product.id));
+            }
+            catch (error) {
+                console.error('Ошибка при получении избранного', error)
+            }
+        }
+        fetchBookmarks();
+    }, []) 
+
+
+    
+
+
 
 
 
@@ -165,7 +196,13 @@ const ProductList = () => {
     })
 
 
-    const navigate = useNavigate()
+    const updateBookmark = (productId, newBookmarkState) => {
+        setProducts(prev => 
+            prev.map(p => (p.id === productId 
+            ? {...p, is_bookmark:newBookmarkState} : p))
+        )
+    }
+
 
 
     const handleClearSearch = () => {
@@ -175,23 +212,7 @@ const ProductList = () => {
 
 
 
-    const fetchProductSearch = async (query) => {
-        try {
-            const response = await api('products/', {
-                params:{
-                        search:query,
-                        ordering:'price'
-                    }
-            }
-            )      
-            setProducts(response.data)
-            
-        }
-
-        catch(error) {
-            console.error('error in SearchAndSort', error)
-        }
-    }
+    
 
 
     return (
@@ -231,96 +252,24 @@ const ProductList = () => {
                                 onClick={() => setActiveFilter('user')}
                                 style={buttonStyle('user')} >Люди
                             </button>
+
+
+                           
                                         
                         </div>
+                        {
+                            products.map(product => (
+                                <ProductItem  deleteProd={handleDelete}  key={product.id}
+                                    product={product} 
+                                    onBookmarkChange={updateBookmark}
+                                />
+                            ))
+                        }
+                          
+                        
+                        
 
-                        <div className={styles['product__item']}>
-                            {
-                                (!(products.length)) && (
-                                    <div className={styles['product__count']}>
-                                        Нет товара
-                                    </div>
-                                )
-                            }
-
-                            {products.map(product => (
-                            <Link  to={`${product.id}`} className={styles['item-product']} key={product.id}>
-                                 { (product.productUser === 'user') && (
-                                    
-                                    <div className={styles['item-product__btns']}>
-                                        <button  className={styles['item-product__edit']} 
-                                        onClick={() =>navigate(`/edit-user-product/${product.id}`)}>
-                                                ...
-
-                                            
-                                        </button>     
-                                        <button  className={styles['item-product__delete']} 
-                                        onClick={() => handleDelete(product.id)}>
-                                            <img src={delIcon} alt="" />
-                                        </button>
-                                    </div>
-                                                                              
-                                    ) }    
-                                    <div className={styles['item-product__content']}>
-                                            <div className={styles['item-product__img-price']} >
-                                        
-                                    {   
-                                        (product.image == "http://127.0.0.1:8000/media/media") ?
-                                        ( <div>Нет фото</div>):
-                                        (<div className={styles['item-product__image']} >
-                                            <img src={product.image} alt="" /></div>)
-                                    }     
-                                    <div className={styles['item-product__price']} >
-                                        {product.price}
-                                    </div>
-                                    
-                                </div>
-                             
-                                <div className={styles['item-product__info']}>
-                                   
-                                    
-                                     <div className={styles['item-product__product-name']}>
-                                        {product.productName}
-                                    </div > 
-                                     <div className={styles['item-product__weight']}>
-                                        {product.weight}
-                                    </div >
-                                    
-                                   
-                                    <div className={styles['']}>
-                                        {product.productUser}
-                                    </div>
-                                    <div className={styles['item-product__title']}>
-                                        Имя магазина:
-                                    </div>
-                                    <div className={styles['item-product__store-name']} >
-                                        {product.storeName}
-                                    </div>
-                                    <div  className={styles['item-product__region']}>
-                                        {product.region}
-                                    </div>
-                                
-                                </div>
-                                 
-                            </div>
-                              
-                             
-                            
-                            <div className={styles['item-product__address']}>
-                                        {product.address} 
-                            </div>    
-                            
-
-                                
-
-                                    
-                                      
-                        </Link  >
-                                        
-                                    ))
-                                } 
-                            
-                            </div>
+                   
                    
                         
                     </div>

@@ -10,11 +10,16 @@ import RegisterPage from './pages/RegisterPage'
 import LoginPage from './pages/LoginPage'
 import MyProducts from './pages/MyProducts'
 import PrivateRoute from './components/PrivateRoute'
-import EditUserProduct from './components/EditUserProduct'
+import EditUserProduct from './pages/Product/EditUserProduct'
 import EditOwnerProduct from './components/EditOwnerProduct'
 import Layout from './components/Layout'
 import Profile from './pages/Profile/Profile'
 import ProductDetail from './pages/ProductDetail/ProductDetail'
+import BookMark from './pages/bookmark/Bookmark'
+// import MessageChat from './pages/Message/MessageChat'
+import InboxMessages from './components/InboxMessages'
+import DialogPage from './components/DialogPage'
+
 
 
 
@@ -25,7 +30,7 @@ function App() {
    <Router>
       <Layout/>
       <Routes>
-          <Route path='/' element={<Home/>}/>
+          <Route path='/' element={<ProductList/>}/>
           <Route path='/register' element={<RegisterPage/>}/>
           <Route path='/login' element={<LoginPage/>}/>
           <Route path = 'products/' element={<ProductList/>}/>
@@ -33,6 +38,9 @@ function App() {
           <Route path='/edit-user-product/:id' element={<EditUserProduct/>}/>
           <Route path='/profile' element={<Profile/>}/>
           <Route path='products/:id' element={<ProductDetail/>}/>
+          <Route path='/bookmarks' element={<BookMark/>}/>
+          <Route path='/messages' element={<InboxMessages/>}/>
+          <Route path="/dialog/:user1/:user2" element={<DialogPage />} />
           
           <Route path='my-products' element={
             <PrivateRoute>

@@ -27,8 +27,7 @@ const MyProducts = () => {
     const handleDelete = async (id) => {
         try {
           
-            const response =  await api.delete(`my-products/${id}`)
-            
+            await api.delete(`my-products/${id}`)
             setProducts(products.filter(prod => prod.id != id))
         }
         catch (error){
@@ -54,7 +53,14 @@ const MyProducts = () => {
                             
                             <p>{prod.productName}</p>
                             <p>{prod.price}</p>
-                            <img src={prod.image} width={150} ></img>
+                            
+                               {/* { (Array.isArray(prod.images) && (prod.images.length !== 0)) && (
+                                    <img src={prod.images[0].image} width={80} ></img>
+                                )}
+                             */}
+                            <div>
+                                 <img src={prod.main_image} width={80} ></img>
+                            </div>
                            
                             <button onClick={() => handleDelete(prod.id)}>
                                     Удалить

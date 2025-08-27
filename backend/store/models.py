@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import User
 from django.conf import settings
 
 # Create your models here.
@@ -13,9 +14,31 @@ class CustomUser(AbstractUser):
         return self.username
 
 
+class Bookmark(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 
+                             related_name='bookmarks')
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='bookmark_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'product')
+        verbose_name = 'bookmark'
+        verbose_name_plural = 'bookmarks'
+
+    def __str__(self):
+        return f"{self.user.username} - {self.product.productName}"
+
+
 
 class Category(models.Model):
     CategoryName = models.CharField(max_length=100)
+    parent = models.ForeignKey('self',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='subcategories'
+    )
+    
 
     class Meta:
         verbose_name  = "Category"
@@ -24,6 +47,17 @@ class Category(models.Model):
 
     def __str__(self):
         return self.CategoryName
+
+    def get_all_subcategories(self):
+        subcategories = []
+        def collect_subcategories(category):
+            subs = category.subcategories.all()
+            for sub in subs:
+                subcategories.append(sub)
+                collect_subcategories(sub)
+        collect_subcategories(self)
+        return subcategories
+
     
 
 class Regions(models.Model):
@@ -72,8 +106,8 @@ class Product(models.Model):
                               null=True, blank=True)
     storeName = models.CharField(max_length=100, null=True, blank=True)  # для user или admin, если нужно
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    main_image = models.ImageField(upload_to='products/main', null=True, blank=True)
     productName = models.CharField(max_length=100)
-    image = models.ImageField(upload_to='product_images/', null=True, blank=True)
     address = models.CharField(max_length=100)
     dateUpdate = models.DateField(auto_now_add=True, null=True, blank=True)
     weight = models.CharField(max_length=50, null=True, blank=True)
@@ -82,8 +116,58 @@ class Product(models.Model):
     description = models.CharField(max_length=2000, null=True, blank=True )
 
     
-    
+class Message(models.Model):
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='sent_messages',
+        on_delete=models.CASCADE)
    
+    receiver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='received_messages',
+        on_delete=models.CASCADE
+    )
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, null=True, blank=True)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=False)
+
+
+class ProductReview (models.Model):
+    product = models.ForeignKey(
+        Product,
+        related_name='product_reviews',
+        on_delete=models.CASCADE
+    )
+
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name='reviews_written',
+        on_delete=models.CASCADE
+    )
+    rating = models.PositiveSmallIntegerField()
+    comment = models.TextField(blank=True)
+    created_at = models.DateField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('product', 'reviewer')
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f'{self.reviewer} by {self.product} ({self.rating})'
+
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(
+        'Product',
+        related_name='images',
+        on_delete=models.CASCADE
+    )
+    image=models.ImageField(upload_to='product_images/')
+    alt_text = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+
 
 
 class FeatureProduct(models.Model):

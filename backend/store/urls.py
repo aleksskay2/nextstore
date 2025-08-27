@@ -4,7 +4,7 @@ from .views import AdminsViewSet, ProductUserViewSet,SelectionObjectViewSet, Reg
 from .views import RegisterView
 from .views import DeleteUserProductView
 from .views import CustomTokenObtainPairView, UserInfoView, EditUserProductViewSet
-from .views import CategoryViewSet, FeatureProductViewSet, OwnerProductViewSet, MyProductViewSet, LogoutView
+from .views import CategoryViewSet, ProductReviewViewSet, MessageViewSet, FeatureProductViewSet, BookmarkViewSet, OwnerProductViewSet, MyProductViewSet, LogoutView
 
 router = DefaultRouter()
 router.register(r'owner-products', OwnerProductViewSet, basename='owner-products')
@@ -16,6 +16,9 @@ router.register(r'regions', RegionsViewSet)
 router.register(r'feuture-product', FeatureProductViewSet)
 router.register(r'categories', CategoryViewSet)
 router.register(r'my-products', MyProductViewSet, basename='my-products')
+router.register(r'bookmarks', BookmarkViewSet, basename='bookmark')
+router.register(r'messages', MessageViewSet, basename='message')
+router.register(r'product-reviews', ProductReviewViewSet, basename='product-review')
 
 
 

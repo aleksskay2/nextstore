@@ -18,7 +18,8 @@ const AddProductUser = () => {
         image:null,
     })
 
-    const [image, setImage] = useState(null)
+    const [images, setImages] = useState([])
+    const [main_image, setMain_image] = useState(null)
     const [categories, setCategories] = useState([])
     const [regions, setRegions] = useState([])
     const [dateUpdate, setDateUpdate] = useState('')
@@ -52,7 +53,18 @@ const AddProductUser = () => {
     }
 
     const handleImageChange = e => {
-        setImage(e.target.files[0])
+        const files = Array.from(e.target.files);
+
+        const previews = files.map((file) => {
+            if (file instanceof File) {
+            return {
+                file,
+                preview: URL.createObjectURL(file),
+            };
+            }
+            return null;
+        }).filter(Boolean);
+        setImages(files)
     }
 
  // Проверка обязательных полей
@@ -85,9 +97,16 @@ const AddProductUser = () => {
             data.append(key, formData[key])
         }
            
+          console.log(images)
 
-        if (image) {
-            data.append('image', image)
+        if (main_image)
+        {
+            data.append('main_image', main_image)
+        }
+        if (images.length > 0) {
+            images.forEach((file) => {
+                data.append('product_images', file)
+            })
         }
 
         const token = localStorage.getItem('access');
@@ -100,12 +119,12 @@ const AddProductUser = () => {
         try {
             console.log('endPoint = ', endPoint)
             const token = localStorage.getItem('access')
-            
-                const response = await api.post(endPoint, data, {
-                    headers:{
-                        'Content-Type':'multipart/form-data',
-                    },
-                })
+            console.log('data ', data)    
+            await api.post(endPoint, data, {
+                headers:{
+                    'Content-Type':'multipart/form-data',
+                },
+            })
            
             alert('Товар добавлен')
         } catch(error) {
@@ -113,6 +132,15 @@ const AddProductUser = () => {
             alert('Ошибка при добавлении товара')
         }
     }
+
+    const handleMainImage = (e) => {
+        if (e.target.files && e.target.files[0])
+        {
+            setMain_image(e.target.files[0])
+        }
+          
+    }
+
     
     return (
         <form onSubmit={handleSubmit}>
@@ -159,7 +187,10 @@ const AddProductUser = () => {
           
             <br />
             <br />
-            <input type="file" accept="image/*" onChange={handleImageChange} />
+            <h3>Главное</h3>
+            <input type="file"  accept="image/*" onChange={handleMainImage} />
+
+            <input type="file" multiple accept="image/*" onChange={handleImageChange} />
             
             <br /><br />
             <button type="submit">Добавить товар</button>

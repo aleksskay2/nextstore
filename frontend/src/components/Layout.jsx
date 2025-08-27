@@ -5,7 +5,7 @@ import BottomNavbar from './BottomNavbar/BottomNavbar'
 const Layout = () => {
     return(
         <>
-            <Header/>
+            {/* <Header/> */}
             {/* <Link to="products/">Список товаров</Link>| */}
             {/* <Link to="/add-product">Добавить товар</Link> */}
             <BottomNavbar/>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from 'axios'
 import api from '../api/axios'
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+
 
 
 // Форма изменения товара владельцев
@@ -21,7 +22,8 @@ const EditOwnerProduct = () => {
         dateUpdate:''
     })
 
-    const [image, setImage] = useState(null)
+    const [images, setImages] = useState([])
+    const [main_image, setMain_image] = useState(null)
     const [previewImage, setPreviewImage] = useState(null)
     const [categories, setCategories] = useState([])
     const [regions, setRegions] = useState([])
@@ -48,7 +50,7 @@ const EditOwnerProduct = () => {
                 )
                 setFormData(response.data)
                 console.log('resDataEditOnwer', response.data)
-                setPreviewImage(response.data.image)
+                setPreviewImage(response.data.main_image)
                 {console.log('resImage',response.data.image)}
             }
             catch(error){
@@ -81,9 +83,19 @@ const EditOwnerProduct = () => {
 
 
     const handleImageChange = e => {
-        const file = e.target.files[0]
-        setImage(file)
-        setPreviewImage(URL.createObjectURL(file))
+         const files = Array.from(e.target.files);
+
+        const previews = files.map((file) => {
+            if (file instanceof File) {
+            return {
+                file,
+                preview: URL.createObjectURL(file),
+            };
+            }
+            return null;
+        }).filter(Boolean);
+
+        setImages((prev) => [...prev, ...previews]);
     }
 
     // Проверка обязательных полей
@@ -106,6 +118,7 @@ const EditOwnerProduct = () => {
 
 
 
+   
 
      const handleSubmit = async e => {
         e.preventDefault()
@@ -116,26 +129,35 @@ const EditOwnerProduct = () => {
             return;
         }
         
-        const data = new FormData()
+          const data = new FormData()
+       
     
-        for(const key in formData)
+       Object.entries(formData).forEach(([key, value]) =>
         {
             if (formData[key] !== null && formData[key] !== undefined)
             data.append(key, formData[key])
-        }
+        });
            
 
-        if (image) {
-            data.append('image', image)
+        if (main_image)
+        {
+            data.append('main_image', main_image)
         }
-        
-
+        if (images) {
+            Array.from(images).forEach((file) => {
+                data.append('product_images', file)
+            })
+        }
         
 
         try {
             
+              console.log('data')
+                for (let pair of data.entries()) 
+                console.log(pair[0], pair[1]);
+
             const token = localStorage.getItem('access')
-            const response =  await api.patch(`my-products/${id}/`,data, {
+            const response =  await api.post(`owner-products/${id}/`,data, {
                 headers:{
                     Authorization :`Bearer ${token}`,
                      'Content-Type': 'multipart/form-data',
@@ -144,15 +166,24 @@ const EditOwnerProduct = () => {
             console.log('data', data)
             alert('Товар добавлен')
         } catch(error) {
-            console.error('Ошибка при добавлении товара:', error.response?.date || error);
+            console.error('Ошибка при добавлении товара:', error.response?.data || error);
             alert('Ошибка при добавлении товара')
         }
 
     }
 
+    const handleMainImage = (e) => {
+        const file = e.target.files[0]
+        if (file)  {
+            setMain_image(file)
+            setPreviewImage(URL.createObjectURL( file))
+        }
+            
+    }
+
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} enctype="multipart/form-data"  >
             
             <input type="text" name="storeName" value={formData.storeName}
              placeholder="Название магазина" onChange={handleChange} />
@@ -201,15 +232,21 @@ const EditOwnerProduct = () => {
             {previewImage && (
                 <div>
                     <p>Текущее изображение</p>
-                    <img src={previewImage} alt=""  width={200}
+                    <img src={previewImage} alt=""  width={50}
                      />
                 </div>
             )}
-            <input type="file" accept="image/*" onChange={handleImageChange} />
+
+            <input type="file" accept="image/*"  onChange={handleMainImage} />
+            <input type="file" multiple accept="image/*" onChange={handleImageChange} />
              <br /><br />
 
             <button type="submit">Сохранить</button>
-            
+
+            <div>
+                <Link to="/my-products" style={{marginRight:'1rem'}}>Мои товары</Link>
+            </div>
+         
         </form>
     )
 }
