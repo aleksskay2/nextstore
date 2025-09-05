@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { parseJwt } from "../utils/jwt";
 
-
+import useStore from "./store/store";
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+
 
 const LoginForm = () => {
     const [formData, setFormData] = useState({username:'', password: ''});
     const [message, setMessage] = useState('')
     const [myId, setMyId] = useState('')
     const navigate = useNavigate()
+    const {login } = useStore()
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -23,7 +26,7 @@ const LoginForm = () => {
                     navigate('products/')
                 }
                 catch(error) {
-                    console.error('Tokey недействителен', error.response?.data ||
+                    console.error('Tokeн недействителен', error.response?.data ||
                         error.message
                     );
                     localStorage.removeItem('access')
@@ -54,6 +57,10 @@ const LoginForm = () => {
         try {
             const response = await api.post('token/', formData);
             localStorage.setItem('access', response.data.access)
+           
+            const decoded = jwtDecode(response.data.access)
+            login(decoded)
+
             localStorage.setItem('refresh', response.data.refresh)
             localStorage.setItem('user_id', myId)
             console.log('myid -' , myId)

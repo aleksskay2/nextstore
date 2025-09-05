@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from '../../api/axios'
 import { useParams } from "react-router-dom";
+import { FaCamera } from "react-icons/fa";
 
 
 // Форма добавления товара
@@ -21,7 +22,8 @@ const EditUserProduct = () => {
 
     const [main_image, setMain_image] = useState(null)
     const [images, setImages] = useState([])
-    const [previewImage, setPreviewImage] = useState(null)
+    const [preview, setPreview] = useState(null)
+    const [previews, setPreviews] = useState([])
     const [categories, setCategories] = useState([])
     const [regions, setRegions] = useState([])
     
@@ -31,7 +33,7 @@ const EditUserProduct = () => {
             try {
                 const response = await api.get(`edit-user-products/${id}/`)
                 setFormData(response.data)
-                setPreviewImage(response.data.main_image)
+                setPreview(response.data.main_image)
                 {console.log('resImage',response.data.main_image)}
             }
             catch(error){
@@ -73,7 +75,7 @@ const EditUserProduct = () => {
             }
             return null;
         }).filter(Boolean);
-
+        setPreviews(previews)
         setImages((prev) => [...prev, ...previews]);
     }
 
@@ -91,6 +93,7 @@ const EditUserProduct = () => {
         
         if (main_image)
         {
+            console.log('main_image - ', main_image)
             data.append('main_image', main_image)
         }
            
@@ -129,9 +132,13 @@ const EditUserProduct = () => {
     }
 
      const handleMainImage = (e) => {
-        const file = e.target.files[0]
-        if (file)
-            setMain_image(file)
+        if (e.target.files && e.target.files[0])
+        {
+            setMain_image(e.target.files[0])
+            const file = e.target.files[0];
+            const imageUrl = URL.createObjectURL(file)
+            setPreview(imageUrl)
+        }
           
     }
 
@@ -181,19 +188,83 @@ const EditUserProduct = () => {
             <br /><br />
           
             
-            {previewImage && (
-                <div>
-                    <p>Текущее изображение</p>
-                    <img src={previewImage} alt=""  width={30} 
-                     />
-                </div>
-            )}
-
-            <h2>Главное </h2>
-            <input type="file" multiple accept="image/*" onChange={handleMainImage} />
-
-            <input  multiple type="file" accept="image/*" onChange={handleImageChange} />
-             <br /><br />
+            <h3>Главное</h3>
+                       <div>
+                        { console.log('preview - ' , preview)} 
+                       {
+                           
+                           (preview) && (
+                               <img 
+                                   src={preview} 
+                                   alt="" 
+                                   width={40}
+                                   />
+                           )
+                       }
+           
+                       <input  
+                           id='fileMainInput'
+                           type="file"  
+                           accept="image/*" 
+                           style={{visibility:'hidden',
+                               display:'flex',
+                               flexDirection:'column',
+                               alignItems:'center'
+                           }}
+                           onChange={handleMainImage} />
+           
+                           <label  style={{backgroundColor:'lightblue', 
+                               padding:'2px',
+                               display:'flex',
+                               flexDirection:'column',
+                               alignItems:'center'
+                           
+                           }} htmlFor="fileMainInput">
+                               <FaCamera size={20}/>
+                              
+                               
+                               <span>Главное фото</span>
+                       </label>
+                       </div>
+                       
+                       {
+                           previews.map(item => (
+                                (item) && (
+                               <img 
+                                   src={item.preview} 
+                                   alt="" 
+                                   width={50}
+                                   />
+                           )
+                           ))
+                          
+                       }
+                       
+                        <input  multiple
+                           id='fileInput'
+                           type="file"  
+                           accept="image/*" 
+                           style={{visibility:'hidden',
+                               display:'flex',
+                               flexDirection:'column',
+                               alignItems:'center'
+                           }}
+                           onChange={handleImageChange} />
+           
+                           <label  style={{backgroundColor:'lightblue', 
+                               padding:'2px',
+                               display:'flex',
+                               flexDirection:'column',
+                               alignItems:'center'
+                           
+                           }} htmlFor="fileInput">
+                               <FaCamera size={20}/>                 
+                               
+                               <span>Дополнительные фото</span>
+                       </label>
+           
+                     
+             <br />
 
             <button type="submit">Сохранить</button>
             

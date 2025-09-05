@@ -3,9 +3,9 @@ import { useParams, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 
 function DialogPage() {
-	const { user1, user2 } = useParams();
+	const { user1, user2 , productId} = useParams();
 	const [searchParams] = useSearchParams();
-	const productId = searchParams.get("product");
+
 
 	const token = localStorage.getItem("access");
 
@@ -33,15 +33,15 @@ function DialogPage() {
 	
 	}, [user1, user2, productId]);
 
-	useEffect(() => {
-		scrollToBottom();
-	}, [messages])
+	// useEffect(() => {
+	// 	scrollToBottom();
+	// }, [messages])
 
   	const fetchMessages = async() => {
 	
 		try {
 			
-			const res = await api.get(`/messages/dialog/${user2}/${user1}/`, {
+			const res = await api.get(`/messages/dialog/${user2}/${user1}/${productId}`, {
 					headers: { Authorization: `Bearer ${token}` },
 				})
 			setMessages(res.data)
@@ -56,16 +56,22 @@ function DialogPage() {
   	const sendMessage = async() =>{
 		const receiverId = Number(user2)
 		try {
+			console.log('rec',receiverId )
+			console.log('text',input )
+			console.log('prod', productId)
+
 			await api.post('messages/send/', {
 				receiver_id:receiverId,
 				text: input,
-				
-			})
+				product:Number(productId)
+			},
+			{headers: { Authorization: `Bearer ${token}` }}
+			)
 			setInput('')
 			fetchMessages()
 		}
 		catch (error) {
-			console.error('Ошибка при отправке сообщения',)
+			console.error(error,'Ошибка при отправке сообщения',)
 		}
 	}
 

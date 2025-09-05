@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
-from django.db.models import Q
+from django.db.models import Q, Max, Count, When, IntegerField, Case, F
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
@@ -234,7 +234,56 @@ class MessageViewSet(viewsets.ModelViewSet):
         
         if not receiver:
             raise serializers.ValidationError('У этого товара нет владельца')
+        
+        if receiver == self.request.user:
+            raise serializers.ValidationError('Нельзя писать сообщение самому себе')
         serializer.save(sender=self.request.user, receiver=receiver)
+
+
+    @action(detail=False, methods=['get'], url_path='unread_count')
+    def unread_count(self, request):
+        user = request.user
+        count = Message.objects.filter(receiver=user, is_read=False).count()
+        return Response({'unread_count':count})
+
+    @action(detail=False, methods=['post'], url_path='mark_as_read')
+    def mark_as_read(self, request):
+        user = request.user
+        product_id = request.data.get('product_id')
+        sender_id = request.data.get('sender_id')
+
+        if not product_id or not sender_id:
+            return Response({'error':'product_id and sender_id required'}, status=400)
+
+        updated = Message.objects.filter(
+            sender_id=sender_id,
+            receiver=user,
+            product_id=product_id,
+            is_read=False,
+        ).update(is_read=True)
+
+        return Response({'updated':updated})
+
+
+    @action(detail=False, methods=['get'])
+    # def chats(self, request):
+    #     user = request.user
+
+    #     #выбираем все чаты, где есть user
+    #     messages = (
+    #         Message.objects.filter(Q(sender=user) | Q(receiver=user))
+    #         .select_related('product', 'sender', 'receiver')
+    #         .order_by('product_id', '-created_at')
+    #     )
+
+    #     # оставляем только последнее сообщение в чате (по тавору)
+    #     last_messsages = {}
+    #     for msg in messages:
+    #         if msg.product_id not in last_messsages:
+    #             last_messsages[msg.product_id] = msg
+        
+    #     serializer = self.get_serializer(last_messsages.values(), many=True)
+    #     return Response(serializer.data)
 
 
     @action(detail=False, methods=['get'])
@@ -245,28 +294,140 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    @action(detail=False, methods=['get'], url_path=r'dialog/(?P<user1_id>\d+)/(?P<user2_id>\d+)')
-    def dialog(self, request, user1_id=None, user2_id=None,):
-        messages = Message.objects.filter(Q(sender_id=user1_id, receiver_id=user2_id )
-                                           |Q(sender_id=user2_id, receiver_id=user1_id)
-                                           ).order_by('created_at')
-        serializer = self.get_serializer(messages, many=True)
-        return Response(serializer.data)
+    # @action(detail=False, methods=['get'], url_path=r'dialog/(?P<user1_id>\d+)/(?P<user2_id>\d+)/(?P<product_id>\d+)')
+    # def dialog(self, request, user1_id=None, user2_id=None, product_id=None):
+          
+    #         messages = (Message.objects.filter(
+    #         Q(sender_id=user1_id, receiver_id=user2_id, product_id=product_id)|
+    #         Q(sender_id=user2_id, receiver_id=user1_id, product_id=product_id)).order_by('-created_at')[:4]
+    #         )
+    #         messages = list(messages[::-1]) # в обратно порядке
+
+    #         serializer = self.get_serializer(messages, many=True)
+    #         return Response(serializer.data)
+
+        
+    @action(
+    detail=False,
+    methods=['get'],
+    url_path=r'dialog/(?P<user1_id>\d+)/(?P<user2_id>\d+)/(?P<product_id>\d+)'
+)
+    def dialog(self, request, user1_id=None, user2_id=None, product_id=None):
+        limit = int(request.query_params.get('limit', 10))
+        offset = int(request.query_params.get('offset', 10))
+
+        # выбираем сообщения между двумя юзерами по товару
+        qs = messages = (
+            Message.objects.filter(
+                Q(sender_id=user1_id, receiver_id=user2_id, product_id=product_id) |
+                Q(sender_id=user2_id, receiver_id=user1_id, product_id=product_id)
+            )
+            .order_by('-created_at') # например, последние 10
+        )
+        total_count = qs.count()
+        # переворачиваем порядок, чтобы были "снизу вверх"
+        messages = list(qs[offset:offset+limit][::-1])
+
+        serializer = self.get_serializer(messages, many=True, context={'request':request})
+
+        # считаем непрочитанные для текущего пользователя
+        unread_count = Message.objects.filter(
+            receiver=request.user,
+            sender_id=user1_id if str(request.user.id) != str(user1_id) else user2_id,
+            product_id=product_id,
+            is_read=False
+        ).count()
+
+        return Response({
+            "messages": serializer.data,
+            'total':total_count,
+            "unread_count": unread_count
+        })    
+    
+
+
+     
+       
+
+       
+    @action(detail=False, methods=['get'], url_path='chats')
+    def chats(self, request):
+        user_id = request.user.id
+
+        dialogs = (
+            Message.objects.filter(Q(sender_id= user_id) | Q(receiver_id=user_id))
+            .values('product_id', 'sender_id', 'receiver_id')
+            .annotate(
+                companion_id = Case(
+                    When (sender_id=user_id, then=F('receiver_id')),
+                    default=F('sender_id'),
+                    output_field=IntegerField()
+                )
+                )
+                .values('product_id', 'companion_id')
+                .annotate(
+                    last_message_id=Max('id'),
+                    unread_count=Count(
+                    'id',
+                    filter=Q(receiver_id=user_id, is_read=False)
+                )
+                )
+               
+            )
+        
+
+        last_ids = [d['last_message_id'] for d in dialogs if d['last_message_id']]
+        last_messages = (
+            Message.objects.filter(id__in=last_ids)
+            .select_related('product', 'sender', 'receiver'))
+        messages_map = {m.id: m for m in last_messages}
+
+        response_data = []
+        for d in dialogs:
+            msg = messages_map.get(d['last_message_id'])
+            if msg:
+                img_url = None
+                if msg.product and msg.product.main_image:
+                    img_url = request.build_absolute_uri(msg.product.main_image.url)
+                response_data.append({
+                    'product_id':d['product_id'],
+                    'product_name':msg.product.productName if msg.product else None,
+                    'product_image':img_url,
+                    'companion_id':d['companion_id'],
+                    'current_user_id':user_id,
+                    'last_message':msg.text,
+                    'last_message_at':msg.created_at,
+                    'unread_count':d['unread_count']
+                })
+        response_data.sort(key=lambda x: x['last_message_at'], reverse=True)
+        return Response(response_data)
+
 
 
 
     @action(detail=False, methods=['post'], url_path='send')
     def send_message(self, request):
+        print("DEBUG POST data:", request.data)
         receiver_id = request.data.get('receiver_id')
+        product_id = request.data.get('product')
        
         text = request.data.get('text')
-        if not receiver_id or not text:
+        if not receiver_id or not text or not product_id:
             return Response({'error':"receiver_id и text обязаетельны"}, status=400)
+
+        try:
+            receiver_id = int(receiver_id)
+            product_id = int(product_id)
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({'error':' Товар не найден'}, status=400)
+        if int(receiver_id) == request.user.id:
+            return Response({'error':'Нельзя отправлять сообщение самому себе'}, status=400)
 
         message = Message.objects.create(
             sender=request.user,
             receiver_id = receiver_id,
-           
+            product=product,
             text=text
         )
         return Response(self.get_serializer(message).data)
@@ -397,6 +558,12 @@ class EditUserProductViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
+          # Обновляем главное изображение
+        main_image = request.FILES.get('main_image')
+        if main_image:
+            instance.main_image = main_image
+            instance.save()
 
         uploaded_images = request.FILES.getlist('product_images')
         if uploaded_images:

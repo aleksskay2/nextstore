@@ -4,7 +4,7 @@ import styles from '../ProductItem/ProductItem.module.css'
 import delIcon from '../../assets/images/deletePng.png' 
 import { useState } from 'react'
 import api from '../../api/axios'
-import Message from '../Message/Message'
+
 
 
 
@@ -74,7 +74,7 @@ const ProductItem = ({ deleteProd, product, onBookmarkChange}) => {
                                                                               
                                     ) }   
                           
-                            <Link  to={`${product.id}`} className={styles['item-product']} key={product.id}>
+                            <Link  to={`/products/${product.id}`} className={styles['item-product']} key={product.id}>
                                   
                                     <div className={styles['item-product__content']}>
                                         <div className={styles['item-product__img-price']} >

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from 'axios'
 import api from '../api/axios'
+import {FaCamera} from 'react-icons/fa'
 
 
 // Форма добавления товара
@@ -19,6 +20,8 @@ const AddProductUser = () => {
     })
 
     const [images, setImages] = useState([])
+    const [priviews, setPreviews] = useState([])
+    const [preview, setPreview] = useState(null)
     const [main_image, setMain_image] = useState(null)
     const [categories, setCategories] = useState([])
     const [regions, setRegions] = useState([])
@@ -64,6 +67,8 @@ const AddProductUser = () => {
             }
             return null;
         }).filter(Boolean);
+        console.log('priviews - ', previews)
+        setPreviews(previews)
         setImages(files)
     }
 
@@ -137,6 +142,9 @@ const AddProductUser = () => {
         if (e.target.files && e.target.files[0])
         {
             setMain_image(e.target.files[0])
+            const file = e.target.files[0];
+            const imageUrl = URL.createObjectURL(file)
+            setPreview(imageUrl)
         }
           
     }
@@ -185,12 +193,82 @@ const AddProductUser = () => {
             {errors && <p style={{color:'red'}}>{errors.category}</p>}
          
           
-            <br />
-            <br />
+            
             <h3>Главное</h3>
-            <input type="file"  accept="image/*" onChange={handleMainImage} />
+            <div> 
+            {
+                (preview) && (
+                    <img 
+                        src={preview} 
+                        alt="" 
+                        width={40}
+                        />
+                )
+            }
 
-            <input type="file" multiple accept="image/*" onChange={handleImageChange} />
+            <input  
+                id='fileMainInput'
+                type="file"  
+                accept="image/*" 
+                style={{visibility:'hidden',
+                    display:'flex',
+                    flexDirection:'column',
+                    alignItems:'center'
+                }}
+                onChange={handleMainImage} />
+
+                <label  style={{backgroundColor:'lightblue', 
+                    padding:'2px',
+                    display:'flex',
+                    flexDirection:'column',
+                    alignItems:'center'
+                
+                }} htmlFor="fileMainInput">
+                    <FaCamera size={20}/>
+                   
+                    
+                    <span>Главное фото</span>
+            </label>
+            </div>
+            
+            {
+                priviews.map(item => (
+                     (item) && (
+                    <img 
+                        src={item.preview} 
+                        alt="" 
+                        width={40}
+                        />
+                )
+                ))
+               
+            }
+            
+             <input  multiple
+                id='fileInput'
+                type="file"  
+                accept="image/*" 
+                style={{visibility:'hidden',
+                    display:'flex',
+                    flexDirection:'column',
+                    alignItems:'center'
+                }}
+                onChange={handleImageChange} />
+
+                <label  style={{backgroundColor:'lightblue', 
+                    padding:'2px',
+                    display:'flex',
+                    flexDirection:'column',
+                    alignItems:'center'
+                
+                }} htmlFor="fileInput">
+                    <FaCamera size={20}/>
+                   
+                    
+                    <span>Дополнительные фото</span>
+            </label>
+
+          
             
             <br /><br />
             <button type="submit">Добавить товар</button>

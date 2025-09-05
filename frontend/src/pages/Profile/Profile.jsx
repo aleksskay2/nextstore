@@ -2,6 +2,7 @@ import {Link, useNavigate} from 'react-router-dom'
 import { parseJwt } from '../../utils/jwt';
 import { useEffect, useState } from 'react';
 import api from '../../api/axios';
+import useStore from '../../components/store/store';
 
 
 const Profile = () => {
@@ -10,7 +11,8 @@ const Profile = () => {
     const [isLoading, setIsLoading] = useState(true)
     const [user, setUser] = useState(null)
     const navigate= useNavigate();
-
+    const {logout} = useStore()
+   
     useEffect(()=> {
         fetchUser()
     }, [token, navigate])
@@ -53,10 +55,12 @@ const Profile = () => {
             console.log('Ошибка при выходе', error.response?.data || error.message);
         }
         finally {
-              localStorage.removeItem('access')
-        localStorage.removeItem('refresh')
-        setUser(null)
-        navigate("/login")
+            localStorage.removeItem('access')
+            localStorage.removeItem('refresh')
+            setUser(null)
+            logout()
+            setTimeout(() => navigate("/login"), 0)
+           
         }
 
       

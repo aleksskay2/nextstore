@@ -145,8 +145,8 @@
    
     .item-product__image img {
         display: flex;
-        width: 100px;
-        max-height: 140px;
+        width: 80px;
+        max-height: 100px;
         overflow: hidden;
         border-radius: 1px;
         background-color: rgb(255, 255, 255);

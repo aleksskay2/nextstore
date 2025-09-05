@@ -129,7 +129,8 @@ class Message(models.Model):
     )
     product = models.ForeignKey('Product', on_delete=models.CASCADE, null=True, blank=True)
     text = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=False)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class ProductReview (models.Model):

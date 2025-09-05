@@ -160,15 +160,6 @@ class ProductListSerializer(serializers.ModelSerializer):
             return 0
         return ProductReview.objects.filter(product=obj).count()
 
-    # def get_main_image(self, obj):
-    #     first_image = obj.images.first()
-    #     request = self.context.get('request')
-    #     if first_image:
-    #         if first_image.image:
-    #             return request.build_absolute_uri(first_image.image.url)
-    #         elif request:
-    #            first_image.image.url
-    #     return None
     
     def get_main_image(self, obj):
         request = self.context.get('request')
@@ -324,18 +315,20 @@ class BookmarkSerializer(serializers.ModelSerializer, ):
 class MessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.username', read_only=True)
     product_name = serializers.CharField(source='product.productName', read_only=True)
-    product_image = serializers.ImageField(source='product.image', read_only=True)
+    product_image = serializers.ImageField(source='product.main_image', read_only=True)
     is_own = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = ['id','sender', 'product_image','sender_name', 'is_own',
-                  'product_name','receiver','product','text','created_at']
+                  'product_name','receiver','product','text','created_at', 'is_read']
         read_only_fields = ['sender', 'receiver', 'created_at']
 
     def get_is_own(self, obj):
         request = self.context.get('request')
-        return obj.sender == request.user if request else False
+        if request and request.user:
+            return obj.sender_id == request.user.id
+        return False
     
 
 

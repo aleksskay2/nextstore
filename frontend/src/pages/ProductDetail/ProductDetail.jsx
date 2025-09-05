@@ -3,16 +3,18 @@ import api from '../../api/axios';
 import { useParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import backArrow from '../../assets/icons/arrow_back.svg'
-import Message from '../Message/Message'
+
 import ProductReviews from "../../components/ProductReviews";
 import ProductGallery from "../../components/ProductGallery/ProductGallery";
-// import useStore from "../../components/store/store"; 
+
+import useStore from "../../components/store/store"; 
 
 
 const ProductDetail = () => {
     const {id} = useParams();
     const [product, setProduct] = useState(null);
     const navigate =  useNavigate();
+    const {messageFirst, setMessageFirst} = useStore()
     
     useEffect(()=> {
         const fetchProduct = async () =>{
@@ -45,7 +47,11 @@ const ProductDetail = () => {
      
 
     
-   
+    const pageMessage = () => {
+        navigate(`/messages/${product.id}`)
+        setMessageFirst(true)
+        
+    }
 
 
 
@@ -133,8 +139,13 @@ const ProductDetail = () => {
 
                     </div> }
 
-                    
-                        <Message product={product} />
+                      <button
+                            style={{ display:'block', backgroundColor:'lightblue', width:'300px' }}
+                            onClick={() => navigate(`/chat/${product.id}`)}
+                            >
+                            Написать продавцу
+                            </button>
+                        {/* { <Message product={product} /> } */}
                         <ProductReviews  productId={product.id}/>
 
 

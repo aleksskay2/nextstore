@@ -1,10 +1,9 @@
 
-
-
 import api from "../api/axios";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import MessageChat from "./MessageChat";
 import { useNavigate } from "react-router-dom";
+import Message from "../pages/Message/Message";
 
 import DialogPage from "./DialogPage";
 
@@ -23,7 +22,7 @@ function InboxMessages(){
 		fetchInboxMessage();
 		setInterval(() => {
 			fetchInboxMessage();
-		}, 10000);
+		}, 5000);
 		
     }
         
@@ -36,7 +35,7 @@ function InboxMessages(){
                 setMessages(response.data)
                 console.log('messages', response.data)
                 setLoading(false)
-				 console.log('msg - ', localStorage.getItem('user_id'))
+				console.log('msg - ', localStorage.getItem('user_id'))
             }
             catch(error) {
                 console.error('Ошибка при загрузке сообщений', error)
@@ -48,7 +47,7 @@ function InboxMessages(){
 
 	// Группировка сообщений только по sender_id
 	const groupedMessages = messages.reduce((acc, msg) => {
-		const key = msg.sender;
+		const key = msg.sender +'_' + msg.product;
 		if (!acc[key] || new Date(msg.created_at) > new Date(acc[key].created_at)) {
 			acc[key] = msg;
 		}
@@ -60,11 +59,14 @@ function InboxMessages(){
 
     const openChat = (msg) => {
     const myId = localStorage.getItem('user_id')
+    const senderId = Number(msg.sender);
+  const receiverId = Number(msg.receiver);
 		const  user1 = msg.receiver;
 		const  user2 = Number(msg.sender)
 		const roomParams = user1 + '_' + user2;
     console.log('user1 - ', user1)
-		navigate(`/dialog/${user1}/${user2}`)		
+		// navigate(`/dialog/${user1}/${user2}/${msg.product}`)	
+      navigate(`/dialog/${user1}/${user2}/${msg.product}`);	
 
            
         }
@@ -95,6 +97,8 @@ function InboxMessages(){
             </div>
           ))}
 		  </div>
+
+		   
 		
 		
         </div>
