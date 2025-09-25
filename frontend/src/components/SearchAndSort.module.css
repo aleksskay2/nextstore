@@ -4,6 +4,7 @@
         height: 18px;
         font-size: 13.5px;
         background-color: #ABDEF4;
+      
     }   
 
   .search__logo {
@@ -65,7 +66,7 @@
         border-radius: 7px;
         border:1px solid #d6d9e8;
         height: 30px;
-        
+        padding-left: 10px;
         
     }
     .search__logo {

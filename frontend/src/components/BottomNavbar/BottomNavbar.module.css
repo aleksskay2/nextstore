@@ -6,6 +6,7 @@
     height: 50px;
     width: 100%;
     border:1px solid lightblue;
+    z-index: 3;
 }
 
 .bottom-bar__container {
@@ -34,10 +35,14 @@
 }
 
 .item-bar__title {
-    font-size: 17px;
+    font-size: 14px;
     color:#000;
 }
 
+
+.item-bar__messages {
+    padding-top: 3px;
+}
 /* 
 <div className={styles.bottomBar}>
             <div className="bottom-bar__container">

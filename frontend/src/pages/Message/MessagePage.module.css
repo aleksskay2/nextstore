@@ -1,0 +1,35 @@
+.chats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.chat__list {
+    width: 90%;
+    display: flex;
+    justify-content: space-evenly;
+    background-color: rgb(217, 233, 243);
+    margin: 0px 0px 10px 0px;
+    padding: 2px;
+    border-radius: 5px;
+
+
+}
+
+.chats__image {
+    width: 100px;
+    height: 80px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    display:flex;
+    justify-content: center;
+    align-items: center;
+   
+}
+
+.chats__image img {
+    width: 100%;
+    height: 100%;
+    object-fit:contain;
+}

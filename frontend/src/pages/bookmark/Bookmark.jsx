@@ -10,7 +10,7 @@ import SearchAndSort from '../../components/SearchAndSort';
 import SelCategory from '../../components/SelCategory';
 
 import delIcon from '../../assets/images/deletePng.png'
-import ProductItem from "../ProductItem/ProductItem";
+import ProductItem from "../Product/ProductItem";
 
 
 const BookMark = () => {

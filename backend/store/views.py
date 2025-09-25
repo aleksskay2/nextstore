@@ -21,7 +21,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, permissions, serializers
-from .models import Admins, Product, Message, ProductImage, ProductReview, Bookmark,SelectionObject, Regions, Category, FeatureProduct, CustomUser
+from .models import Admins, Product, Message,MessageImage, ProductImage, ProductReview, Bookmark,SelectionObject, Regions, Category, FeatureProduct, CustomUser
 from .serializers import AdminsSerializer, ProductListSerializer, ProductDetailSerializer, ProductImagesSerializer, ProductReviewSerializer, MessageSerializer, BookmarkSerializer,  SelectionObjectSerializer, RegionsSerializer
 from .serializers import (
     CategorySerializzer,
@@ -106,6 +106,10 @@ class ProductUserViewSet(viewsets.ModelViewSet):
             return ProductListSerializer
         return ProductDetailSerializer
 
+
+
+
+
     def get_queryset(self):
         productUser = self.request.query_params.get('type')
         category_id = self.request.query_params.get('category')
@@ -128,21 +132,21 @@ class ProductUserViewSet(viewsets.ModelViewSet):
 
     
       
-    action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    def upload_images(self, request, pk=None):
-        product = self.get_object()
+    # action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    # def upload_images(self, request, pk=None):
+    #     product = self.get_object()
         
-        if product.owner != request.user:
-            return Response({'error': "Изображение можно добавлять только для своих товаров."},
-                            status=status.HTTP_403_FORBIDDEN)
+    #     if product.owner != request.user:
+    #         return Response({'error': "Изображение можно добавлять только для своих товаров."},
+    #                         status=status.HTTP_403_FORBIDDEN)
 
-        images = request.FILES.getlist('product_images')
-        if not images:
-            return Response({'error': 'Файлы не загружены.'}, status=status.HTTP_400_BAD_REQUEST)
+    #     images = request.FILES.getlist('product_images')
+    #     if not images:
+    #         return Response({'error': 'Файлы не загружены.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        product_images_objs = []
-        for img in images:
-            obj = ProductImage.objects.create(product=product, image=img)
+    #     product_images_objs = []
+    #     for img in images:
+    #         obj = ProductImage.objects.create(product=product, image=img)
        
     
 
@@ -169,6 +173,7 @@ class ProductUserViewSet(viewsets.ModelViewSet):
         # for img in uploaded_images:
         #     ProductImage.objects.create(product=product, image=img)
         #     product.save()
+
 
 class BookmarkViewSet(viewsets.ModelViewSet):
     serializer_class = BookmarkSerializer
@@ -412,8 +417,8 @@ class MessageViewSet(viewsets.ModelViewSet):
         product_id = request.data.get('product')
        
         text = request.data.get('text')
-        if not receiver_id or not text or not product_id:
-            return Response({'error':"receiver_id и text обязаетельны"}, status=400)
+        if not receiver_id  or not product_id:
+            return Response({'error':"receiver_id  обязательный"}, status=400)
 
         try:
             receiver_id = int(receiver_id)
@@ -430,6 +435,12 @@ class MessageViewSet(viewsets.ModelViewSet):
             product=product,
             text=text
         )
+
+        images = request.FILES.getlist('images')
+        for img in images:
+            MessageImage.objects.create(message=message, image=img)
+
+
         return Response(self.get_serializer(message).data)
 
 

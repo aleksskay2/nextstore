@@ -1,0 +1,111 @@
+.container {
+   display: flex;
+   justify-content: center;
+   align-items: center;
+   
+}
+.container__content {
+    width: 75%;
+    padding: 0px 0px 100px 0px;
+   
+}
+.container__content h2 {
+    text-align: center;
+}
+
+
+/* .form {
+    display: flex;
+    justify-content: center;
+
+} */
+
+.form input {
+    width: 100%;
+    padding: 7px;
+    margin: 0px 0px 5px 0px;
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+}
+
+.form__category, .form__region {
+     width: 100%;
+    padding: 7px;
+    margin: 0px 0px 5px 0px;
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+}
+
+
+.form__store-name {
+    
+}
+
+
+.form__input-main {
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0px 0px 10px 0px;
+}
+.main-image{
+    position: relative;
+    display: flex; 
+    justify-content: center;  
+    flex-direction: column;
+   
+    align-items: center;
+}
+.main-image img{
+    position: relative;
+    margin: 0px 0px 10px 0px;
+  
+   
+}
+
+.main-image__img  {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    border-radius: 10px;
+    object-fit:contain;
+    
+}
+
+.form__sumbit {
+    width: 100%;
+    background-color: #90dcff;
+    border:none;
+    padding: 10px 10px;
+    border-radius: 5px;
+    color:#000;
+    margin: 0px 0px 10px 0px;
+}
+
+.form__additional-photo {
+    margin: 0px 0px 15px 0px;
+}
+
+
+a {
+    text-decoration: none;
+    color:inherit;
+}
+
+
+
+.container__my-products {
+   display: flex;
+   justify-content: right;
+}
+
+.form__my-products {
+    background-color: #95d5e6;
+    text-align: center;
+    width: 50%;
+    color:black;
+    border-radius: 5px;
+    
+}

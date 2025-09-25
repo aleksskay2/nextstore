@@ -10,6 +10,7 @@
 
 .chat__message {
     display: flex;
+    padding: 0px 7px;
 }
 
 .chat__date {
@@ -43,6 +44,8 @@
 }
 .chat__text {
    max-width: 75%;
+   font-size: 15px;
+  
        
 }
 
@@ -53,8 +56,63 @@
     padding:8px 15px;
 }
 
-.chat__text.white{
+.chat__text.sender{
     background-color: rgb(234, 229, 229);
     border-radius: 8px;
     padding:8px 15px;
+}
+
+.chat__images {
+    margin: 0px 0px 0px 0px;
+    cursor: pointer;
+    width: 70%;
+   
+}
+
+.chat__send {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0px 7px;
+}
+
+.send__clip input {
+    display: none;
+}
+.send__clip img {
+   max-width: 23px;
+}
+
+.input__message {
+    flex:60%;
+    margin: 0px 5px;
+}
+.input__message input {
+    display: block;
+    height: 40px;
+    width: 100%;
+    border: 1px solid lightblue;
+    border-radius: 5px;
+    padding: 0px 10px;
+}
+.input__message input:focus {
+    outline: none;
+    border: 1px solid rgb(15, 177, 231);
+}
+
+.send__message button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 30px;
+    background-color: #ffffff;
+    border:none;
+    border-radius: 5px;
+
+}
+.send__message img {
+   
+    width: 25px;
+    max-height: 20px;
 }

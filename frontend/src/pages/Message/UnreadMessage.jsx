@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import favorite from '../../assets/images/favorite.png'
 import styles from './UnreadMessage.module.css'
 import useStore  from '../../components/store/store'
-
+import iconmessages from '../../assets/icons/messages.png'
 
 const UnreadMessage = () => {
     const user = useStore((s) => s.user);
@@ -78,7 +78,7 @@ const UnreadMessage = () => {
                 <div className={styles['item-bar']} >
                     <div className={styles['item-bar__content']}>
                         <div className={styles['item-bar__image']}>
-                            <img src={favorite} alt="not logo" />
+                            <img src={iconmessages} alt="not logo" />
                         </div>
                         <div className={styles['item-bar__title']}>Сообщения</div>
                         

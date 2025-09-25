@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.conf import settings
-from .models import Admins, Product,ProductReview, ProductImage, Bookmark, Message, SelectionObject, Regions, Category, FeatureProduct, CustomUser
+from .models import Admins, Product,ProductReview, MessageImage, ProductImage, Bookmark, Message, SelectionObject, Regions, Category, FeatureProduct, CustomUser
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Count;
 from django.utils.timezone import localtime
@@ -112,7 +112,8 @@ class ProductListSerializer(serializers.ModelSerializer):
         fields = ['id', 'productName', 'price', 'productUser', 'address', 'dateUpdate', 'storeName', 'region'
                   , 'category', 'owner_info', 
                    'is_bookmark', 'product_rating','reviews', 
-                   'product_reviews_count', 'main_image',
+                   'product_reviews_count', 'main_image', 'main_image_webp', 
+                   'main_image_thumb'
                     ]
         read_only_fields = ['reviewer', 'productUser']
 
@@ -200,7 +201,11 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = (
+                'id',  'storeName', 'productName', 'price', 'address', 'region', 'category',
+                'owner_info', 'is_bookmark', 'product_rating', 'product_reviews_count',
+                'reviews', 'images', 'main_image', 'product_images',  # <-- product_images останется, но только для записи
+            )
         extra_kwargs={
             'owner':{'read_only':True},
             'productUser':{'read_only':True},
@@ -244,9 +249,10 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     def create (self, validated_data):
         uploaded_images = validated_data.pop('product_images',[])
         product = super().create(validated_data)
-
-        for img in uploaded_images:
-            ProductImage.objects.create(product = product, image = img)
+        request = self.context.get('request')
+        if  not request.user.is_authenticated:
+            for img in uploaded_images:
+                ProductImage.objects.create(product = product, image = img)
         return product 
         
     # def update(self, instance, validated_data):
@@ -312,7 +318,14 @@ class BookmarkSerializer(serializers.ModelSerializer, ):
         fields = ['id', 'product', 'created_at']
 
 
+class MessageImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MessageImage
+        fields = ['id', 'image']
+
+
 class MessageSerializer(serializers.ModelSerializer):
+    images = MessageImageSerializer(many=True, read_only=True)
     sender_name = serializers.CharField(source='sender.username', read_only=True)
     product_name = serializers.CharField(source='product.productName', read_only=True)
     product_image = serializers.ImageField(source='product.main_image', read_only=True)
@@ -320,7 +333,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ['id','sender', 'product_image','sender_name', 'is_own',
+        fields = ['id','sender', 'product_image','sender_name', 'is_own', 'images',
                   'product_name','receiver','product','text','created_at', 'is_read']
         read_only_fields = ['sender', 'receiver', 'created_at']
 

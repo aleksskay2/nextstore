@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import {BrowserRouter as Router, Routes, Route, Navigate} from 'react-router-dom'
-import ProductList  from './pages/ProductList/ProductList'
+import ProductList  from './pages/Product/ProductList'
 
 import Home from './pages/Home'
 import './App.css'
-import AddProductUser from './pages/AddProductUser'
+import AddProductUser from './pages/Product/AddProductUser'
 import Header from './components/Header/Header'
 import RegisterPage from './pages/RegisterPage'
 import LoginPage from './pages/LoginPage'
@@ -64,7 +64,7 @@ function App() {
           <Route path='/' element={<ProductList/>}/>
           <Route path='/register' element={<RegisterPage/>}/>
           <Route path='/login' element={<LoginPage/>}/>
-          <Route path = 'products/' element={<ProductList/>}/>
+          <Route path = '/products' element={<ProductList/>}/>
           <Route path='/add-product' element={<AddProductUser/>}/>
           <Route path='/edit-user-product/:id' element={<EditUserProduct/>}/>
           <Route path='/profile' element={<Profile/>}/>

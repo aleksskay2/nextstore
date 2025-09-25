@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import api from "../../api/axios";
 
-const useStore = create(
+const useStore = create( 
     persist(
         (set, get) => ({
 

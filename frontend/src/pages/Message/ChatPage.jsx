@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import api from "../../api/axios";
@@ -6,28 +5,43 @@ import styles from "./ChatPage.module.css";
 import { jwtDecode } from "jwt-decode";
 import useStore from "../../components/store/store";
 import MessageStatus from "./MessageStatus";
+import ImageGallery from "./ImageGallery";
+import DoubleClickImage from "./DoubleClickImage";
+import clip from '../../assets/icons/clip.png'
+import messageIcon from '../../assets/icons/arrow_message.png'
+import { cn } from "../../utils/cn";
 
 const ChatPage = () => {
     const { productId } = useParams();
     const location = useLocation();
     const senderFromState = location.state?.sender || null; // безопасно
 
-    const setUnreadRefresh = useStore((s) => s.setUnreadRefresh)
-    const setEnterChat = useStore((s) => s.setEnterChat)
-    const fetchUnread  = useStore((s) => s.fetchUnread)
+    const setUnreadRefresh = useStore((s) => s.setUnreadRefresh);
+    const setEnterChat = useStore((s) => s.setEnterChat);
+    const fetchUnread = useStore((s) => s.fetchUnread);
 
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState("");
+    const [files, setFiles] = useState([]);
+
     const [product, setProduct] = useState(null);
     const [currentUserId, setCurrentUserId] = useState(null);
-    const [receiverId, setReceiverId] = useState(null) // сюда сохраним с кем чат
-    const [offset, setOffset] = useState(0)
-    const [hasMore, setHasMore] = useState(true)
-    const chatRef = useRef(null)
-    
+    const [receiverId, setReceiverId] = useState(null); // сюда сохраним с кем чат
+    const [offset, setOffset] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const chatRef = useRef(null);
+
+    const [galleryOpen, setGalleryOpen] = useState(false);
+    const [galleryImages, setGalleryImages] = useState([]);
+    const [startIndex, setStartIndex] = useState(0);
+
+    const openGallery = (images, index) => {
+        setGalleryImages(images);
+        setStartIndex(index);
+        setGalleryOpen(true);
+    };
+
     const limit = 10;
-   
-    
 
     function getCurrentUser() {
         const token = localStorage.getItem("access");
@@ -41,128 +55,199 @@ const ChatPage = () => {
     }
 
     useEffect(() => {
+        fetchInitialData();
+    }, [productId, senderFromState]);
 
-        //  const fetchUnread = async () => {
+    const fetchInitialData = async () => {
+        setEnterChat(true);
+        try {
+            // 1. получаем данные продукта
+            const productRes = await api.get(`products/${productId}`);
+            setProduct(productRes.data);
 
-        //     try {
-        //         const res = await api.get('messages/unread_count');
-        //         // setUndreadCount(res.data.unread_count)
-        //         console.log('res.data.unread_counе in ChatPage - ', res.data.unread_count)
-        //         setUnreadRefresh(res.data.unread_count)
-        //     }
-        //     catch (error) {
-        //         console.error('Ошибка при получении непрочитанных сообщений.', error )
-        //     }
-        // }
-        // fetchUnread()
-        fetchDialog(true);
-     }, [productId, senderFromState]);
+            const ownerId = productRes.data.owner_info?.id;
 
+            // 2. текущий пользователь
+            const user = getCurrentUser();
+            if (!user) return;
 
-    const fetchDialog = async (reset = false) => {
-            setEnterChat(true)
-            try {
-                // 1. получаем данные продукта
-                const productRes = await api.get(`products/${productId}`);
-                setProduct(productRes.data);
+            setCurrentUserId(user.user_id);
 
-                const ownerId = productRes.data.owner_info?.id;
+            // 3. определяем собеседника: либо из state, либо продавец
+            const otherUserId = senderFromState || ownerId;
+            setReceiverId(otherUserId);
 
-                // 2. текущий пользователь
-                const user = getCurrentUser();
-                if (!user) return;
+            fetchDialog(true, user.user_id, otherUserId);
+        } catch (error) {
+            console.error("Ошибка при загрузке продукта,", error);
+        }
+    };
 
-                setCurrentUserId(user.user_id);
+    const fetchDialog = async (
+        reset = false,
+        userId = currentUserId,
+        otherId = receiverId
+    ) => {
+        if (!userId || !otherId) return;
 
-                // 3. определяем собеседника: либо из state, либо продавец
-                const otherUserId = senderFromState || ownerId;
-                setReceiverId(otherUserId);
+     
+        if (!reset && chatRef.current) {
+            prevScrollHeight = chatRef.current.scrollHeight;
+        }
 
-                // 4. получаем диалог
-                const dialogRes = await api.get(
-                    `messages/dialog/${user.user_id}/${otherUserId}/${productId}/?limit=${limit}&offset=${reset ? 0 :offset}`
-                );
+        try {
+            // 4. получаем диалог
+            const dialogRes = await api.get(
+                `messages/dialog/${userId}/${otherId}/${productId}/?limit=${limit}&offset=${
+                    reset ? 0 : offset
+                }`
+            );
+
+          
 
                 if (reset) {
                     setMessages(dialogRes.data.messages || []);
-                    console.log('dialRes in ChatPage - ', dialogRes.data)
+                    console.log("dialRes in ChatPage - ", dialogRes.data);
                     setOffset(limit);
                     // console.log('enterChat - ', enterChat)
+                    setTimeout(() => {
+                        if (chatRef.current) {
+                            chatRef.current.scrollTop =
+                                chatRef.current.scrollHeight;
+                        }
+                    }, 0);
+                } else {
+
+                      if (chatRef.current) {
+                
+                        const prevScrollHeight = chatRef.current.scrollHeight;
+                        const prevScrollTop = chatRef.current.scrollTop;    
+                            setMessages((prev) => [
+                                ...(dialogRes.data.messages || []),
+                                ...prev,
+                            ]);
+                            setOffset((prev) => prev + limit);
+
+                            // восстанавливаем позицию.
+                            // setTimeout(() => {
+                            //     if (chatRef.current) {
+                            //         const newScrollHeight =
+                            //             chatRef.current.scrollHeight;
+                            //         chatRef.current.scrollTop =
+                            //             newScrollHeight -
+                            //             prevScrollHeight +
+                            //             prevScrollTop;
+                            //     }
+                            // }, 0);
                 }
-                else {
-                    setMessages((prev) => [...dialogRes.data.messages || [], ...prev]) 
-                    setOffset((prev) => prev + limit)
-                }
-                if ((dialogRes.data.messages.length < limit) ) {
-                    setHasMore(false)
-                }
-              
-            } catch (error) {
-                console.error("Ошибка при загрузке чата", error);
             }
-        };
+            
 
+            if (dialogRes.data.messages.length < limit) {
+                setHasMore(false);
+            }
+        } catch (error) {
+            console.error("Ошибка при загрузке чата", error);
+        }
+    };
 
-    useEffect(() =>
-        {
-			let cancelled = false;
-			(async () => {
-				 try {
-                    if (receiverId && productId) {
-                        await api.post('messages/mark_as_read/', {
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                if (receiverId && productId) {
+                    await api.post("messages/mark_as_read/", {
                         product_id: productId,
                         sender_id: receiverId,
-                    })
-
+                    });
                 }
-                
-				if (cancelled) return;
-				const res = await api.get('messages/unread_count')
-				console.log('res.data.unread_count ChatPage - ',res.data.unread_count )
-				setUnreadRefresh(res.data.unread_count)
 
-			} catch (error) {
-				console.error('Ошибка при загрузки диалога сообщений.', error)
-			}
-			}
-		)()
-		return () => {
-			cancelled = true
-		}
+                if (cancelled) return;
+                const res = await api.get("messages/unread_count");
+                console.log(
+                    "res.data.unread_count ChatPage - ",
+                    res.data.unread_count
+                );
+                setUnreadRefresh(res.data.unread_count);
+            } catch (error) {
+                console.error("Ошибка при загрузки диалога сообщений.", error);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [receiverId, productId]);
 
-               
-       
-
-    },[receiverId, productId])
-
-   
-    useEffect(() =>{
+    useEffect(() => {
         if (chatRef.current)
-        chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }, [messages])
+            chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }, [messages]);
+
+    // useEffect(() => {
+    //     fetchDialog(true);
+    // }, [productId, senderFromState]);
 
     const handleScroll = () => {
-        
-        if (chatRef.current.scrollTop === 0 && hasMore ) {
-           
-            fetchDialog()
+        if (chatRef.current.scrollTop === 0 && hasMore) {
+            fetchDialog(false);
         }
-    }
+    };
 
+    // const sendMessage = async () => {
+    //     if (!text.trim()) return;
+    //     try {
+    //         const res = await api.post("messages/send/", {
+    //             receiver_id: receiverId,
+    //             product: productId,
+    //             text,
+    //         });
+
+    //         setMessages((prev) => [...prev, res.data]);
+    //         setText("");
+    //     } catch (error) {
+    //         console.error("Ошибка при отправке:", error);
+    //     }
+    // };
 
     const sendMessage = async () => {
-        if (!text.trim()) return;
+        if (!text.trim() && !files) return;
+
         try {
-            const res = await api.post("messages/send/", {
-                receiver_id: receiverId,
-                product: productId,
-                text,
+            const formData = new FormData();
+            formData.append("receiver_id", receiverId);
+            formData.append("product", productId);
+
+            let messageText = text;
+            // Когда отдельно отправляем изображение, тогда в качестве
+            // текста используем имя изображения.
+            if (messageText.trim() === "" && files[0]?.name) {
+                messageText = files[0].name;
+                setText(files[0].name);
+            }
+
+            if (messageText.trim()) {
+                formData.append("text", messageText);
+            }
+            console.log("file in ChatPage - ", files);
+            if (files) {
+                for (let i = 0; i < files.length; i++) {
+                    formData.append("images", files[i]);
+                }
+            }
+
+            console.log("text in ChatPage - ", text);
+            const res = await api.post("messages/send/", formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
             });
 
             setMessages((prev) => [...prev, res.data]);
+            // очисить после отправки
             setText("");
+            setFiles([]);
         } catch (error) {
-            console.error("Ошибка при отправке:", error);
+            console.error("Ошибка при отпраке", error);
         }
     };
 
@@ -170,7 +255,11 @@ const ChatPage = () => {
         <div>
             <h2>Чат по товару: {product?.productName}</h2>
 
-            <div className={styles['chat']}  ref={chatRef} onScroll={handleScroll}>
+            <div
+                className={styles["chat"]}
+                ref={chatRef}
+                onScroll={handleScroll}
+            >
                 {messages.map((msg) => (
                     <div key={msg.id}>
                         <div className={styles["chat__date"]}>
@@ -187,49 +276,99 @@ const ChatPage = () => {
                                 className={`${styles.chat__text} ${
                                     msg.is_own
                                         ? styles["color-text"]
-                                        : styles.white
+                                        : styles.sender
                                 }`}
                             >
                                 {msg.text}
-                                <MessageStatus isRead={msg.is_read}/>
+                                <div>
+                                    {msg.images &&
+                                        msg.images.map((img, index) => (
+                                            <div>
+                                                <DoubleClickImage
+                                                    key={img.id}
+                                                    src={img.image}
+                                                    onDoubleClick={() =>
+                                                        openGallery(
+                                                            msg.images,
+                                                            index
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        ))}
+                                </div>
+                                {galleryOpen && (
+                                    <div
+                                        style={{
+                                            position: "fixed",
+                                            top: 0,
+                                            left: 0,
+                                            width: "100vw",
+                                            height: "100vh",
+                                            background: "rgba(0,0,0,0.8)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                        }}
+                                        onClick={() => setGalleryOpen(false)}
+                                    >
+                                        <img
+                                            src={
+                                                galleryImages[startIndex].image
+                                            }
+                                            alt=""
+                                            style={{
+                                                maxWidth: "90%",
+                                                maxHeight: "90%",
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                                <MessageStatus isRead={msg.is_read} />
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
-
-            <div>
-                <input
+              
+            <div className={cn(styles.chat__send, styles.send)} >
+                <div className={styles["send__clip"]} >
+                     <input
+                        id="inputFile"
+                        multiple
+                        type="file"
+                       
+                        accept="image/*"
+                        onChange={(e) => setFiles(e.target.files)}
+                    />
+                    <label htmlFor="inputFile">
+                    <img src={clip} alt=""  />
+                </label>
+                </div>
+                
+               
+               <div className={styles["input__message"]} >
+                     <input
+                     name="message_text"
                     type="text"
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Введите сообщение..."
                 />
-                <button onClick={sendMessage}>Отправить</button>
+               </div>
+                <div className={styles["send__message"]} >
+                      <button onClick={sendMessage}>
+                        <img src={messageIcon} alt=""  /></button>
+                </div>
+
+               
+               
             </div>
         </div>
     );
 };
 
 export default ChatPage;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // import { useEffect, useState } from "react";
 // import { useParams, useLocation } from "react-router-dom";
@@ -343,7 +482,7 @@ export default ChatPage;
 //         if (!text.trim()) return;
 //         try {
 //             const res = await api.post("messages/send/", {
-//                 receiver_id: messages.length ? 
+//                 receiver_id: messages.length ?
 //           (messages[0].sender === currentUserId ? messages[0].receiver : messages[0].sender) :null,
 //                 product: productId,
 //                 text
@@ -401,9 +540,6 @@ export default ChatPage;
 // };
 
 // export default ChatPage;
-
-
-
 
 // import { useEffect, useState } from "react";
 // import { useParams, useLocation } from "react-router-dom";
@@ -519,11 +655,6 @@ export default ChatPage;
 // };
 
 // export default ChatPage;
-
-
-
-
-
 
 // import { useEffect, useState } from "react";
 // import { useParams } from "react-router-dom";

@@ -2,18 +2,27 @@ import styles from './BottomNavbar.module.css'
 import icon from '../../assets/images/LetterS.png'
 import favorite from '../../assets/images/favorite.png'
 import iconuser from '../../assets/icons/user.png'
-import { Link } from 'react-router-dom'
+import iconmessages from '../../assets/icons/user.png'
+import { Link, replace, useNavigate } from 'react-router-dom'
 import UnreadMessage from '../../pages/Message/UnreadMessage'
+
+
+
 
 
 const BottomNavbar = () =>{
    
-
-    
+    // const navigate = useNavigate();
+    // const handleClick = (e) => {
+    //     e.preventDefault();
+    //     navigate('/products', {replace:true})
+    //     window.location.reload();
+    // }
+     
     return(
         <div className={styles['bottom-bar']}>
             <div className={styles['bottom-bar__container']}>
-                <Link  className={styles['item-bar']} to="products/"  >
+                <Link  className={styles['item-bar']} to="/products"  >
                     <div className={styles['item-bar__content']}>
                         <div className={styles['item-bar__image']}>
                             <img src={icon} alt="not logo" />
@@ -34,7 +43,7 @@ const BottomNavbar = () =>{
                         </div>
                     </Link>
                     
-                    <Link   to='/messages' >
+                    <Link  className={styles['item-bar__messages']}  to='/messages' >
                         <UnreadMessage/>
                     </Link>
                        

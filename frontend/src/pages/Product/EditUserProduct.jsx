@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import api from '../../api/axios'
 import { useParams } from "react-router-dom";
 import { FaCamera } from "react-icons/fa";
+import FormAddEdit from "./FormAddEdit";
+import useDictionary from "../../components/store/useDictionary";
 
 
 // Форма добавления товара
@@ -24,9 +26,15 @@ const EditUserProduct = () => {
     const [images, setImages] = useState([])
     const [preview, setPreview] = useState(null)
     const [previews, setPreviews] = useState([])
-    const [categories, setCategories] = useState([])
-    const [regions, setRegions] = useState([])
+    // const [categories, setCategories] = useState([])
+    // const [regions, setRegions] = useState([])
+    const [errors, setErrors] = useState({});
     
+
+     const {categories,  fetchCategories} = useDictionary();
+    const {regions,  fetchRegions} = useDictionary();
+
+
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -41,21 +49,13 @@ const EditUserProduct = () => {
             }
         }
 
-        const fetchCategAndRegions = async () => {
-            try {
-                const responseCategories = await api.get('categories/')
-                const responseRegions = await api.get('regions/')
-                setCategories(responseCategories.data)
-                setRegions(responseRegions.data)
-                {console.log('responeReg', responseRegions)}
-            }
-            catch(error){
-                console.error('Ошибка при загрузке категорий и регионов')
-            }
-        }
+       
          fetchProducts(),
-        fetchCategAndRegions()},
-    [id])
+         fetchCategories(),
+        fetchRegions()
+    } ,[id])
+
+
 
 
     const handleChange = e => {
@@ -79,9 +79,37 @@ const EditUserProduct = () => {
         setImages((prev) => [...prev, ...previews]);
     }
 
+
+     const validationFrom = () => {
+        const newErrors = {};
+        if (!formData.storeName.trim())
+            newErrors.storeName = 'поле "Название магазина обязательно" ';
+        if (!formData.productName.trim())
+            newErrors.productName = 'поле "Название магазина обязательно" ';
+        if (!formData.address.trim())
+            newErrors.address = 'поле "Название магазина обязательно" ';
+        if (!formData.region)
+            newErrors.region = 'поле "Название магазина обязательно" ';
+        if (!formData.category)
+            newErrors.category = 'поле "Название магазина обязательно" ';
+        if (!formData.price.trim() && formData.price <= 0)
+            newErrors.price = 'Цена не заполнено или меньше либо равно 0!" ';
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+
      const handleSubmit = async e => {
         e.preventDefault()
           {console.log('formData', formData)}
+
+
+             // если есть обязательные поля,  то выход из функции
+        if (!validationFrom()) {
+            alert("Заполните обязательные поля!");
+            return;
+        }
         
         const data = new FormData()
     
@@ -113,7 +141,7 @@ const EditUserProduct = () => {
         
 
         try {
-                console.log('data')
+                console.log('data ')
                 for (let pair of data.entries()) {
                 console.log(pair[0], pair[1]);
 }
@@ -143,132 +171,140 @@ const EditUserProduct = () => {
     }
 
     return (
-        <form onSubmit={handleSubmit}>
-             {
-                console.log('id', id)
-             }
-            <input type="text" name="storeName" value={formData.storeName}
-             placeholder="Название магазина" onChange={handleChange} />
-            <br /><br />
+
+
+        <FormAddEdit handleSubmit={handleSubmit} formData={formData} 
+            regions={regions} categories={categories} 
+            previewImage={preview} handleChange={handleChange} errors={errors}
+            handleMainImage={handleMainImage} handleImageChange={handleImageChange}
+         />
+
+        // <form onSubmit={handleSubmit}>
+        //      {
+        //         console.log('id', id)
+        //      }
+        //     <input type="text" name="storeName" value={formData.storeName}
+        //      placeholder="Название магазина" onChange={handleChange} />
+        //     <br /><br />
            
-            <input type="text" name="productName" value={formData.productName}
-            placeholder="Товар" onChange={handleChange} />
-             <br /><br />
+        //     <input type="text" name="productName" value={formData.productName}
+        //     placeholder="Товар" onChange={handleChange} />
+        //      <br /><br />
             
-            <input type="text" name="price" placeholder="Цена"  value={formData.price}
-             onChange={handleChange} />
-            <br /><br />
+        //     <input type="text" name="price" placeholder="Цена"  value={formData.price}
+        //      onChange={handleChange} />
+        //     <br /><br />
 
-            <input type="text" name="address" placeholder="Адрес" value={formData.address}
-            onChange={handleChange} />
-          <br /><br />
+        //     <input type="text" name="address" placeholder="Адрес" value={formData.address}
+        //     onChange={handleChange} />
+        //   <br /><br />
 
-            <input type="date" name="dateUpdate" value={formData.dateUpdate} 
-             readOnly onChange={handleChange} />
-        <br /><br />
+        //     <input type="date" name="dateUpdate" value={formData.dateUpdate} 
+        //      readOnly onChange={handleChange} />
+        // <br /><br />
 
-            <select name="region" value={formData.region} onChange={handleChange}>
-                <option value="">Выбери регион</option>
+        //     <select name="region" value={formData.region} onChange={handleChange}>
+        //         <option value="">Выбери регион</option>
                
-                {regions.map(region => (
-                    <option key={region.id} value={region.id}>{region.nameRegions}</option>
-                ))}
-            </select>
-            <br /><br />
-            <select name="category" value={formData.category} onChange={handleChange}>
+        //         {regions.map(region => (
+        //             <option key={region.id} value={region.id}>{region.nameRegions}</option>
+        //         ))}
+        //     </select>
+        //     <br /><br />
+        //     <select name="category" value={formData.category} onChange={handleChange}>
                 
-                <option value="">Выбери категории</option>
-                {
+        //         <option value="">Выбери категории</option>
+        //         {
                   
-                    categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.CategoryName}</option>
-                    ))
-                }
-            </select>
-            <br /><br />
+        //             categories.map(cat => (
+        //                 <option key={cat.id} value={cat.id}>{cat.CategoryName}</option>
+        //             ))
+        //         }
+        //     </select>
+        //     <br /><br />
           
             
-            <h3>Главное</h3>
-                       <div>
-                        { console.log('preview - ' , preview)} 
-                       {
+        //     <h3>Главное</h3>
+        //                <div>
+        //                 { console.log('preview - ' , preview)} 
+        //                {
                            
-                           (preview) && (
-                               <img 
-                                   src={preview} 
-                                   alt="" 
-                                   width={40}
-                                   />
-                           )
-                       }
+        //                    (preview) && (
+        //                        <img 
+        //                            src={preview} 
+        //                            alt="" 
+        //                            width={40}
+        //                            />
+        //                    )
+        //                }
            
-                       <input  
-                           id='fileMainInput'
-                           type="file"  
-                           accept="image/*" 
-                           style={{visibility:'hidden',
-                               display:'flex',
-                               flexDirection:'column',
-                               alignItems:'center'
-                           }}
-                           onChange={handleMainImage} />
+        //                <input  
+        //                    id='fileMainInput'
+        //                    type="file"  
+        //                    accept="image/*" 
+        //                    style={{visibility:'hidden',
+        //                        display:'flex',
+        //                        flexDirection:'column',
+        //                        alignItems:'center'
+        //                    }}
+        //                    onChange={handleMainImage} />
            
-                           <label  style={{backgroundColor:'lightblue', 
-                               padding:'2px',
-                               display:'flex',
-                               flexDirection:'column',
-                               alignItems:'center'
+        //                    <label  style={{backgroundColor:'lightblue', 
+        //                        padding:'2px',
+        //                        display:'flex',
+        //                        flexDirection:'column',
+        //                        alignItems:'center'
                            
-                           }} htmlFor="fileMainInput">
-                               <FaCamera size={20}/>
+        //                    }} htmlFor="fileMainInput">
+        //                        <FaCamera size={20}/>
                               
                                
-                               <span>Главное фото</span>
-                       </label>
-                       </div>
+        //                        <span>Главное фото</span>
+        //                </label>
+        //                </div>
                        
-                       {
-                           previews.map(item => (
-                                (item) && (
-                               <img 
-                                   src={item.preview} 
-                                   alt="" 
-                                   width={50}
-                                   />
-                           )
-                           ))
+        //                {
+        //                    previews.map(item => (
+        //                         (item) && (
+        //                        <img 
+        //                            src={item.preview} 
+        //                            alt="" 
+        //                            width={50}
+        //                            />
+        //                    )
+        //                    ))
                           
-                       }
+        //                }
                        
-                        <input  multiple
-                           id='fileInput'
-                           type="file"  
-                           accept="image/*" 
-                           style={{visibility:'hidden',
-                               display:'flex',
-                               flexDirection:'column',
-                               alignItems:'center'
-                           }}
-                           onChange={handleImageChange} />
+        //                 <input  multiple
+        //                    id='fileInput'
+        //                    type="file"  
+        //                    accept="image/*" 
+        //                    style={{visibility:'hidden',
+        //                        display:'flex',
+        //                        flexDirection:'column',
+        //                        alignItems:'center'
+        //                    }}
+        //                    onChange={handleImageChange} />
            
-                           <label  style={{backgroundColor:'lightblue', 
-                               padding:'2px',
-                               display:'flex',
-                               flexDirection:'column',
-                               alignItems:'center'
+        //                    <label  style={{backgroundColor:'lightblue', 
+        //                        padding:'2px',
+        //                        display:'flex',
+        //                        flexDirection:'column',
+        //                        alignItems:'center'
                            
-                           }} htmlFor="fileInput">
-                               <FaCamera size={20}/>                 
+        //                    }} htmlFor="fileInput">
+        //                        <FaCamera size={20}/>                 
                                
-                               <span>Дополнительные фото</span>
-                       </label>
+        //                        <span>Дополнительные фото</span>
+        //                </label>
            
                      
-             <br />
+        //      <br />
 
-            <button type="submit">Сохранить</button>
+        //     <button type="submit">Сохранить</button>
             
-        </form>
+        // </form>
     )
 }
 

@@ -2,6 +2,11 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import User
 from django.conf import settings
+from django.core.files.base import ContentFile
+from io import BytesIO
+from PIL import Image
+import os
+
 
 # Create your models here.
 
@@ -106,7 +111,11 @@ class Product(models.Model):
                               null=True, blank=True)
     storeName = models.CharField(max_length=100, null=True, blank=True)  # для user или admin, если нужно
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    
     main_image = models.ImageField(upload_to='products/main', null=True, blank=True)
+    main_image_webp = models.ImageField(upload_to='product/webp', blank=True, null=True)
+    main_image_thumb = models.ImageField(upload_to='products/thumbs/', blank=True, null=True)
+
     productName = models.CharField(max_length=100)
     address = models.CharField(max_length=100)
     dateUpdate = models.DateField(auto_now_add=True, null=True, blank=True)
@@ -115,7 +124,30 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True)
     description = models.CharField(max_length=2000, null=True, blank=True )
 
-    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        if self.main_image:
+            img = Image.open(self.main_image)
+
+            img_webp_io = BytesIO()
+            img.save(img_webp_io, format='WEBP',   quality=70)
+            webp_filename = os.path.splitext(self.main_image.name)[0] + '.webp'
+            self.main_image_webp.save(webp_filename,
+                                       ContentFile(img_webp_io.getvalue()), save=False)
+
+            # создаем thumb
+            img_thumb = img.copy()
+            img_thumb.thumbnail((300, 300))
+            thumb_io = BytesIO()
+            img_thumb.save(thumb_io, format='WEBP', quality=70)
+            thumb_filename = os.path.splitext(self.main_image.name)[0] + '_thumb.webp'
+            self.main_image_thumb.save(thumb_filename, ContentFile(thumb_io.getvalue()), save=False)
+
+            super().save(update_fields=['main_image_webp', 'main_image_thumb'])
+
+
+
 class Message(models.Model):
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -129,8 +161,18 @@ class Message(models.Model):
     )
     product = models.ForeignKey('Product', on_delete=models.CASCADE, null=True, blank=True)
     text = models.TextField()
+    image = models.ImageField(upload_to='messages/', blank=True, null=True)
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class MessageImage (models.Model):
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name='images'
+    )
+    image = models.ImageField(upload_to='messages/')
 
 
 class ProductReview (models.Model):

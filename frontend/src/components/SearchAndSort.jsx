@@ -4,25 +4,23 @@ import styles from './SearchAndSort.module.css'
 import iconsearch from '../assets/images/LetterS.png'
 import { Link } from "react-router-dom";
 import addPlus from '../assets/icons/add_insert_plus_1588.png'
+import { useStore } from "zustand";
+import useDictionary from './store/useDictionary'
+import RegionSelect from "./UI/RegionSelect";
 
 const SearchAndSort = ({onTextSearch, onRegionSelect, selectedCategory,
      onFilter, onResults, onClear}) => {
     const [query, setQuery] = useState("");
-    const [region, setRegion] = useState("");
-    const [regions, setRegions] = useState([]);
+     const [region, setRegion] = useState("");
+    // const [regions, setRegions] = useState([]);
     const [regId, setRegId] = useState()
+
+   const {regions, fetchRegions} = useDictionary();
 
 
   // Получение списка регионов
   useEffect(() => {
-    const fetchRegions = async () => {
-      try {
-        const response = await api.get("/regions/");
-        setRegions(response.data);
-      } catch (error) {
-        console.error("Ошибка загрузки регионов", error);
-      }
-    };
+    
     fetchRegions();
   }, []);
 
@@ -56,7 +54,6 @@ const SearchAndSort = ({onTextSearch, onRegionSelect, selectedCategory,
                  response = await api(`products/?region=${regId}`, {
                     params:{
                             search:query,
-
                             ordering:'price'
                         }
                     }
@@ -94,10 +91,11 @@ const SearchAndSort = ({onTextSearch, onRegionSelect, selectedCategory,
     };
 
 
-    const handleChange = async (e) => {
-        const selectedRegId = e.target.value;
+    const handleChange = async (selectedOption) => {
+        // const selectedRegId = e.target.value;
+        const selectedRegId = selectedOption;
         onRegionSelect(selectedRegId)
-        
+        console.log('selectionRegid in SearchAndSort', selectedOption)
         setRegion(selectedRegId)
         try {
             let response ;
@@ -205,7 +203,7 @@ const SearchAndSort = ({onTextSearch, onRegionSelect, selectedCategory,
 
                         <div className={styles['region__item']}> 
                           
-                                <select name="regions" className={styles['region__list']}  value={region}
+                                {/* {  <select  name="regions" className={styles['region__list']}  value={region}
                                     onChange={ handleChange}>
                                         <option value="0">Все регионы</option>
                                         {regions.map((r) => (
@@ -213,7 +211,13 @@ const SearchAndSort = ({onTextSearch, onRegionSelect, selectedCategory,
                                             {r.nameRegions}
                                         </option>
                                     ))}
-                            </select>
+                            </select>  } */}
+                             <RegionSelect 
+                                regions={regions}
+                                value={regId}
+                                onChange={handleChange}
+                            /> 
+                            
                         </div>
                     </div>
 
