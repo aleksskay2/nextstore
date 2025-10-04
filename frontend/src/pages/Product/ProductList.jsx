@@ -1,5 +1,5 @@
-import React, {useState, useEffect} from 'react'
-import { Link,useNavigate } from 'react-router-dom';
+import React, {useState, useEffect, useRef} from 'react'
+import { Link,useNavigate, useLocation } from 'react-router-dom';
 // import {ReactComponent as TrashIcon} from '../../assets/icons/basket.svg'
 import api from '../../api/axios'
 import EditUserProduct from './EditUserProduct'
@@ -11,12 +11,16 @@ import styles from './ProductList.module.css'
 import {FaHeart, FaRegHeart} from 'react-icons/fa'
 import ProductItem from './ProductItem'
 import useStore from '../../components/store/store';
+import { useScroll } from '../../components/store/scroll';
 
 
 
 const ProductList = () => {
+   
     const [products, setProducts] = useState([])
-    const {activeFilter, setActiveFilter} = useStore()
+    
+
+
     const [editId, setEditId] = useState(null)
     const [query, setQuery ] = useState('')
 	const [selectedCategory, setSelectedCategory] = useState('')
@@ -24,6 +28,85 @@ const ProductList = () => {
     const [textSearch, setTextSearch] = useState('')
     const [bookmarks, setBookmarks] = useState([])
     
+    const [nextUrl, setNextUrl] = useState(null)
+    const [loading, setLoading] = useState(false);
+
+    const {activeFilter, setActiveFilter} = useStore()
+    const {scrollY, setScrollY} = useScroll();
+
+    const initialUrl = '/products/?limit=20'
+
+    const listRef = useRef(null)
+
+
+    const loadProducts = async (URL, append = false) => {
+        if (activeFilter === 'user') {
+            URL = '/api/products/?type=user'
+        }
+        if (activeFilter === 'owner') {
+            URL = '/api/products/?type=owner'
+        }
+        if (!URL ) return;
+        setLoading(true)
+        try {
+            const res = await api.get(URL)
+             if (!selectedCategory) 
+            setProducts((prev) => (
+                append ? [...prev, ...res.data.results] : res.data.results
+            ))
+            setNextUrl(res.data.next)
+            // console.log('res.data.next in ProdList', res.data.next)
+        }
+        catch(error)
+        {
+            console.error('Ошибка при получении товаров', error)
+        }
+        finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+      
+        loadProducts(initialUrl)
+       
+
+    }, [])
+
+//    const location = useLocation()
+
+//     // ИЗМЕНЕНО: Убрана зависимость от location.pathname — сохраняем только при unmount
+//     useEffect(() => {
+//         return () => {
+//             const pos =setScrollY(listRef.current?.scrollTop ?? 0)
+//             console.log('Сохранение scrollY:', pos, 'на пути:', location.pathname);  // ДОБАВЬ
+//         setScrollY(pos);
+//         }
+//     }, [setScrollY])  // Или [] , если setScrollY стабилен
+
+//     // ИЗМЕНЕНО: Добавлена зависимость от location.pathname, чтобы восстановление срабатывало при возврате на маршрут
+//     // (на всякий случай, если стор не сразу reactive)
+//     useEffect(() => {
+//         // if (!products.length || !scrollY) return
+//         // if (!listRef.current) return
+
+//         const raf = requestAnimationFrame(() => {
+//             listRef.current.scrollTop = scrollY
+//             setScrollY(0)
+//             console.log('Применено scrollTop:', scrollY);  // ДОБАВЬ
+//         })
+//         return () => cancelAnimationFrame(raf)
+//     }, [products, scrollY, setScrollY, location.pathname])  // Добавле
+
+    const loadMore = () => {
+
+        if (nextUrl) {
+            loadProducts(nextUrl, true)
+        }
+    }
+
+
+
 
    const handleCategorySelect = (categoryId) => {
     setSelectedCategory(categoryId)
@@ -44,19 +127,20 @@ const ProductList = () => {
     const fetchProducts = async (filter)  => {
      
        try{
+              console.log('selectedCategory in ProdList- ' , selectedCategory)
             let url = 'products/'
             if (filter === 'owner')
-                url += '?type=owner'
+                url += `?type=owner&region=${selectedRegion}`
             else
                 if (filter === 'user')
-                    url += '?type=user'
+                    url += `?type=user&region=${selectedRegion}`
             
            
                
            
 
             if (selectedCategory ) {
-                if (url === 'products/' ){
+                if (url === 'products/'  ){
                     if (selectedRegion === '0' ) 
                     {
                         url += `?category=${selectedCategory}`    
@@ -64,7 +148,7 @@ const ProductList = () => {
                     }
                     else {
                         url += `?category=${selectedCategory}&region=${selectedRegion}`
-                        console.log('selReg - ' , selectedRegion)
+                      
                     }
                    
                 }
@@ -75,6 +159,7 @@ const ProductList = () => {
                         url += `&category=${selectedCategory}`            
                     }
                     else {
+                        url = url.slice(0, -9)
                          if (url ==='products/?type=owner'|| url ==='products/?type=user')
                         url += `&category=${selectedCategory}&region=${selectedRegion}` 
                     }
@@ -117,13 +202,13 @@ const ProductList = () => {
 
                 
             }
-
+           
 
             console.log('url--', url)
             const response = await api.get(url)
                   console.log('respList -', response.data)
-            setProducts(response.data)
-           
+            setProducts(response.data.results)
+            setNextUrl(response.data.next)
         }
        catch(error) {
             console.error(error)
@@ -136,13 +221,26 @@ const ProductList = () => {
 
 
 
-
+    
     useEffect( () => {
         fetchProducts(activeFilter)
+        console.log('activeFilter in ProdList ', activeFilter)
     },[activeFilter])
 
 
 
+
+    // фильтрация или поиск (SearchAndSort вызывает это)
+    const handleResults = (data) => {
+        if (Array.isArray(data.results)) {
+        setProducts(data.results);
+        setNextUrl(data.next);
+        } else {
+        // если вернулся массив без пагинации
+        setProducts(data);
+        setNextUrl(null);
+        }
+    };
 
     // Для удаления данных с productUser = 'user'
     const handleDelete = async (id) => {
@@ -207,7 +305,7 @@ const ProductList = () => {
 
     const handleClearSearch = () => {
         setProducts([])
-        fetchProducts(activeFilter)
+        // fetchProducts(activeFilter)
     }
 
 
@@ -217,72 +315,71 @@ const ProductList = () => {
 
     return (
         <>
-            <SelCategory  
-            selectedRegion={selectedRegion} onCategorySelect={handleCategorySelect} 
-             className={styles['categ-add__category']} onResults={(results) => setProducts(results)}/>
-           
-            <SearchAndSort 
+            <SelCategory
+                selectedRegion={selectedRegion}
+                onCategorySelect={handleCategorySelect}
+                className={styles["categ-add__category"]}
+                onResults={(results) => setProducts(results)}
+                onNextUrl = {(next) => setNextUrl(next)}
+            />
+
+            <SearchAndSort
                 onTextSearch={handleTextSearch}
                 onRegionSelect={handleRegionSelect}
-                
                 selectedCategory={selectedCategory}
-                query={query} setQuery={setQuery}  onFilter={(results) => setProducts(results)} 
-                    onResults={(results)  => setProducts(results)} onClear={handleClearSearch}    
+                query={query}
+                setQuery={setQuery}
+                onFilter={handleResults}
+                onResults={handleResults}
+                onClear={handleClearSearch}
             />
-                      
 
-            
-            
-           
-       
-            <div className={styles['product']}>
-                <div className={styles['product__container']}>
-                    <div className={styles['product__body']}>
-                        <div className={styles['product__buttons']}>
-                            
-                            <button className={`${styles['product__button']} ${styles['product__buttons__all']}`}
-                                onClick={() => setActiveFilter('all')}  style={buttonStyle('all')}  >Все 
+            <div ref={listRef} className={styles["product"]}>
+                <div className={styles["product__container"]}>
+                    <div className={styles["product__body"]}>
+                        <div className={styles["product__buttons"]}>
+                            <button
+                                className={`${styles["product__button"]} ${styles["product__buttons__all"]}`}
+                                onClick={() => setActiveFilter("all")}
+                                style={buttonStyle("all")}
+                            >
+                                Все
                             </button>
-                            <button className={`${styles['product__button']} ${styles['product__buttons__owners']}`}  
-                                onClick={() => setActiveFilter('owner')}                     
-                                style={buttonStyle('owner')} >
+                            <button
+                                className={`${styles["product__button"]} ${styles["product__buttons__owners"]}`}
+                                onClick={() => setActiveFilter("owner")}
+                                style={buttonStyle("owner")}
+                            >
                                 Владельцы
                             </button>
-                            <button className={`${styles['product__button']} ${styles['product__buttons__users']}`}  
-                                onClick={() => setActiveFilter('user')}
-                                style={buttonStyle('user')} >Люди
+                            <button
+                                className={`${styles["product__button"]} ${styles["product__buttons__users"]}`}
+                                onClick={() => setActiveFilter("user")}
+                                style={buttonStyle("user")}
+                            >
+                                Люди
                             </button>
-
-
-                           
-                                        
                         </div>
-                        {
-                            products.map(product => (
-                                <ProductItem  deleteProd={handleDelete}  key={product.id}
-                                    product={product} 
-                                    onBookmarkChange={updateBookmark}
-                                />
-                            ))
-                        }
-                          
-                        
-                        
+                        {products.map((product) => (
+                            <ProductItem
+                                deleteProd={handleDelete}
+                                key={product.id}
+                                product={product}
+                                onBookmarkChange={updateBookmark}
+                            />
+                        ))}
 
-                   
-                   
-                        
+                        {/* {console.log("nextUrl", nextUrl)} */}
+                        {nextUrl && (
+                            <button onClick={loadMore} disabled={loading}>
+                                {loading ? "Загрузка..." : "Показать еще"}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
-           
-            
-          
-            
-           
-       
         </>
-    )
+    );
 
   
 

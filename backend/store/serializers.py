@@ -188,6 +188,9 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
+    user_phone = serializers.SerializerMethodField()
+
+    owner_phone = serializers.CharField(source='owner.phone', read_only=True)
     owner_info = serializers.SerializerMethodField()
     is_bookmark = serializers.SerializerMethodField()
     product_rating = serializers.SerializerMethodField()
@@ -203,8 +206,10 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         model = Product
         fields = (
                 'id',  'storeName', 'productName', 'price', 'address', 'region', 'category',
-                'owner_info', 'is_bookmark', 'product_rating', 'product_reviews_count',
-                'reviews', 'images', 'main_image', 'product_images',  # <-- product_images останется, но только для записи
+                'owner_info', 'is_bookmark', 'product_rating', 
+                'product_reviews_count', 'owner_phone',
+                'reviews', 'images', 'main_image', 'user_phone','productUser',
+                'product_images', 'description'  # <-- product_images останется, но только для записи
             )
         extra_kwargs={
             'owner':{'read_only':True},
@@ -213,6 +218,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ['reviewer', 'productUser']
 
+    def get_user_phone(self, obj):
+        if obj.productUser == 'owner' and obj.owner:
+            return obj.owner.phone
+        elif obj.productUser == 'user':
+            return obj.user_phone
+        return None
 
     def get_queryset(self):
         category_id = self.request.query_params.get('category')

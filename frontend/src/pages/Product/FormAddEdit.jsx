@@ -15,7 +15,8 @@ const FormAddEdit = ({
     errors,
     handleMainImage,
     handleImageChange,
-    previews,
+    previewsAdd,
+    preview,
 }) => {
     const [update, setUpdate] = useState();
     const [user, setUser] = useState(false);
@@ -35,10 +36,9 @@ const FormAddEdit = ({
     },[]);
     return (
         <div className={cn(styles.container)}>
-            <div className={styles['container__content']}>
-                 <h3>Добавление товара</h3>
-              
-                
+            <div className={styles["container__content"]}>
+                <h3>Добавление товара</h3>
+
                 <form
                     className={cn(styles.container__form, styles.form)}
                     onSubmit={handleSubmit}
@@ -91,6 +91,15 @@ const FormAddEdit = ({
                     {errors && <p style={{ color: "red" }}>{errors.address}</p>}
 
                     <input
+                        className={cn(styles.form__address)}
+                        type="text"
+                        name="user_phone"
+                        placeholder="Номер телефона"
+                        value={formData.user_phone}
+                        onChange={handleChange}
+                    />
+
+                    <input
                         className={cn(styles.dateUpdate)}
                         type="date"
                         name="dateUpdate"
@@ -115,7 +124,6 @@ const FormAddEdit = ({
                         ))}
                     </select>
                     {errors && <p style={{ color: "red" }}>{errors.region}</p>}
-                   
 
                     <select
                         className={cn(styles.form__category)}
@@ -135,14 +143,24 @@ const FormAddEdit = ({
                     )}
                     <br />
 
-                    {/* {previewImage && (
+                      {/* {previewImage && (
                     <div className={styles["form__image"]}>
                         <p>Текущее изображение</p>
                         <img src={previewImage} alt="" width={30} />
-                    </div>
-                )} */}
+                    </div> 
+                )}   */}
 
+                    <div className={styles["desc__item-text"]}>
+                        <textarea 
+                            name="description" 
+                            id=""
+                            value={formData.description || ''}
+                            onChange={handleChange}>
+                        </textarea>
+                    </div>
+                    {console.log('previewImage in Form', previewImage)}
                     <div className={styles["main-image"]}>
+                        
                         {previewImage && (
                             <img
                                 className={styles["main-image__img"]}
@@ -150,6 +168,7 @@ const FormAddEdit = ({
                                 alt=""
                             />
                         )}
+
 
                         <input
                             className={styles["form__input-main"]}
@@ -169,61 +188,81 @@ const FormAddEdit = ({
                             <p style={{ color: "red" }}>{errors.main_image}</p>
                         )}
 
-                        {
-                            (edit === false ) ? (
-                                (!previewImage) && (
-                            <label
-                            style={{
-                                backgroundColor: "lightblue",
-                                padding: "2px",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                borderRadius:'5px',
-                                marginBottom:'10px'
-                                
-                            }}
-                            htmlFor="fileMainInput"
-                        >
-                            <FaCamera size={20} />
+                        {edit === false
+                            ? !previewImage && (
+                                  <label
+                                      style={{
+                                          backgroundColor: "lightblue",
+                                          padding: "2px",
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          alignItems: "center",
+                                          borderRadius: "5px",
+                                          marginBottom: "10px",
+                                      }}
+                                      htmlFor="fileMainInput"
+                                  >
+                                      <FaCamera size={20} />
 
-                            <span>Главное фото</span>
-                        </label>
-                            )
-                        ):(
-                              (!edit && previewImage) && (
-                            <label
-                            style={{
-                                backgroundColor: "lightblue",
-                                padding: "2px",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                borderRadius:'5px',
-                                marginBottom:'10px'
-                                
-                            }}
-                            htmlFor="fileMainInput"
-                        >
-                            <FaCamera size={20} />
+                                      <span>Главное фото</span>
+                                  </label>
+                              )
+                            : !edit &&
+                              previewImage && (
+                                  <label
+                                      style={{
+                                          backgroundColor: "lightblue",
+                                          padding: "2px",
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          alignItems: "center",
+                                          borderRadius: "5px",
+                                          marginBottom: "10px",
+                                      }}
+                                      htmlFor="fileMainInput"
+                                  >
+                                      <FaCamera size={20} />
 
-                            <span>Главное фото</span>
-                        </label>
-                        )
-                        
-                        )
-                     
-                        }
-                        
+                                      <span>Главное фото</span>
+                                  </label>
+                              )}
                     </div>
+                            
+                    {console.log('previews', preview)}
 
-                    {previews &&
+                    {/* {
+                           
+                         (
+                            previews &&
                         previews.map(
                             (item) =>
                                 item && (
                                     <img src={item.preview} alt="" width={40} />
                                 )
+                        )
+                        )
+                    } */}
+
+                    {console.log('previewsAdd', previewsAdd)}
+                    
+                    {(previewsAdd) &&
+                        previewsAdd.map(
+                            (item) =>
+                                item && (
+                                    <img src={item.preview} alt="" width={40} />
+                                )
                         )}
+
+                      {console.log('edit', edit)}
+                    {(previewsAdd && edit) &&
+                        previewsAdd.map(
+                            (item) =>
+                                item && (
+                                    <img src={item.image} alt="" width={40} />
+                                )
+                        )}
+
+                        
 
                     <input
                         multiple
@@ -231,14 +270,13 @@ const FormAddEdit = ({
                         type="file"
                         accept="image/*"
                         style={{
-                          
                             display: "none",
-                            
                         }}
                         onChange={handleImageChange}
                     />
 
-                    <label className={styles['form__additional-photo']}
+                    <label
+                        className={styles["form__additional-photo"]}
                         style={{
                             backgroundColor: "lightblue",
                             padding: "2px",
@@ -257,21 +295,18 @@ const FormAddEdit = ({
                         Добавить товар
                     </button>
 
-                    <div className={styles['container__my-products']}>
+                    <div className={styles["container__my-products"]}>
                         <div className={styles["form__my-products"]}>
-                        {
-                            (user) && (
-                                <Link to="/my-products" 
-                                style={{ marginRight: "1rem" }}>
+                            {user && (
+                                <Link
+                                    to="/my-products"
+                                    style={{ marginRight: "1rem" }}
+                                >
                                     Мои товары
                                 </Link>
-                            )
-                        }
-
+                            )}
+                        </div>
                     </div>
-                 
-                    </div>
-                   
                 </form>
             </div>
         </div>

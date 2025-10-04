@@ -40,7 +40,11 @@
     }
     
 
-    
+    .product {
+        /* overflow-y: auto !important;   Включает скролл в div */
+      /*  height: 100vh;                Фиксированная высота, чтобы div скроллился */
+        /* max-height: 100vh; */
+    }
 
 
     .product__count {
@@ -49,12 +53,13 @@
 
 
     .product__body {
-
+        padding: 0px 0px 60px 0px;
     }
 
     .product__buttons {
         display: flex;
-         margin-bottom: 10px;
+        margin-bottom: 10px;
+        /* position:fixed; */
     }
     .product__button{
         /* padding: 7px 10px; */

@@ -25,6 +25,7 @@ const EditOwnerProduct = () => {
     const [images, setImages] = useState([]);
     const [main_image, setMain_image] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
+    const [previewsAdd, setPreviewsAdd] = useState(null)
       const [previews, setPreviews] = useState([]);
     // const [categories, setCategories] = useState([]);
     // const [regions, setRegions] = useState([]);
@@ -52,6 +53,7 @@ const EditOwnerProduct = () => {
                 setFormData(response.data);
                 console.log("resDataEditOnwer", response.data);
                 setPreviewImage(response.data.main_image);
+                setPreviewsAdd(response.data.images)
                 {
                     console.log("resImage", response.data.image);
                 }
@@ -197,7 +199,7 @@ const EditOwnerProduct = () => {
             regions={regions} categories={categories} 
             previewImage={previewImage} handleChange={handleChange} errors={errors}
             handleMainImage={handleMainImage} handleImageChange={handleImageChange}
-            previews={previews}
+            previewsAdd={previewsAdd} priviews={previews}
          />
 
 

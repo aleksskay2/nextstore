@@ -13,16 +13,18 @@ const AddProductUser = () => {
         productName: "",
         price: "",
         address: "",
+        user_phone:"",
         region: "",
         weight: "",
         category: "",
-
+        descrption:'',
         main_image: null,
     });
 
     const [images, setImages] = useState([]);
     const [previews, setPreviews] = useState([]);
     const [preview, setPreview] = useState(null);
+    const [previewsAdd, setPreviewsAdd] = useState(null);
     const [main_image, setMain_image] = useState(null);
     // const [categories, setCategories] = useState([]);
     // const [regions, setRegions] = useState([]);
@@ -72,7 +74,7 @@ const AddProductUser = () => {
             })
             .filter(Boolean);
         console.log("priviews - ", previews);
-        setPreviews(previews);
+        setPreviewsAdd(previews);
         setImages(files);
     };
 
@@ -134,11 +136,12 @@ const AddProductUser = () => {
             console.log("endPoint = ", endPoint);
             const token = localStorage.getItem("access");
             console.log("data ", data);
-            await api.post(endPoint, data, {
+            const res = await api.post(endPoint, data, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },
             });
+
 
             alert("Товар добавлен");
         } catch (error) {
@@ -166,7 +169,7 @@ const AddProductUser = () => {
             regions={regions} categories={categories} 
             previewImage={preview} handleChange={handleChange} errors={errors}
             handleMainImage={handleMainImage} handleImageChange={handleImageChange}
-            previews={previews}
+            previews={previews}  previewsAdd={previewsAdd}
          />
 
         // <form onSubmit={handleSubmit}>

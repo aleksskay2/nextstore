@@ -55,3 +55,14 @@ button:focus,
 button:focus-visible {
   outline:none;
 }
+
+.swiper {
+	padding-bottom: 40px;
+}
+
+.swiper-pagination {
+	bottom:5px !important;
+	margin-top: 20px !important;
+	position: relative !important;
+
+}

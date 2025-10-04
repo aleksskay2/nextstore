@@ -38,3 +38,8 @@
     cursor: pointer;
     color:#fff;
 }
+
+.swiper-pagination {
+    margin-top: 20px  !important;
+    position: relative !important;
+}

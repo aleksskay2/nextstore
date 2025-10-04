@@ -91,9 +91,9 @@ const ChatPage = () => {
         if (!userId || !otherId) return;
 
      
-        if (!reset && chatRef.current) {
-            prevScrollHeight = chatRef.current.scrollHeight;
-        }
+        // if (!reset && chatRef.current) {
+        //     prevScrollHeight = chatRef.current.scrollHeight;
+        // }
 
         try {
             // 4. получаем диалог

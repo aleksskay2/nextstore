@@ -26,6 +26,7 @@ const EditUserProduct = () => {
     const [images, setImages] = useState([])
     const [preview, setPreview] = useState(null)
     const [previews, setPreviews] = useState([])
+     const [previewsAdd, setPreviewsAdd] = useState(null);
     // const [categories, setCategories] = useState([])
     // const [regions, setRegions] = useState([])
     const [errors, setErrors] = useState({});
@@ -42,6 +43,7 @@ const EditUserProduct = () => {
                 const response = await api.get(`edit-user-products/${id}/`)
                 setFormData(response.data)
                 setPreview(response.data.main_image)
+                setPreviewsAdd(response.data.images)
                 {console.log('resImage',response.data.main_image)}
             }
             catch(error){
@@ -75,7 +77,7 @@ const EditUserProduct = () => {
             }
             return null;
         }).filter(Boolean);
-        setPreviews(previews)
+        setPreviewsAdd(previews)
         setImages((prev) => [...prev, ...previews]);
     }
 
@@ -171,14 +173,19 @@ const EditUserProduct = () => {
     }
 
     return (
+        <div>
+             <img src={preview} alt="" width={49} height={45}/>
 
-
-        <FormAddEdit handleSubmit={handleSubmit} formData={formData} 
+        <FormAddEdit edit ={true} handleSubmit={handleSubmit} formData={formData} 
             regions={regions} categories={categories} 
             previewImage={preview} handleChange={handleChange} errors={errors}
             handleMainImage={handleMainImage} handleImageChange={handleImageChange}
+            previewsAdd={previewsAdd}
          />
+        </div>
+       
 
+        //#region 
         // <form onSubmit={handleSubmit}>
         //      {
         //         console.log('id', id)
@@ -305,6 +312,7 @@ const EditUserProduct = () => {
         //     <button type="submit">Сохранить</button>
             
         // </form>
+        //#endregion
     )
 }
 

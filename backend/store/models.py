@@ -107,6 +107,8 @@ class Product(models.Model):
         blank=True,
         
     )
+    #номер телефона для товара незарегистрированных пользователец
+    user_phone = models.CharField(max_length=20, null=True, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                               null=True, blank=True)
     storeName = models.CharField(max_length=100, null=True, blank=True)  # для user или admin, если нужно

@@ -1,0 +1,55 @@
+.detail {
+
+}
+
+.detail__container {
+   display: flex;
+   flex-direction: column;
+   text-align: center;
+   padding: 0px 10px;
+   
+}
+
+.detail__title {
+
+}
+
+.detail__image-price-name {
+    
+}
+
+.desc__phone-message {
+    display: flex;
+}
+
+.desc__phone-message {
+    display: flex;
+    justify-content: space-evenly;
+  
+}
+
+.desc__phone-number {
+    flex:0 1 40%;
+   
+}
+.desc__phone-number button {
+    width:100%;
+    display: block;
+    border-radius: 5px;
+    border:none;
+    font-size: 14px;
+    background-color: rgb(152, 243, 158);
+}
+
+.desc__phone-write {
+    flex:0 1 40%;
+}
+.desc__phone-write button {
+    width: 100%;
+    width:100%;
+    display: block;
+    border-radius: 5px;
+    border:none;
+    font-size: 14px;
+    background-color: rgb(177, 210, 231);
+}

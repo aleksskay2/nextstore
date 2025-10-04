@@ -9,6 +9,7 @@ from django.db.models import Q, Max, Count, When, IntegerField, Case, F
 from rest_framework.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from rest_framework.pagination import LimitOffsetPagination
 
 
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -92,11 +93,17 @@ class AdminsViewSet(viewsets.ModelViewSet):
     serializer_class = AdminsSerializer
 
 
+class ProductPagination(LimitOffsetPagination):
+    default_limit = 20
+    max_limit = 100
+
+
 class ProductUserViewSet(viewsets.ModelViewSet):
   
     queryset = Product.objects.all()
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['productName',  'price', 'address','region__nameRegions']
+    pagination_class = ProductPagination
   
     ordering_fields = ['price']
     filterset_fields = ['region']
@@ -110,12 +117,15 @@ class ProductUserViewSet(viewsets.ModelViewSet):
 
 
 
+
+
     def get_queryset(self):
         productUser = self.request.query_params.get('type')
         category_id = self.request.query_params.get('category')
         queryset = Product.objects.all()
+       
         if productUser in ['owner', 'user']:
-            return Product.objects.filter(productUser=productUser)
+            queryset = queryset.filter(productUser=productUser)
         
         if category_id:
             try:
@@ -127,6 +137,37 @@ class ProductUserViewSet(viewsets.ModelViewSet):
             except Category.DoesNotExist:
                 pass
         return queryset.order_by('price')
+
+
+
+        # поиск по частичному совпадению 
+        # def get_queryset(self):
+        #     productUser = self.request.query_params.get('type')
+        #     category_id = self.request.query_params.get('category')
+        #     queryset = Product.objects.all()
+            
+        #     if productUser in ['owner', 'user']:
+        #         queryset = queryset.filter(productUser=productUser)
+            
+        #     if category_id:
+        #         try:
+        #             category = Category.objects.get(id=category_id)
+        #             subcategories =  category.get_all_subcategories()
+        #             all_category_ids = [category.id] + [subcat.id for subcat in subcategories]
+        #             queryset = queryset.filter(category_id__in=all_category_ids)
+                
+        #         except Category.DoesNotExist:
+        #             pass
+            
+        
+            # search_query = self.request.query_params.get('search')
+            # if search_query:
+            #     vector = SearchVector('productName', 'address', 'region_nameRegions')
+            #     queryset = queryset.annotate(rank=SearchRank(vector, Value(search_query)))
+            #     return queryset.order_by('-rank', 'price')
+            # return queryset.order_by('price')
+            
+
 
 
 
@@ -162,7 +203,8 @@ class ProductUserViewSet(viewsets.ModelViewSet):
             product = serializer.save(owner=user, productUser='owner')
         else :
             #Неавторизованный пользователь
-            product = serializer.save(productUser = 'user')
+            user_phone = self.request.data.get('user_phone')
+            product = serializer.save(productUser = 'user', user_phone=user_phone)
         
         main_image = self.request.FILES.get('main_image')
         if main_image:

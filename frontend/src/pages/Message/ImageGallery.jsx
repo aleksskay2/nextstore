@@ -36,19 +36,15 @@ const ImageGallery = ({ images, startIndex, onClose }) => {
                 ⬅
             </button>
 
-            <img 
-                className={styles['image__photo']}
-                src={images[currentIndex].image} 
+            <img
+                className={styles["image__photo"]}
+                src={images[currentIndex].image}
                 alt="gallery"
                 onClick={(e) => e.stopPropagation()}
             />
-            <button
-                className={styles['image__next']}   
-            >
-                ➡
-            </button>
+            <button className={styles["image__next"]}>➡</button>
         </div>
     );
 };
 
-export default ImageGallery
+export default ImageGallery;

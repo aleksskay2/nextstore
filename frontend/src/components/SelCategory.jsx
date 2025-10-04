@@ -1,25 +1,10 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { useState, useEffect, act, useSyncExternalStore } from "react";
 import { useRef } from "react";
 import api from "../api/axios";
 import styles from "./SelCategory.module.css";
 import useDictionary from "./store/useDictionary";
+import  useStore  from "./store/store"
 
 const SelCategory = ({
     selectedRegion,
@@ -27,6 +12,7 @@ const SelCategory = ({
     onResults,
     query,
     setQuery,
+    onNextUrl
 }) => {
 
     // const [categories, setCategories] = useState([]);
@@ -35,6 +21,7 @@ const SelCategory = ({
     const [highlightedParentId, sethighlightedParentId] = useState(null)
 
     const {categories,  fetchCategories} = useDictionary();
+    const {activeFilter, setActiveFilter} = useStore();
 
     const categoryRefs = useRef({})
 
@@ -78,6 +65,7 @@ const SelCategory = ({
 			setExpandedParentId(parentId);
 			sethighlightedParentId(parentId)
 			setSelectedCategory(parentId)
+            console.log('parentId selCat - ', parentId)
 			onCategorySelect(parentId)
 			await loadProducts(parentId)
 		}
@@ -91,7 +79,7 @@ const SelCategory = ({
             const params = {};
            
 
-
+            console.log('categoryId selCat - ', categoryId)
             if (categoryId) params.category = categoryId;
             if (selectedRegion && selectedRegion !== "0")
                 params.region = selectedRegion;
@@ -101,10 +89,14 @@ const SelCategory = ({
             // console.log("querY - ", queryString);
             const url = `/products${queryString ? `?${queryString}` : ""}`;
 
-            response = await api.get(url);
-            onResults(response.data);
+             console.log('url selCat - ', url)
+           
+             response = await api.get(url);
+            onResults(response.data.results);
+            onNextUrl(response.data.next)
             // console.log("cat in SelCategory - ", selectedCategory);
-            // console.log("res in SelCategory - ", response.data);
+            console.log("res in SelCategory - ", response.data.results);
+            console.log("next in SelCategory - ", response.data.next);
         } catch (error) {
             console.error("Ошибка при выборе категории", error);
         }
@@ -180,10 +172,12 @@ const SelCategory = ({
             if (selectedRegion && selectedRegion !== "0")
                 params.region = selectedRegion;
             if (query) params.search = query;
+           
 
             const queryString = new URLSearchParams(params).toString();
             // console.log("querY - ", queryString);
             const url = `/products${queryString ? `?${queryString}` : ""}`;
+            
 
             response = await api.get(url);
             onResults(response.data);
@@ -219,7 +213,7 @@ const SelCategory = ({
                 	if (!shouldShowBlock(cat.id) ) return null;
                   
                     return (
-                        <div  ref={(el) => {
+                        <div   ref={(el) => {
 							if  (el)	(categoryRefs.current[cat.id] = el);
 								else delete categoryRefs.current[cat.id];
 							}} 
