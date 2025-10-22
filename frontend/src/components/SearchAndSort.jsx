@@ -153,10 +153,13 @@ const SearchAndSort = ({
                    
                 } else {
                    url += `&search=${query}`
+                //    /api/products/?type=all&region=2&category=null HTTP/1.1" 500 169688
                 }
             } else {
+                if (selectedCategory)
+                     url += `&region=${selectedRegId}&category=${selectedCategory}&search=${query}`
                 if (query) {
-                  
+                    
                      url += `&region=${selectedRegId}&category=${selectedCategory}&search=${query}`
                    
                 } else {

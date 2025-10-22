@@ -1,4 +1,9 @@
  
+ .header__container {
+   /* background-color: gray; */
+   
+}
+
     .region__list {
         width: 140px;
         height: 18px;
@@ -7,15 +12,60 @@
       
     }   
 
-  .search__logo {
-        /* width: 22px; */
-        height: 20px;
-    }
-    .search__logo img {
-        width: 27px;
-        height: 27px;
-    }
+.search__container {
+    display: flex;
+    background-color: #ABDEF4;
+    justify-content:center;
+    margin: 0px 0px 13px 0px;
+    font-size: 24px;
+    padding: 3px;
+}
 
+.search__text {
+    display: block;
+    font-size: 24px;
+    width: 50%; 
+    border-radius: 3px;
+    border:none;
+    padding: 0px 10px;
+    margin: 0px 15px 0px 0px;
+}
+.search__logo {
+    /* width: 22px; */
+    height: 20px;
+}
+.search__logo img {
+    width: 27px;
+    height: 27px;
+}
+
+.btn-search {
+    display: flex;
+    justify-content: center;
+}
+.btn-search__button {
+    background-color: #9FE79F;
+    width: 50%;
+    border-radius: 15px;
+    border: none;
+    font-size: 14px;
+    margin: 0px 0px 10px 0px;
+}
+
+
+  .region {
+        display: flex;
+        justify-content: center;
+        
+       
+    }
+    .region__container {
+        display: flex;
+        flex:0 1 100%; 
+        justify-content:space-between;
+       
+        max-width: 70%;
+    }
 
 @media (max-width:500px) {
     .header__container {
@@ -27,9 +77,8 @@
        
     }
     .region__container {
-        display: flex;
-        flex:0 1 100%; 
-        justify-content:space-between;
+        
+        max-width: 100%;
     }
 
     .region-enter__title {
@@ -54,9 +103,10 @@
 
 
     .search__container {
-        display: flex;
+      
         /* background-color: gray; */
-        justify-content:center;
+     
+        background-color: #F4FCFF;
         margin: 0px 0px 13px 0px;
     }
     .search__text {
@@ -67,6 +117,8 @@
         border:1px solid #d6d9e8;
         height: 30px;
         padding-left: 10px;
+        font-size: 14px;
+
         
     }
     .search__logo {
@@ -81,6 +133,7 @@
     .btn-search {
         display: flex;
         justify-content: center;
+        
 
     }
     .btn-search__button {

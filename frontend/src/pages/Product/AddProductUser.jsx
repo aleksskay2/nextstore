@@ -13,15 +13,16 @@ const AddProductUser = () => {
         productName: "",
         price: "",
         address: "",
-        user_phone:"",
+        user_phone: "",
         region: "",
         weight: "",
         category: "",
-        descrption:'',
+        descrption: "",
         main_image: null,
     });
 
     const [images, setImages] = useState([]);
+    const [features, setFeatures] = useState([]);
     const [previews, setPreviews] = useState([]);
     const [preview, setPreview] = useState(null);
     const [previewsAdd, setPreviewsAdd] = useState(null);
@@ -30,10 +31,11 @@ const AddProductUser = () => {
     // const [regions, setRegions] = useState([]);
     const [dateUpdate, setDateUpdate] = useState("");
     const [errors, setErrors] = useState({});
+    const [categoryFeatures, setCategoryFeatures] = useState([]);
+    const [featureValues, setFeatureValues] = useState({});
 
-
-     const {categories,  fetchCategories} = useDictionary();
-     const {regions,  fetchRegions} = useDictionary();
+    const { categories, fetchCategories } = useDictionary();
+    const { regions, fetchRegions } = useDictionary();
     // получаем категории и регионы
     useEffect(() => {
         const today = new Date().toISOString().split("T")[0];
@@ -41,8 +43,12 @@ const AddProductUser = () => {
         setDateUpdate(today);
         console.log("today", today);
         fetchCategories();
-        fetchRegions()
+        fetchRegions();
     }, []);
+
+    const handleFeatureChange = (featureId, value) => {
+        setFeatureValues((prev) => ({ ...prev, [featureId]: value }));
+    };
 
     // const fetchCategories = async () => {
     //     try {
@@ -54,6 +60,23 @@ const AddProductUser = () => {
     //         console.error(error);
     //     }
     // };
+
+    useEffect(() => {
+        const getFeautesByCategory = async () => {
+            try {
+                if (formData.category) {
+                    const res = await api.get(
+                        `/categories/${formData.category}/features/`
+                    );
+                    setCategoryFeatures(res.data);
+                    setFeatureValues({}); // убираем старые значения
+                }
+            } catch (error) {
+                console.error("Ошибка при загрузке харектеристик:", err);
+            }
+        };
+        getFeautesByCategory();
+    }, [formData.category]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -117,6 +140,17 @@ const AddProductUser = () => {
                 data.append("product_images", file);
             });
         }
+
+        if (Object.keys(featureValues).length > 0) {
+            const featuresArray = Object.entries(featureValues).map(
+                ([feature_template, valueFeature]) => ({
+                    feature_template,
+                    valueFeature,
+                })
+            );
+            data.append("features", JSON.stringify(featuresArray));
+        }
+
         if (!validationFrom()) {
             alert("Обязательные поля не заполнены!");
             return;
@@ -142,7 +176,6 @@ const AddProductUser = () => {
                 },
             });
 
-
             alert("Товар добавлен");
         } catch (error) {
             console.error(
@@ -163,14 +196,23 @@ const AddProductUser = () => {
     };
 
     return (
-
-      
-         <FormAddEdit edit={false} handleSubmit={handleSubmit} formData={formData} 
-            regions={regions} categories={categories} 
-            previewImage={preview} handleChange={handleChange} errors={errors}
-            handleMainImage={handleMainImage} handleImageChange={handleImageChange}
-            previews={previews}  previewsAdd={previewsAdd}
-         />
+        <FormAddEdit
+            edit={false}
+            handleSubmit={handleSubmit}
+            formData={formData}
+            regions={regions}
+            categories={categories}
+            previewImage={preview}
+            handleChange={handleChange}
+            errors={errors}
+            handleMainImage={handleMainImage}
+            handleImageChange={handleImageChange}
+            previews={previews}
+            previewsAdd={previewsAdd}
+            categoryFeatures={categoryFeatures}
+            featureValues={featureValues}
+            handleFeatureChange={handleFeatureChange}
+        />
 
         // <form onSubmit={handleSubmit}>
         //     <input

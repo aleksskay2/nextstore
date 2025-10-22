@@ -10,7 +10,7 @@ from rest_framework.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework.pagination import LimitOffsetPagination
-
+from django.conf import settings
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
@@ -20,10 +20,29 @@ from .serializers import RegisterSerializer
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import render
+
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
+from django.contrib.auth.tokens import default_token_generator
+from django.conf import settings
+from django.core.cache import cache
+from django.template.loader import render_to_string
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .throttles import ResendActivationRateThrottle
+
+from django.contrib.auth import get_user_model
+from .utils import send_activation_email
+import logging
+
+
+
+
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, permissions, serializers
-from .models import Admins, Product, Message,MessageImage, ProductImage, ProductReview, Bookmark,SelectionObject, Regions, Category, FeatureProduct, CustomUser
-from .serializers import AdminsSerializer, ProductListSerializer, ProductDetailSerializer, ProductImagesSerializer, ProductReviewSerializer, MessageSerializer, BookmarkSerializer,  SelectionObjectSerializer, RegionsSerializer
+from .models import Admins, Product, Message, FeatureTemplate,MessageImage, ProductImage, ProductReview, Bookmark,SelectionObject, Regions, Category, FeatureProduct, CustomUser
+from .serializers import AdminsSerializer,FeatureTemplateSerializer, ProductListSerializer, ProductDetailSerializer, ProductImagesSerializer, ProductReviewSerializer, MessageSerializer, BookmarkSerializer,  SelectionObjectSerializer, RegionsSerializer
 from .serializers import (
     CategorySerializzer,
     FeatureProductSerializer,
@@ -36,6 +55,81 @@ from .serializers import (
 
 def index(request): 
        return render(request,'index.html')
+
+User = get_user_model()
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_RESEND_COOLDOWN = getattr(settings, 'DEFAULT_RESEND_COOLDOWN', 300)
+
+class ResendActivationView(APIView):
+    throttle_classes = [ResendActivationRateThrottle]
+    
+    def post (self, request):
+        email = (request.data.get('email') or "").strip().lower()
+        if not email:
+            return Response({"detail":"Укажите email"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        cache_key = f"resend_activation_{email}"
+        cooldown = DEFAULT_RESEND_COOLDOWN
+
+        #Если недавно уже отправляли (или пытались), не шлем снова
+        if cache.get(cache_key):
+            #возвращаем generic сообщение(200) -клиент не узнает, был ли email найден
+            return Response({'detail':"Если аккаунт существует, письмо отправлено."}, status=status.HTTP_200_OK)
+
+        cache.set(cache_key, True, timeout=cooldown)
+        try:
+            user = user.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            logging.info("Resend activation requested for unknown email: %s", email)
+            return Response({'detail', "Если аккаунт существует, письмо отправлено."}, 
+                            status= status.HTTP_200_OK)
+
+        #Если уже активирован - просто возращаем generic(без пояснений)
+        if user.is_active:
+            logger.info("Resend activation requested but user already active:%s ", email)
+            return Response({'detail': "Если аккаунт существует, письмо отправлено."},
+                            status=status.HTTP_200_OK)
+
+        #Все ок - отправляем письмо (рекомендуется сделать асинхронным, пример ниже)
+        try:
+            #Синхронно
+            send_activation_email(user)
+
+            #Или асинхронно (Celery):send_activation_email_task_delay(user.pk)
+        except Exception as e:
+            logger.exception('Error while sending activation email to %s:%s', email, e)
+            
+            #Не раскрываем детали ошибки клиенту
+            return Response({'detail':"Если аккаунт существует, письмо отправлено."}, status=status.HTTP_200_OK)
+        return Response({'detail':"Если аккаунт существует, письмо отправлено."}, status=status.HTTP_200_OK)
+
+class ActivateAccountView(APIView):
+    def post(self, request):
+        uidb64 = request.data.get('uid')
+        token = request.data.get('token')
+        if not uidb64 or not token:
+            return Response({'detail':'UID и token обязательны'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({'detail':'Неверная ссылка активации'},
+                             status=status.HTTP_400_BAD_REQUEST)
+
+        if user.is_active:
+            return Response({'detail':'Пользователь уже активирован.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if default_token_generator.check_token(user, token):
+            user.is_active = True
+            user.save()
+            return Response({'detail':'Аккаунт успешно активирован!'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'detail':'Неверный или просроченный токен'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class UserInfoView(APIView):
@@ -98,8 +192,22 @@ class ProductPagination(LimitOffsetPagination):
     max_limit = 100
 
 
+class CategoryFeaturesView(APIView):
+    def get(self, request, category_id):
+        templates = FeatureTemplate.objects.filter(category_id=category_id)
+        serializer = FeatureTemplateSerializer(templates, many=True)
+        return Response(serializer.data)
+
+
+class FeatureTemplateByCategoryView(generics.ListAPIView):
+    serializer_class = FeatureTemplateSerializer,
+
+    def get_queryset(self):
+        category_id = self.kwargs['category_id']
+        return FeatureTemplate.objects.filter(category_id=category_id)
+
+
 class ProductUserViewSet(viewsets.ModelViewSet):
-  
     queryset = Product.objects.all()
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     search_fields = ['productName',  'price', 'address','region__nameRegions']
@@ -211,6 +319,28 @@ class ProductUserViewSet(viewsets.ModelViewSet):
             product.main_image = main_image
             product.save()
 
+
+        print("FEATURES RAW:", self.request.data.get('features'))
+        features_data = self.request.data.get('features',[])
+        if isinstance(features_data, str):
+            import json
+            try:
+                features_data = json.loads(features_data)
+            except json.JSONDecodeError:
+                features_data = []
+
+            for feature in features_data:
+                feature_template_id = feature.get('feature_template')
+                value = feature.get('valueFeature')    
+                if feature_template_id and value:
+                    FeatureProduct.objects.create(
+                        product=product,
+                        feature_template_id =feature_template_id,
+                        valueFeature=value
+                    )
+            return product
+        
+        
         # uploaded_images = self.request.FILES.getlist('product_images')
         # for img in uploaded_images:
         #     ProductImage.objects.create(product=product, image=img)
@@ -553,6 +683,7 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer ):
         product = serializer.save(owner=self.request.user, productUser='owner')
 
+        
         # Работаем с файлами после сохранения
         main_image = self.request.FILES.get('main_image')
         if main_image:
@@ -567,6 +698,33 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
         if not main_image:
             product.main_image = uploaded_images[0]
             product.save()
+
+
+        features_data = self.request.data.get('features',[])
+        if isinstance(features_data, str):
+            import json
+            try:
+                features_data = json.loads(features_data)
+            except json.JSONDecodeError:
+                features_data = []
+
+            for feature in features_data:
+                feature_template_id = feature.get('feature_template')
+                value = feature.get('valueFeature')    
+                if feature_template_id and value:
+                    FeatureProduct.objects.create(
+                        product=product,
+                        feature_template_id =feature_template_id,
+                        valueFeature=value
+                    )
+            return product
+        
+    @action(detail=False, methods=['get'], url_path='by-user/(?P<user_id>[^/.]+)')
+    def get_products_by_user(self, request, user_id = None):
+        # получить товары конкретного продавца
+        products = Product.objects.filter(owner_id = user_id, productUser='owner')
+        serializer = self.get_serializer(products, many=True)
+        return Response(serializer.data)
 
 
     def update(self, request, *args, **kwargs):
@@ -594,6 +752,21 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
                 instance.main_image = uploaded_images[0]
                 instance.save()
 
+        features_data = request.data.get('features')
+        if features_data:
+            import json
+            try:
+                features = json.loads(features_data) if isinstance(features_data, str) else features_data
+                instance.features.all().delete()
+                for f in features:
+                    FeatureProduct.objects.create(
+                        product=instance,
+                        feature_template_id = f.get('feature_template'),
+                        valueFeature = f.get('valueFeature', '')
+                    )
+            except Exception as e:
+                print('Ошибка при обновлении харектеристик',e)
+
         return Response(self.get_serializer(instance).data)
 
 
@@ -618,12 +791,34 @@ class EditUserProductViewSet(viewsets.ModelViewSet):
             instance.main_image = main_image
             instance.save()
 
+
+
         uploaded_images = request.FILES.getlist('product_images')
         if uploaded_images:
             instance.images.all().delete()
 
             for img in uploaded_images:
                 ProductImage.objects.create(product=instance, image=img)
+
+        features_data = request.data.get('features')
+        if features_data:
+            import json
+            try:
+                features = json.loads(features_data) if isinstance(features_data, str) else features_data
+                instance.features.all().delete()
+                for f in features:
+                    FeatureProduct.objects.create(
+                        product=instance,
+                        feature_template_id = f.get('feature_template'),
+                        valueFeature = f.get('valueFeature', '')
+                    )
+            except Exception as e:
+                print('Ошибка при обновлении харектеристик',e)
+        return   Response(self.get_serializer(instance).data)
+            
+
+
+
         
         return Response(self.get_serializer(instance).data)
 
@@ -645,7 +840,6 @@ class RegionsViewSet(viewsets.ModelViewSet):
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializzer
-
 
 
 

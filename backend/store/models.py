@@ -213,16 +213,32 @@ class ProductImage(models.Model):
 
 
 
+class FeatureTemplate(models.Model):
+    category = models.ForeignKey('Category', on_delete=models.CASCADE, related_name='feature_templates')
+    nameFeature = models.CharField(max_length=100)
+
+    def __str__ (self):
+        return f"{self.category.CategoryName}:{self.nameFeature}"
+
 
 
 class FeatureProduct(models.Model):
-    nameFeature = models.CharField(max_length=100)
-    valueFeatur = models.CharField(max_length=100)
-    fk_Products = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='feature')
+    valueFeature = models.CharField(max_length=100)
+    feature_template = models.ForeignKey(
+        FeatureTemplate,
+        on_delete=models.CASCADE,
+        related_name='features',
+        null=True,
+        blank=True
+    )
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='features')
     
     class Meta:
         verbose_name  = "FeatureStoreAdmin"
         verbose_name_plural = "FeatureStoreAdmins"
+
+    def __str__(self):
+        return f'{self.feature_template.nameFeature}:{self.valueFeature}'
 
 
 class Admins(models.Model):

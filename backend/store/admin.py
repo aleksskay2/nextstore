@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (Product,  Admins, CustomUser, SelectionObject,
-                     Category, FeatureProduct, Regions, )
+                     Category, FeatureProduct, Regions, FeatureTemplate)
 
 # Register your models here.
 
@@ -16,3 +16,5 @@ admin.site.register(CustomUser)
 admin.site.register(SelectionObject)
 
 admin.site.register(FeatureProduct)
+admin.site.register(FeatureTemplate)
+admin.site.register(Regions)

@@ -31,8 +31,8 @@ const RegionSelect = ({regions, value, onChange}) => {
             styles ={{
                 menu:(base) => ({
                     ...base,
-                    maxHeight:200,
-                    overflowY:'auto',
+                    maxHeight:300,
+                    // overflowY:'auto',
                     // maxWidth:"150px",
                     fontSize:'14px',
                     // // height:"20px"

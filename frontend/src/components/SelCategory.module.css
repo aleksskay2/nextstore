@@ -11,6 +11,51 @@
 } */
 
 
+
+.category-buttons {
+	display: flex;
+	justify-content: center;
+}
+.category-buttons-wrapper {
+	display: flex;
+	overflow-x: auto;
+	gap:8px;
+	padding: 10px;
+	white-space: nowrap;
+	scrollbar-width: none; /*FireFox */
+	-ms-overflow-style:none; /*IE 10+*/
+	flex-wrap: wrap;
+	width: 62%;
+	
+}
+
+
+ .categories-buttons-wrapper::-webkit-scrollbar {
+        display: none; /*Chrome, Safari*/
+    }
+
+    .category-btn {
+        flex-shrink: 0;
+        padding: 8px 16px;
+        background-color: #c5eaf4;
+        border:none;
+        border-radius: 20px;
+        font-size: 12px;
+        transition: background-color 0.3s ease;
+    }
+
+    .category-btn:hover{
+        background-color: #d0d0d0;
+    }
+
+    .category-btn.active {
+        background-color: #134563;
+        color:white;
+        border-color: #134563;
+    }
+
+
+
  @media (max-width:375px) {
         .categ-add__category {
             font-size: 14px;
@@ -22,14 +67,12 @@
         
     
     .category-buttons-wrapper {
-        display: flex;
        
-        overflow-x: auto;
-        gap:8px;
-        padding: 10px;
         white-space: nowrap;
         scrollbar-width: none; /*FireFox */
         -ms-overflow-style:none; /*IE 10+*/
+		width: 100%;
+		flex-wrap: nowrap;
     }
 
     .categories-buttons-wrapper::-webkit-scrollbar {

@@ -31,7 +31,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+
+
+
+
 REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_RATES':{
+        'resend_activation':'5/hour',
+    },
     'DEFAULT_AUTHENTICATION_CLASSES':(
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         
@@ -168,6 +175,10 @@ USE_I18N = True
 USE_TZ = True
 
 AUTH_USER_MODEL = 'store.CustomUser'
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'no-reply@example.com'
+FRONTEND_URL = 'http://localhost:5173'
 
 
 # Static files (CSS, JavaScript, Images)

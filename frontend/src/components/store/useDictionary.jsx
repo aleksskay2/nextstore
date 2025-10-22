@@ -19,6 +19,7 @@ const useDictionary = create ((set, get) =>( {
 		try {
 			const res = await api.get('/categories/')
 			set({categories:res.data, isLoadingCategeries:false});
+			console.log('category in UseDic', res.data)
 		}
 		catch(error) {
 			set({errorCategories:error.message, isLoadingCategeries:false})

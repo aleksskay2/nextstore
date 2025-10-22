@@ -1,15 +1,54 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.conf import settings
-from .models import Admins, Product,ProductReview, MessageImage, ProductImage, Bookmark, Message, SelectionObject, Regions, Category, FeatureProduct, CustomUser
+from .models import Admins, Product,ProductReview, FeatureTemplate, MessageImage, ProductImage, Bookmark, Message, SelectionObject, Regions, Category, FeatureProduct, CustomUser
 from django.contrib.auth import get_user_model
-from django.db.models import Avg, Count;
+from django.db.models import Avg, Count
 from django.utils.timezone import localtime
-from zoneinfo import ZoneInfo
+
+from django.core.mail import send_mail
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.password_validation import validate_password
+from django.conf import settings
+
 
 
 User = get_user_model()
 
+class RegisterSerializer (serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password', 'phone', 'region']
+
+    def create(self, validated_data):
+        user = User.objects.create(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            phone=validated_data['phone'],
+            region=validated_data['region'],
+            is_active=False,
+        )
+        user.set_password(validated_data['password'])
+        user.save()
+
+
+        #Отправка письма активации
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        activation_link = f"{settings.FRONTEND_URL}/activate?uid={uid}&token={token}"
+
+        send_mail (
+            subject='Потверждение email',
+            message=f"Привет, {user.username}! Перейди по ссылке, чтобы активировать аккаунт:\n{activation_link}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=['user.email'],
+            fail_silently=False,
+        )
+        return user
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -33,35 +72,47 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 
+class FeautereProductSerializer (serializers.ModelSerializer):
+    class Meta:
+        model = 'FeatureProduct'
+        fields = ['id', 'feature_template', 'feature_name',  'valueFeature']
+
+
+class FeatureTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeatureTemplate
+        fields = ['id', 'nameFeature']
+
 
 
 class CategorySerializzer(serializers.ModelSerializer):
+    feature_templates = FeatureTemplateSerializer(many=True, read_only=True)
     subcategories = serializers.SerializerMethodField()
     class Meta:
         model = Category
-        fields = ['id', 'CategoryName', 'parent', 'subcategories']
+        fields = ['id', 'CategoryName', 'parent', 'subcategories', 'feature_templates']
 
     def get_subcategories(self, obj):
         subcategories = obj.get_all_subcategories()
         return CategorySerializzer(subcategories, many=True, context=self.context).data
 
 
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+# class RegisterSerializer(serializers.ModelSerializer):
+#     password = serializers.CharField(write_only=True)
 
-    class Meta:
-        model = User
-        fields = ('username', 'email', 'password', 'phone', 'region')
+#     class Meta:
+#         model = User
+#         fields = ('username', 'email', 'password', 'phone', 'region')
 
-    def create(self, validated_data):
-        user = CustomUser.objects.create_user(
-            username = validated_data['username'],
-            email = validated_data.get('email'),
-            password = validated_data['password'],
-            phone = validated_data['phone'],
-            region = validated_data['region'],
-        )
-        return user 
+#     def create(self, validated_data):
+#         user = CustomUser.objects.create_user(
+#             username = validated_data['username'],
+#             email = validated_data.get('email'),
+#             password = validated_data['password'],
+#             phone = validated_data['phone'],
+#             region = validated_data['region'],
+#         )
+#         return user 
 
 
 
@@ -181,6 +232,13 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 
 
+class FeatureProductSerializer(serializers.ModelSerializer):
+    nameFeature = serializers.CharField(source='feature_template.nameFeature',
+                                        read_only=True)
+    class Meta:
+        model = FeatureProduct
+        fields = ['id', 'feature_template', 'nameFeature', 'valueFeature']
+        
 
 
 
@@ -190,6 +248,8 @@ class ProductListSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(serializers.ModelSerializer):
     user_phone = serializers.SerializerMethodField()
 
+    features = FeatureProductSerializer ( many=True, required=False)
+    
     owner_phone = serializers.CharField(source='owner.phone', read_only=True)
     owner_info = serializers.SerializerMethodField()
     is_bookmark = serializers.SerializerMethodField()
@@ -209,7 +269,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 'owner_info', 'is_bookmark', 'product_rating', 
                 'product_reviews_count', 'owner_phone',
                 'reviews', 'images', 'main_image', 'user_phone','productUser',
-                'product_images', 'description'  # <-- product_images останется, но только для записи
+                'product_images', 'description', 'features'  # <-- product_images останется, но только для записи
             )
         extra_kwargs={
             'owner':{'read_only':True},
@@ -258,14 +318,24 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             }
 
     def create (self, validated_data):
+        feature_data = validated_data.pop('features', [])
         uploaded_images = validated_data.pop('product_images',[])
         product = super().create(validated_data)
         request = self.context.get('request')
         if  not request.user.is_authenticated:
             for img in uploaded_images:
                 ProductImage.objects.create(product = product, image = img)
-        return product 
         
+        for featureItem in feature_data:
+            FeatureProduct.objects.create(fk_Products=product, **featureItem)
+
+
+
+        return product 
+
+        
+
+
     # def update(self, instance, validated_data):
     #     uploaded_images = validated_data.pop('product_images', [])
     #     for attr, value in validated_data.items():
@@ -300,6 +370,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return Bookmark.objects.filter(user=request.user, product=obj).exists()
         return False
+
+
 
 
 
@@ -356,10 +428,10 @@ class MessageSerializer(serializers.ModelSerializer):
     
 
 
-class FeatureProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FeatureProduct
-        fiels = '__all__'
+# class FeatureProductSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = FeatureProduct
+#         fields = '__all__'
 
     
 

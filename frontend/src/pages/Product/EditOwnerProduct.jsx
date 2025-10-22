@@ -25,15 +25,48 @@ const EditOwnerProduct = () => {
     const [images, setImages] = useState([]);
     const [main_image, setMain_image] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
-    const [previewsAdd, setPreviewsAdd] = useState(null)
-      const [previews, setPreviews] = useState([]);
+    const [previewsAdd, setPreviewsAdd] = useState(null);
+    const [previews, setPreviews] = useState([]);
     // const [categories, setCategories] = useState([]);
     // const [regions, setRegions] = useState([]);
     const [errors, setErrors] = useState({});
+    const [categoryFeatures, setCategoryFeatures] = useState([]);
+    const [featureValues, setFeatureValues] = useState({});
 
-    const {categories,  fetchCategories} = useDictionary();
-    const {regions,  fetchRegions} = useDictionary();
+    const { categories, fetchCategories } = useDictionary();
+    const { regions, fetchRegions } = useDictionary();
 
+    const handleFeatureChange = (featureId, value) => {
+        setFeatureValues((prev) => ({ ...prev, [featureId]: value }));
+    };
+
+    // const fetchCategories = async () => {
+    //     try {
+    //         const responseCategories = await api.get("categories/");
+    //         setCategories(responseCategories.data);
+    //         const responseRegions = await api.get("regions/");
+    //         setRegions(responseRegions.data);
+    //     } catch (error) {
+    //         console.error(error);
+    //     }
+    // };
+
+    useEffect(() => {
+        const getFeautesByCategory = async () => {
+            try {
+                if (formData.category) {
+                    const res = await api.get(
+                        `/categories/${formData.category}/features/`
+                    );
+                    setCategoryFeatures(res.data);
+                    setFeatureValues({}); // убираем старые значения
+                }
+            } catch (error) {
+                console.error("Ошибка при загрузке харектеристик:", err);
+            }
+        };
+        getFeautesByCategory();
+    }, [formData.category]);
 
     useEffect(() => {
         const token = localStorage.getItem("access");
@@ -53,7 +86,7 @@ const EditOwnerProduct = () => {
                 setFormData(response.data);
                 console.log("resDataEditOnwer", response.data);
                 setPreviewImage(response.data.main_image);
-                setPreviewsAdd(response.data.images)
+                setPreviewsAdd(response.data.images);
                 {
                     console.log("resImage", response.data.image);
                 }
@@ -78,10 +111,14 @@ const EditOwnerProduct = () => {
         // };
 
         fetchProducts();
-        
-        fetchCategories()
-        fetchRegions()
+
+        fetchCategories();
+        fetchRegions();
     }, [id]);
+
+
+  
+
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -102,7 +139,7 @@ const EditOwnerProduct = () => {
                 return null;
             })
             .filter(Boolean);
-           setPreviews(previews);
+        setPreviews(previews);
         setImages(files);
     };
 
@@ -121,8 +158,8 @@ const EditOwnerProduct = () => {
             newErrors.category = 'поле "Название магазина обязательно" ';
         if (!formData.price.trim() && formData.price <= 0)
             newErrors.price = 'Цена не заполнено или меньше либо равно 0!" ';
-          if (!formData.main_image === null ) 
-             newErrors.price = 'Нет изображение товара!" '; 
+        if (!formData.main_image === null)
+            newErrors.price = 'Нет изображение товара!" ';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -154,12 +191,32 @@ const EditOwnerProduct = () => {
         //     });
         // }
 
-         if (images.length > 0) {
+        if (images.length > 0) {
             images.forEach((file) => {
                 data.append("product_images", file);
             });
         }
 
+        //     const featuresArray = Object.entries(featureValues)
+        // .filter(([_, value]) => value.trim() !== "") // только непустые
+        // .map(([templateId, value]) => ({
+        // feature_template: parseInt(templateId),
+        // valueFeature: value.trim(),
+        // }));
+
+        // data.append("features", JSON.stringify(featuresArray));
+
+        if (Object.keys(featureValues).length > 0) {
+            const featuresArray = Object.entries(featureValues).map(
+                ([feature_template, valueFeature]) => ({
+                    feature_template,
+                    valueFeature,
+                })
+            );
+            data.append("features", JSON.stringify(featuresArray));
+        }
+
+        // Сохраняем обновленные данные для владельца
         try {
             console.log("data");
             for (let pair of data.entries()) console.log(pair[0], pair[1]);
@@ -186,26 +243,43 @@ const EditOwnerProduct = () => {
         const file = e.target.files[0];
         if (file) {
             setMain_image(file);
-            const file = e.target.files[0];
+          
             const imageUrl = URL.createObjectURL(file);
-            setPreview(imageUrl);
+            setPreviewImage(imageUrl);
         }
     };
 
+      useEffect(() => {
+            if (formData.features) {
+                const initialValues = {};
+                formData.features.forEach((f) => {
+                    initialValues[f.feature_template] = f.valueFeature;
+                });
+                setFeatureValues( initialValues);
+            }
+        }, [formData.features]);
     
+
     return (
+        <FormAddEdit
+            edit={true}
+            handleSubmit={handleSubmit}
+            formData={formData}
+            regions={regions}
+            categories={categories}
+            previewImage={previewImage}
+            handleChange={handleChange}
+            errors={errors}
+            handleMainImage={handleMainImage}
+            handleImageChange={handleImageChange}
+            previewsAdd={previewsAdd}
+            priviews={previews}
+            categoryFeatures={categoryFeatures}
+            featureValues={featureValues}
+            handleFeatureChange={handleFeatureChange}
+        />
 
-        <FormAddEdit edit={true} handleSubmit={handleSubmit} formData={formData} 
-            regions={regions} categories={categories} 
-            previewImage={previewImage} handleChange={handleChange} errors={errors}
-            handleMainImage={handleMainImage} handleImageChange={handleImageChange}
-            previewsAdd={previewsAdd} priviews={previews}
-         />
-
-
-
-
-         //#region 
+        //#region
         // <form onSubmit={handleSubmit} enctype="multipart/form-data">
         //     <input
         //         type="text"

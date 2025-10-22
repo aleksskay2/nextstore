@@ -195,7 +195,7 @@ const SelCategory = ({
 
 
     return (
-        <div>
+        <div  className={styles["category-buttons"]} >
             <div  
              className={styles["category-buttons-wrapper"]}>
                 {categories.map((cat, index) => {

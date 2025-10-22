@@ -27,7 +27,7 @@ const ProductGallery = ({images}) => {
       className='item' key={img.id} >
         <img 
           src={img.image}
-          alt={img.alt_text || 'Фото товара'} width={150}
+          alt={img.alt_text || 'Фото товара'} width={250} 
          
         />
       </SwiperSlide>
