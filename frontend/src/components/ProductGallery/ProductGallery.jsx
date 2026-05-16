@@ -22,14 +22,19 @@ const ProductGallery = ({images}) => {
     className={styles['swiper-pagination']}
     
   >
+  
     {images.map((img) => (
-      <SwiperSlide  style={{display:'flex', justifyContent:'center'}} 
-      className='item' key={img.id} >
+      
+      <SwiperSlide  className={styles['swiper-class']} 
+      key={img.id} >
         <img 
+      
           src={img.image}
-          alt={img.alt_text || 'Фото товара'} width={250} 
+          
+          alt={'Фото товара'} 
          
         />
+          {    console.log('image - ', img.image)}
       </SwiperSlide>
     ))}
   </Swiper>

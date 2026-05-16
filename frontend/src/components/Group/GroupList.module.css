@@ -1,0 +1,13 @@
+.create-group {
+    padding: 100px 0px 0px 100px;
+    display: flex;
+   
+}
+
+.create-group__content {
+    
+}
+
+.create-group__item {
+    padding: 5px 0px;
+}

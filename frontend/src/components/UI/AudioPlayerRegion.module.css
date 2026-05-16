@@ -1,0 +1,81 @@
+
+
+.voiceAudio {
+    width: 184px;
+    padding: 8px;
+    background: rgb(255 251 251);
+    border-radius: 33px;
+    border: 1px solid #5976af;
+} 
+
+
+
+.voiceWrapper {
+    display: flex;
+    align-items: center;
+    background: #f0f2f5;
+    padding: 8px 12px;
+    border-radius: 20px;
+    gap: 10px;
+    width: 240px;
+    border: 1px solid #e1e4e8;
+}
+
+.playBtn {
+    background: #0084ff;
+    color: white;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.playBtn:hover {
+    transform: scale(1.05);
+}
+
+.progressContainer {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.waveformPlaceholder {
+    height: 4px;
+    background: #d1d9e0;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progressLine {
+    height: 100%;
+    background: #0084ff;
+    position: absolute;
+    left: 0;
+    top: 0;
+    transition: width 0.1s linear;
+}
+
+.duration {
+    font-size: 10px;
+    color: #65676b;
+}
+
+.removeBtn {
+    background: transparent;
+    border: none;
+    color: #8e8e8e;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.removeBtn:hover {
+    color: #ff4d4f;
+}

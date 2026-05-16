@@ -13,7 +13,7 @@ import AddProductUser from "./pages/Product/AddProductUser";
 import Header from "./components/Header/Header";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
-import MyProducts from "./pages/MyProducts";
+import MyProducts from "./pages/MyProducts/MyProducts";
 import PrivateRoute from "./components/PrivateRoute";
 import EditUserProduct from "./pages/Product/EditUserProduct";
 import EditOwnerProduct from "./pages/Product/EditOwnerProduct";
@@ -27,45 +27,65 @@ import { useEffect } from "react";
 import useStore from "./components/store/store";
 import ActivatePage from "./pages/Registration/ActivatePage";
 import SellerProductPage from "./pages/Product/SellerProductPage";
+import RegionChat from "./components/RegionChat";
+import PrivateChat from "./components/PrivateChat/PrivateChat"
+import PrivateDialogMessage from "./pages/Message/PrivateDialogMessage";
+import UserProfilePage from "./pages/Profile/UserProfilePage";
+import EditUserProfile from './pages/Profile/EditUserProfile'
+import GroupsPage from "./components/Group/GroupsPage";
+import GroupChat from "./components/Group/GroupChat";
+import { useAppStore } from "./components/store/appStore";
+import { ToastContainer } from "react-toastify";
+import GroupMembersPage from "./components/Group/GroupMembersPage";
+import EditGroupPage from "./components/Group/EditGroupPage";
+import useGlobalSocket from "./hooks/useGlobalSocket";
 
-// import {jwtDecode} from "jwt-decode";
+import "react-toastify/dist/ReactToastify.css";
+import CreateStory from "./components/Story/CreateStory";
+import StoriesViewer from "./components/Story/StoriesViewer";
+import StoryViewerFeed from "./components/Story/StoryViewerFeed";
+import { useMessageChatsStore } from "./components/store/useMessageChatsStore";
+import UnreadMessage from "./pages/Message/UnreadMessage";
 
-// function getCurrentUser() {
-//   const token = localStorage.getItem("access");
-//   if (!token) return null;
-//   try {
-//     const decoded = jwtDecode(token);
-//     return decoded; // тут будет объект с user_id, username и т.д.
-//   } catch (e) {
-//     console.error("Ошибка при декодировании токена", e);
-//     return null;
-//   }
-// }
+
 
 function App() {
-    // const login = useStore((s) => s.login)
-    // const logout = useStore((s) => s.logout)
+     const { chats, loadChats, loading } = useMessageChatsStore();
+    // запустить WS только если user есть
+   
+    const user = useAppStore(s => s.user); // подписка на store
 
-    //   useEffect(() => {
-    // 	const token = localStorage.getItem("access");
-    // 	if (!token) {
-    // 		logout(); // сбрасываем в zustand
-    // 		return;
-    // 	}
+    useEffect(() => {
+        useAppStore.getState().fetchUser(); // загрузка текущего пользователя
+        if (user)
+        loadChats()
+    }, [user]);
+ 
+   
+    useGlobalSocket(user?.id);
 
-    // 	try {
-    // 		const decoded = jwtDecode(token);
-    // 		login(decoded, token); // если токен норм — авторизуем
-    // 	} catch (e) {
-    // 		logout();
-    // 	}
-    // }, []);
+    
+
+       
+    
+
 
     return (
-        <Router>
+        <>
+
+            <ToastContainer
+                position="top-right"
+                autoClose={4000}
+                hideProgressBar={false}
+                newestOnTop
+                closeOnClick
+                pauseOnHover/>
+             <Router>
             <Layout />
             <Routes>
                 <Route path="/" element={<ProductList />} />
+                <Route path="/message-page" element={<MessagePage />} />
+
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/products" element={<ProductList />} />
@@ -81,7 +101,31 @@ function App() {
                 <Route path="/seller/:id" element={<SellerProductPage />} />
 
                 <Route path="/messages" element={<MessagePage />} />
-                <Route path="/chat/:productId" element={<ChatPage />} />
+                {/* <Route path="/chat/:productId" element={<ChatPage />} /> */}
+
+                <Route path="/chat/product/:productId/:companionId" element={<ChatPage />} />
+                
+                <Route path="/region-chat/:regionId" element={<RegionChat />} />
+                <Route path="/chat/private/:targetId" element={<PrivateChat />} />
+                {/* <Route path="/private-chat/dialogs" element={<PrivateDialogMessage />} /> */}
+                <Route path="/private-chat/:id" element={<PrivateDialogMessage />} />
+                
+                <Route path="/group" element={<GroupsPage />} />
+                <Route path="/groups/:groupId" element={<GroupChat />} />
+                <Route path="/groups/edit/:groupId" element={<EditGroupPage />} />
+                
+                <Route path="/groups/:groupId/members" element={<GroupMembersPage />}
+                />
+
+
+
+
+                <Route path="/create-story" element={<CreateStory/>}/>
+                <Route path="/story-view" element={<StoriesViewer/>}/>
+
+                
+                <Route path="/user/:userId" element={<UserProfilePage />} />
+                <Route path="/user/:userId/edit" element={<EditUserProfile />} />
 
                 <Route
                     path="my-products"
@@ -101,7 +145,14 @@ function App() {
                     }
                 ></Route>
             </Routes>
+            
         </Router>
+
+        <StoriesViewer /> {/* ← ВСЕГДА СУЩЕСТВУЕТ */}
+        <StoryViewerFeed />
+     
+        </>
+       
     );
 }
 

@@ -40,10 +40,11 @@ const BookMark = () => {
     }
 
     return(
-        <div>
-           <h2>избранное</h2>
-          
-            {
+        <>
+        <h2>избранное</h2>
+        <div className={styles["bookmark"]}>
+            <div className={styles["bookmark__container"]}>
+                {
                 bookmarks.map(product => (
                      <ProductItem product={product.product} onBookmarkChange={updateBookmark} />
                 )
@@ -51,8 +52,13 @@ const BookMark = () => {
                    
                 
             }
+            </div>
+          
+           
            
         </div>
+        </>
+       
     )
 }
 

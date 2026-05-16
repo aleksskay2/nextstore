@@ -1,0 +1,116 @@
+
+
+.chatItem {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    /* background-color: #ffffff; */
+    background-color: #fefeff;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #c6ddf6;; /* Тонкая линия разделения */
+}
+
+.chatItem:hover {
+    background-color: #f5f6f6; /* Эффект наведения */
+}
+
+.avatarContainer {
+    width: 54px;
+    height: 54px;
+    flex-shrink: 0;
+    margin-right: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.userAvatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.productImage {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px; /* Товары лучше смотрятся скругленными квадратами */
+    object-fit: cover;
+}
+
+.chatInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden; /* Важно для обрезки текста */
+}
+
+.chatTopRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.chatName {
+    font-size: 16px;
+    font-weight: 500;
+    color: #111b21;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chatTime {
+    font-size: 12px;
+    color: #667781;
+}
+
+.chatBottomRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lastMessage {
+    font-size: 14px;
+    color: #262a2c;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Обрезает длинный текст тремя точками */
+    flex: 1;
+    padding-right: 10px;
+}
+
+.unreadBadge {
+    background-color: #25d366; /* Зеленый цвет WhatsApp */
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 500px) {
+    .chatItem {
+        padding: 10px 12px;
+    }
+    .avatarContainer {
+        width: 40px;
+        height: 40px;
+    }
+
+    .chatName {
+        font-size: 14px;
+    }
+}

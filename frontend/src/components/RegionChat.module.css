@@ -1,0 +1,495 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+/* 
+
+.chat-message {
+    font-family: 'Inter', sans-serif;
+}
+
+
+.filesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    margin-top: 5px;
+}
+.videoPlayer {
+    width: 100%;
+    border-radius: 8px;
+    background: #000;
+}
+
+
+
+.chat__wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 0px 0px 0px 0px;
+    width: 100%;
+    
+  
+}
+.chat__container {
+    width: 50%;
+  
+    padding: 10px 10px 10px 10px;
+    border-radius: 10px;
+}
+.chat__container button{
+    display: block;
+}
+
+.chat__region {
+    
+    display: flex;
+    border: 1px solid rgb(161, 196, 230);
+    padding: 10px;
+    border-radius: 10px;
+    background-color: #e8fbff;
+    flex-direction: column;
+    
+}
+.search-btn {
+  width: 200px;
+  padding: 6px 16px;
+  background: rgb(186, 220, 246);
+  color: #000;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.25s ease;
+
+  margin: 0px 0px 0px 5px;
+}
+
+.search-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 115, 255, 0.35);
+  background: linear-gradient(135deg, #5cb4ff, #2a7aff);
+}
+
+.search-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 3px 10px rgba(0, 115, 255, 0.2);
+}
+
+.chat__title {
+    text-align: center;
+}
+.chat {
+    display: flex;
+    flex-direction: column;
+    gap:8px;
+    height: 50vh;
+    overflow-y: auto;
+    padding: 7px;
+    border:2px solid rgb(172, 218, 253);
+    border-radius: 10px;
+    margin: 0px 0px 20px 0px;
+}
+
+.chat__message {
+    display: flex;
+    padding: 0px 7px;
+}
+
+.chat__date {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+}
+
+.chat__date {
+    display: flex;
+    justify-content: center;
+}
+
+
+.message {
+    display: inline-flex;
+   
+    
+}
+
+.author img{
+    width: 20px;
+    height: 20px;
+}
+
+.chat__message.own {
+    justify-content: flex-end;
+   
+}
+
+
+
+.chat__message.other {
+    justify-content: flex-start;
+   
+}
+.chat__text {
+    max-width: 75%;
+    font-size: 15px;
+    font-family: 'Inter';
+    position: relative;
+    
+    top: 0px;
+    left: 0px;
+
+}
+
+.chat__text.color-text {
+    background-color: #d2f4ff;
+    padding: 3px 5px;
+    border-radius: 8px;
+    padding:8px 15px;
+}
+
+.chat__text.sender{
+    background-color: rgb(234, 229, 229);
+    border-radius: 8px;
+    padding:8px 15px;
+}
+
+.chat__images {
+    margin: 0px 0px 0px 0px;
+    cursor: pointer;
+    width: 50%;
+   
+}
+
+.chat__send {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0px 7px;
+}
+
+.send__clip input {
+    display: none;
+}
+.send__clip img {
+   max-width: 23px;
+}
+
+.input__message {
+    flex:60%;
+    margin: 0px 5px;
+}
+.input__message input {
+    display: block;
+    height: 40px;
+    width: 100%;
+    border: 1px solid lightblue;
+    border-radius: 5px;
+    padding: 0px 10px;
+    font-size: 16px;
+}
+.input__message input:focus {
+    outline: none;
+    border: 1px solid rgb(15, 177, 231);
+}
+
+.send__message button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 30px;
+    background-color: #ffffff;
+    border:none;
+    border-radius: 5px;
+
+}
+.send__message img {
+   
+    width: 25px;
+    max-height: 20px;
+}
+
+
+
+.replyContainer {
+   background-color: rgb(234, 229, 229);
+}
+
+.replyBox {
+    background: #e6f3ff;
+    border-left: 4px solid #2b7ed7;
+    padding: 8px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    position: relative;
+}
+
+.replyClose {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    border: none;
+    background: none;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.replyPreview {
+    display: flex;
+    flex-direction: column;
+    align-items: end;
+
+    border-left: 3px solid #8ab9ff;
+    background: #d8e0eb;
+    padding: 5px;
+   
+    border-radius: 10px;
+}
+
+.replyUsername {
+    display: inline-block;
+}
+
+
+
+
+@media (max-width:500px) {
+    .chat {
+        height: 30vh;
+    }
+    .chat__container {
+        width: 98%;
+        display: flex;
+        flex-direction: column;
+    }
+   
+    .chat__region {
+        flex-direction: column;
+
+    }
+    .chat__title {
+        text-align: center;
+        font-size: 16px;
+    }
+
+    .chat__text {
+     
+        justify-content: space-between;
+        align-items: end;
+        font-family: Arial;
+        max-width: 75%;
+        font-size: 14px; 
+        font-family: 'Inter';
+
+        
+    }
+  
+       
+    .chat__wrapper {
+        padding: 0px 0px 0px 0px;
+    }
+}
+
+ */
+
+
+
+
+
+
+
+ .filesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    margin-top: 5px;
+}
+.videoPlayer {
+    width: 100%;
+    border-radius: 8px;
+    background: #000;
+}
+
+
+
+.chatWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0px 0px 0px 0px;
+    width: 100%;
+    
+  
+}
+
+
+
+
+
+ .chatContainer {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 800px;
+   margin: 0px 0px 30px 0px;
+    background-color: #f0f2f5; /* Светло-серый фон как в TG */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 20px;
+    border-radius: 20px;
+}
+
+.chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background-color: #e6eeff;
+    margin: 0px 0px 20px 0px;
+}
+
+/* Разделитель даты */
+.dateDivider {
+    align-self: center;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    color: #666;
+    margin: 15px 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.messageWrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+/* Базовый стиль пузыря */
+.message {
+    /* display: flex; */
+    justify-content: space-evenly;
+    /* background-color: gray; */
+    max-width: 60%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    position: relative;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background 0.2s;
+
+}
+
+.textAndTime {
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Чужие сообщения (слева) */
+.other {
+    align-self: flex-start;
+    background-color: #ffffff;
+    border-bottom-left-radius: 2px;
+    color: #333;
+}
+
+/* Мои сообщения (справа) */
+.own {
+    align-self: flex-end;
+    background-color: #e3f2fd;
+    border-bottom-right-radius: 2px;
+    color: #0d47a1;
+}
+
+/* Автор сообщения */
+.author {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.author span {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Стиль ответа (цитирование) */
+.replyInMessage {
+    background: rgba(0, 0, 0, 0.05);
+    border-left: 3px solid #2196f3;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.replyInMessage small {
+    display: block;
+    font-weight: bold;
+    color: #1976d2;
+}
+
+.replyInMessage p {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #555;
+}
+
+/* Текст и медиа */
+.text {
+    word-wrap: break-word;
+    font-size: 1rem;
+    margin-bottom: 4px;
+}
+
+.chatImg, .chatVid {
+   
+    border-radius: 8px;
+    margin-top: 5px;
+    display: block;
+}
+
+.chatImg  {
+    width: 40%;
+   
+}
+
+.chatImg img {
+    width: 100%;
+    border-radius: 8px;
+    margin-top: 5px;
+    display: block;
+}
+
+/* Время в углу */
+.time {
+    display: block;
+    text-align: right;
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-top: 2px;
+}
+
+/* Скроллбар (опционально) */
+.chat::-webkit-scrollbar {
+    width: 6px;
+}
+.chat::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+}

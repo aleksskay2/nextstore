@@ -23,7 +23,8 @@ html {
 	min-height: 100%;
 }
 
-body {	
+body {
+	
 	display: flex;
 	flex-direction: column;
 	width: 100%;
@@ -66,3 +67,11 @@ button:focus-visible {
 	position: relative !important;
 
 }
+
+
+/* 
+@media (max-width:500px) {
+	body {
+		background-color: #000;
+	}
+} */

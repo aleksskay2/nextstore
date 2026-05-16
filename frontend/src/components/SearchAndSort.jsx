@@ -1,4 +1,6 @@
-import { use, useEffect, useState } from "react";
+
+
+// import { use, useEffect, useState } from "react";
 import api from "../api/axios";
 import styles from "./SearchAndSort.module.css";
 import iconsearch from "../assets/images/LetterS.png";
@@ -7,273 +9,314 @@ import addPlus from "../assets/icons/add_insert_plus_1588.png";
 
 import useDictionary from "./store/useDictionary";
 import RegionSelect from "./UI/RegionSelect";
-import  useStore  from "./store/store"      
+import useStore from "./store/store";
+import { useProductFilter } from "./store/useProductFilter";
+import { useState, useEffect } from "react";
 
-
-const SearchAndSort = ({
-    onTextSearch,
-    onRegionSelect,
-    selectedCategory,
-    onFilter, // 🔥 пустая функция по умолчанию
-    onResults,
-    onClear,
-}) => {
+const SearchAndSort = (
+    
+) => {
     const [query, setQuery] = useState("");
-    const [region, setRegion] = useState("");
+    // const [region, setRegion] = useState("");
     // const [regions, setRegions] = useState([]);
     const [regId, setRegId] = useState();
+    // const [sortBy, setSortBy] = useState("price");
     
-    const { regions, fetchRegions } = useDictionary();
-    const {activeFilter, setActiveFilter} = useStore();
+    const {regions, fetchRegions, IsloadingRegions} = useDictionary()
 
+  
+    const {
+        search,
+        setSearch,
+        region,
+        setRegion,
+      
+        setSortBy,
+        minPrice,
+        maxPrice,
+        setMinPrice,
+        setMaxPrice,
+        fetchProducts
+    } = useProductFilter();
 
-    // Получение списка регионов
+     // const { activeFilter, setActiveFilter } = useStore();
+   
+    // const [minPrice, setMinPrice] = useState("");
+    // const [maxPrice, setMaxPrice] = useState("");
+    const [selectedOptionValue, setSelectedOptionValue] = useState(null);
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 500);
+    const [showFilter, setShowFilter] = useState(false);
+
+   const { sortBy, toggleSortPrice } = useProductFilter();
+
     useEffect(() => {
-        fetchRegions();
+        const handleResize = () => {
+            setIsMobile(window.innerWidth <= 500);
+        };
+
+        window.addEventListener("resize", handleResize);
+
+        return () => {
+            window.removeEventListener("resize", handleResize);
+        };
     }, []);
 
-    const fetchProducts = async (searchTerm, regionId) => {
-        try {
-            let url = `/products/?search=${searchTerm}&ordering=price`;
-            if (regionId) {
-                url += `&region=${regionId}`;
-            }
+   
 
-            const response = await api.get(url);
-            onResults(response.data);
-        } catch (error) {
-            console.error("Ошибка при поиске товаров", error);
+     // load regions
+    useEffect(() => {
+        fetchRegions();
+        console.log('regions', regions);
+        setSearch(query);
+        fetchProducts(false)
+        
+    }, []);
+
+    // react to filters
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchProducts(false);
+        }, 200);
+        return () => clearTimeout(timer);
+    }, [search, region, sortBy, minPrice, maxPrice]);
+
+    // sorting handlers
+ 
+
+    const sortRating = () => {
+        setSortBy(
+            sortBy === "product_rating"
+                ? "-product_rating"
+                : "product_rating"
+        );
+    };
+
+    const handleClickRating = (e) => {
+        setSortBy("product_rating");
+    };
+    const handleClickPrice = (e) => {
+        setSortBy("price");
+    };
+
+   
+    // const handleChangeSearch = (e) => {
+    //     const value = e.target.value;
+    //     setQuery(value);
+    //     onTextSearch(e.target.value);
+    //     // if (!value.trim())
+    //     // {
+    //     //     onClear();
+    //     // }
+    //     console.log("clear");
+    // };
+
+    const handleChangeSearch = (e) => {
+        const value = e.target.value;
+        setQuery(value);
+
+        if (!value.trim()) {
+            setSearch("");      // очистить фильтр в Zustand
+            fetchProducts(false); // перезагрузить все товары
         }
     };
 
-    const fetchProductSearch = async () => {
-        try {
-            console.log("fetchProds regId = ", regId);
-            let response;
-            if (regId) {
-                response = await api(`products/?region=${regId}`, {
-                    params: {
-                        search: query,
-                        ordering: "price",
-                    },
-                });
-            } else {
-                response = await api(`products/`, {
-                    params: {
-                        search: query,
 
-                        ordering: "price",
-                    },
-                });
-            }
+    // кнопка Найти
 
-            onResults(response.data);
-        } catch (error) {
-            console.error("error in SearchAndSort", error);
-        }
+    const handleSearchClick = async () => {
+        setSearch(query);
+        await fetchProducts(false);
     };
 
     const handleKeyDown = (e) => {
         if (e.key === "Enter") {
-            e.preventDefault();
-            fetchProductSearch();
+            handleSearchClick();
         }
-    };
+};
 
 
-    // выбор региона
-    const searchRegions = async () => {
-      
-        //     { 
-        //     try { let response; if (region === "0") 
-        //         { if (query) { response = await api.get( 
-        //             `products/?category=${selectedCategory}&search=${query}` ); }
-        //              else if (selectedCategory) { response = 
-        //                 await api.get( `products/?category=${selectedCategory}` ); }
-        //               else { response = await api.get(`products/?search=${query}`); } }
-        //                else { if (query) 
-        //                 { response = 
-        //                     await api.get( `products/?region=${region}&category=${selectedCategory}&search=${query}` ); }
-        //                      else { response = await api.get( `products/?region=${region}&category=${selectedCategory}` ); } }
-        //                       onFilter(response.data); console.log("resp hear - ", response.data); } 
-        // catch (error) { console.error("Ошибка при выборе региона", error); } };
 
-        try {
-            let response;
-            let url = ''
-            if (region === "0") {
-                if (query) {
-                   
-                    url = `products/?category=${selectedCategory}&search=${query}`
-                    
-                } else if (selectedCategory) {
-                    
-                    url = `products/?category=${selectedCategory}`
-                    
-                } else {
-                    url = `products/?search=${query}`;
-                }
-            } else {
-                if (query) {
-                  
-                    url = `products/?region=${region}&category=${selectedCategory}&search=${query}`
-                    
-                } else {
-                 
-                    url = `products/?region=${region}&category=${selectedCategory}`
-                    
-                }
-            }
-            response = await api.get(url)
-
-            onFilter(response.data);
-            console.log("resp hear - ", response.data);
-        } catch (error) {
-            console.error("Ошибка при выборе региона", error);
-        }
-    };
-
-    const handleChange = async (selectedOption) => {
-        // const selectedRegId = e.target.value;
-        const selectedRegId = selectedOption;
-        onRegionSelect(selectedRegId);
-        console.log("selectionRegid in SearchAndSort", selectedOption);
-        setRegion(selectedRegId);
-        try {
-           
-            let url = `products/?type=${activeFilter}`
-            if (selectedRegId === "0") {
-                if (query) {
-                   
-                       url += `&category=${selectedCategory}&search=${query}`;
-                    
-                } else if (selectedCategory) {
-                   
-                     url += `&category=${selectedCategory}`
-                   
-                } else {
-                   url += `&search=${query}`
-                //    /api/products/?type=all&region=2&category=null HTTP/1.1" 500 169688
-                }
-            } else {
-                if (selectedCategory)
-                     url += `&region=${selectedRegId}&category=${selectedCategory}&search=${query}`
-                if (query) {
-                    
-                     url += `&region=${selectedRegId}&category=${selectedCategory}&search=${query}`
-                   
-                } else {
-                   
-                     url +=  `&region=${selectedRegId}&category=${selectedCategory}`
-                    
-                }
-
-            }
-            const response = await api.get(url)
-            onFilter(response.data);
-            console.log("resp hear - ", response.data);
-        } catch (error) {
-            console.error("Ошибка при выборе региона", error);
-        }
-    };
-
-    const handleChangeSearch = (e) => {
-        
-        const value = e.target.value;
-        setQuery(value);
-        onTextSearch(e.target.value);
-        // if (!value.trim())
-        // {
-        //     onClear();
-        // }
-        console.log("clear");
-        
-    };
-
-    // кнопка Найти
-
-    const handleClick = () => {
-        // buttonStyle()
-        if (query) searchRegions();
-        // fetchProductSearch()
-    };
-
-    return (
-        <>
-            <div className={styles["header"]}>
-                <div className={styles["header__container"]}>
-                    <div className="search">
-                        <div className={styles["search__container"]}>
-                            <input
-                                className={styles["search__text"]}
-                                type="text"
-                                placeholder="Поиск товара..."
-                                value={query}
-                                name="search"
-                                onChange={handleChangeSearch}
-                                onKeyDown={handleKeyDown}
-                            />
-                            <div className={styles["search__logo"]}>
-                                <img src={iconsearch} alt="" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={styles["btn-search"]}>
-                        <button
-                            className={styles["btn-search__button"]}
-                            onClick={handleClick}
-                        >
-                            Найти
-                        </button>
-                    </div>
-
-                    <div className={styles["region"]}>
-                        <div className={styles["region__container"]}>
-                            <div className={styles["categ-add"]}>
-                                <div className={styles["categ-add__container"]}>
-                                    <div className={styles["categ-add__body"]}>
-                                        <Link
-                                            className={styles["categ-add__add"]}
-                                            to="/add-product"
-                                        >
-                                            <img
-                                                className={
-                                                    styles[
-                                                        "categ-add__add-photo"
-                                                    ]
-                                                }
-                                                src={addPlus}
-                                                alt=""
-                                            />
-                                        </Link>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className={styles["region__item"]}>
-                                {/* {  <select  name="regions" className={styles['region__list']}  value={region}
-                                    onChange={ handleChange}>
-                                        <option value="0">Все регионы</option>
-                                        {regions.map((r) => (
-                                        <option key={r.id} value={r.id}>
-                                            {r.nameRegions}
-                                        </option>
-                                    ))}
-                            </select>  } */}
-                                <RegionSelect
-                                    regions={regions}
-                                    value={regId}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                        </div>
+return (
+<>
+    <div className={styles["header"]}>
+        <div className={styles["header__container"]}>
+            <div className="search">
+                <div className={styles["search__container"]}>
+                    <input
+                        className={styles["search__text"]}
+                        type="text"
+                        placeholder="Поиск товара..."               
+                        name="search"
+                        value={query}
+                        onChange={handleChangeSearch}
+                        onKeyDown={handleKeyDown}
+                    />
+                    <div className={styles["search__logo"]}>
+                        <img src={iconsearch} alt="" />
                     </div>
                 </div>
             </div>
-            <div></div>
-        </>
+
+            {/* Поиск по цене, рейтингу,  */}
+
+
+            {/* ⚙️ Сортировка по цене и рейтингу */}
+            <div className={styles["search-parametr"]}>
+                <div className={styles["search-parametr__container"]}>
+                    <label
+                        onClick={toggleSortPrice}
+                        className={styles["search-parametr__item"]}
+                    >
+                        <input
+                            type="checkbox"
+                            name="price"
+                            checked={sortBy === "-price" || sortBy === 'price'}
+                        />
+                        по цене
+                    </label>
+                    <label
+                        onClick={sortRating}
+                        className={styles["search-parametr__item"]}
+                    >
+                        <input
+                            type="checkbox"
+                            name="product_rating"
+                            checked={sortBy === "product_rating" ||
+                                    sortBy === "-product_rating" 
+                            }
+                        /> по рейтингу </label>
+
+
+                    {isMobile ? (
+                <span
+                    onClick={() => setShowFilter(!showFilter)}
+                    className={styles["price-filter__label"]}
+                >
+                    фильтр
+                </span>
+            ) : (
+                <div className={styles["price-range"]}>
+                    <div className={ styles["price-range__max"]} >
+                        от
+                        <input
+                            type="number"
+                            placeholder="Мин"
+                            value={minPrice}
+                            onChange={(e) => setMinPrice(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div className={ styles["price-range__min"]} >
+                        до
+                    <input
+                        type="number"
+                        placeholder="Макс"
+                        value={maxPrice}
+                        onChange={(e) => setMaxPrice(e.target.value)}
+                    />
+                    </div>
+                    
+                </div>
+            )}
+
+            </div>
+
+                    
+                </div>
+
+                    {showFilter && (
+                                
+                            <div className={styles["price-range"]}>
+                                от
+                                <div
+                                    className={
+                                        styles["price-range__min"]
+                                    }
+                                >
+                                    <input
+                                        type="number"
+                                        name="price__max"
+                                        placeholder="Мин"
+                                        value={minPrice}
+                                        onChange={(e) =>
+                                            setMinPrice(
+                                                e.target.value
+                                            )
+                                        }
+                                    />
+                                </div>
+                                <div className={ styles["price-range__max"]}
+                                > до
+                                <input
+                                    type="number"
+                                    name="price__min"
+                                    placeholder="Макс"
+                                    value={maxPrice}
+                                    onChange={(e) =>
+                                        setMaxPrice(
+                                            e.target.value
+                                        )
+                                    }
+                                />
+                                </div>
+                            </div>
+                            )}
+
+                {/* Поиск по цене - минимум, максимум */}
+
+                
+            </div>
+
+            <div className={styles["btn-search"]}>
+                <button
+                    className={styles["btn-search__button"]}
+                    
+                    
+
+                        onClick={handleSearchClick}
+                >
+                    Найти
+                </button>
+            </div>
+
+            <div className={styles["region"]}>
+                <div className={styles["region__container"]}>
+                    <div className={styles["categ-add"]}>
+                        <div className={styles["categ-add__container"]}>
+                            <div className={styles["categ-add__body"]}>
+                                <Link
+                                    className={styles["categ-add__add"]}
+                                    to="/add-product"
+                                >
+                                    <img
+                                        className={
+                                            styles[
+                                                "categ-add__add-photo"
+                                            ]
+                                        }
+                                        src={addPlus}
+                                        alt=""
+                                    />
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={styles["region__item"]}>
+                        <RegionSelect
+                            regions={regions}
+                            region={region}
+                           
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+</>
     );
 };
 
 export default SearchAndSort;
+
+

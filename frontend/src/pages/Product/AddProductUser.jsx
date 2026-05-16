@@ -78,8 +78,17 @@ const AddProductUser = () => {
         getFeautesByCategory();
     }, [formData.category]);
 
+
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        // setFormData({ ...formData, [e.target.name]: e.target.value });
+        
+           
+        const { name, value, type, checked } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: type === "checkbox" ? checked : value,
+        }));
+    
     };
 
     const handleImageChange = (e) => {
@@ -94,9 +103,10 @@ const AddProductUser = () => {
                     };
                 }
                 return null;
+
             })
             .filter(Boolean);
-        console.log("priviews - ", previews);
+        // console.log("priviews - ", previews);
         setPreviewsAdd(previews);
         setImages(files);
     };
@@ -130,7 +140,8 @@ const AddProductUser = () => {
             data.append(key, formData[key]);
         }
 
-        console.log(images);
+        // console.log(images);
+        
 
         if (main_image) {
             data.append("main_image", main_image);
@@ -214,141 +225,7 @@ const AddProductUser = () => {
             handleFeatureChange={handleFeatureChange}
         />
 
-        // <form onSubmit={handleSubmit}>
-        //     <input
-        //         type="text"
-        //         name="storeName"
-        //         placeholder="Название магазина"
-        //         onChange={handleChange}
-        //     />
-        //     {errors && <p style={{ color: "red" }}>{errors.storeName}</p>}
-
-        //     <input
-        //         type="text"
-        //         name="productName"
-        //         placeholder="Товар"
-        //         onChange={handleChange}
-        //     />
-        //     {errors && <p style={{ color: "red" }}>{errors.productName}</p>}
-
-        //     <input
-        //         type="number"
-        //         name="price"
-        //         placeholder="Цена"
-        //         onChange={handleChange}
-        //     />
-        //     {errors && <p style={{ color: "red" }}>{errors.price}</p>}
-
-        //     <input
-        //         type="text"
-        //         name="address"
-        //         placeholder="Адрес"
-        //         onChange={handleChange}
-        //     />
-        //     {errors && <p style={{ color: "red" }}>{errors.address}</p>}
-
-        //     <input
-        //         type="date"
-        //         name="dateUpdate"
-        //         value={dateUpdate}
-        //         readOnly
-        //         onChange={handleChange}
-        //     />
-        //     <br />
-        //     <br />
-        //     <select name="region" onChange={handleChange}>
-        //         <option value="">Выбери регион</option>
-        //         {/* {console.log('regions', regions)} */}
-        //         {regions.map((region) => (
-        //             <option key={region.id} value={region.id}>
-        //                 {region.nameRegions}
-        //             </option>
-        //         ))}
-        //     </select>
-        //     {errors && <p style={{ color: "red" }}>{errors.region}</p>}
-
-        //     <select name="category" onChange={handleChange}>
-        //         <option value="">Выбери категории</option>
-        //         {categories.map((cat) => (
-        //             <option key={cat.id} value={cat.id}>
-        //                 {cat.CategoryName}
-        //             </option>
-        //         ))}
-        //     </select>
-        //     {errors && <p style={{ color: "red" }}>{errors.category}</p>}
-
-        //     <h3>Главное</h3>
-        //     <div>
-        //         {preview && <img src={preview} alt="" width={40} />}
-
-        //         <input
-        //             id="fileMainInput"
-        //             type="file"
-        //             accept="image/*"
-        //             name="main_image"
-        //             style={{
-        //                 visibility: "hidden",
-        //                 display: "flex",
-        //                 flexDirection: "column",
-        //                 alignItems: "center",
-        //             }}
-        //             onChange={handleMainImage}
-        //         />
-        //         {errors && <p style={{ color: "red" }}>{errors.main_image}</p>}
-
-        //         <label
-        //             style={{
-        //                 backgroundColor: "lightblue",
-        //                 padding: "2px",
-        //                 display: "flex",
-        //                 flexDirection: "column",
-        //                 alignItems: "center",
-        //             }}
-        //             htmlFor="fileMainInput"
-        //         >
-        //             <FaCamera size={20} />
-
-        //             <span>Главное фото</span>
-        //         </label>
-        //     </div>
-
-        //     {priviews.map(
-        //         (item) => item && <img src={item.preview} alt="" width={40} />
-        //     )}
-
-        //     <input
-        //         multiple
-        //         id="fileInput"
-        //         type="file"
-        //         accept="image/*"
-        //         style={{
-        //             visibility: "hidden",
-        //             display: "flex",
-        //             flexDirection: "column",
-        //             alignItems: "center",
-        //         }}
-        //         onChange={handleImageChange}
-        //     />
-
-        //     <label
-        //         style={{
-        //             backgroundColor: "lightblue",
-        //             padding: "2px",
-        //             display: "flex",
-        //             flexDirection: "column",
-        //             alignItems: "center",
-        //         }}
-        //         htmlFor="fileInput"
-        //     >
-        //         <FaCamera size={20} />
-
-        //         <span>Дополнительные фото</span>
-        //     </label>
-
-        //     <br />
-        //     <br />
-        //     <button type="submit">Добавить товар</button>
-        // </form>
+        
     );
 };
 

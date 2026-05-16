@@ -1,3 +1,18 @@
+/* .chat__wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 50px 0px 0px 0px;
+}
+.chat__container {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    
+}
+.chat__title {
+    text-align: center;
+}
 .chat {
     display: flex;
     flex-direction: column;
@@ -5,7 +20,9 @@
     height: 70vh;
     overflow-y: auto;
     padding: 7px;
-   
+    border:2px solid rgb(172, 218, 253);
+    border-radius: 10px;
+    margin: 0px 0px 20px 0px;
 }
 
 .chat__message {
@@ -65,7 +82,7 @@
 .chat__images {
     margin: 0px 0px 0px 0px;
     cursor: pointer;
-    width: 70%;
+    width: 50%;
    
 }
 
@@ -94,6 +111,7 @@
     border: 1px solid lightblue;
     border-radius: 5px;
     padding: 0px 10px;
+    font-size: 16px;
 }
 .input__message input:focus {
     outline: none;
@@ -115,4 +133,292 @@
    
     width: 25px;
     max-height: 20px;
+}
+
+
+.previewContainer {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 0;
+  flex-wrap: wrap;
+}
+
+.previewItem img {
+  width: 90px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 2px solid #ddd;
+}
+
+
+.fileName {
+  font-size: 12px;
+  max-width: 90px;
+  margin-top: 6px;
+  text-align: center;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+.chat__attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+
+.voiceMessage {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  border-radius: 12px;
+  min-width: 200px;
+  gap: 10px;
+}
+
+.playBtn {
+  background: #5856d6;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.waveContainer {
+  flex-grow: 1;
+  min-width: 120px;
+}
+
+.voiceDuration {
+  font-size: 10px;
+  opacity: 0.7;
+  align-self: flex-end;
+}
+
+
+.videoContainer {
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.chatVideo {
+  max-width: 280px;
+  max-height: 400px;
+  display: block;
+  border-radius: 8px;
+}
+
+
+.chatImg {
+  max-width: 100%;
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+}
+
+
+
+
+
+
+@media (max-width:500px) {
+    .chat__container {
+        width: 98%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat__wrapper {
+        padding: 0px 0px 0px 0px;
+    }
+} */
+
+
+
+
+
+.wrapper {
+    padding: 100px 0px 0px 0px;
+}
+
+
+/* 1. Главная обертка на всю высоту экрана (если это страница чата) */
+.chat__wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+   
+    /* Вместо 100vh используем dvh */
+    height: 60dvh; 
+    padding: 0; /* Убираем лишние отступы, чтобы не было двойного скролла */
+    box-sizing: border-box;
+    position: fixed; /* Помогает зафиксировать фон на мобилках */
+    top: 0;
+    margin-top: 45px;
+    left: 0;
+}
+
+
+/* 2. Контейнер чата */
+.chat__container {
+    width: 40%;
+    height: 100%; /* Занимает 100% от wrapper */
+    display: flex;
+    flex-direction: column; /* Элементы (хедер, список, инпут) идут колонкой */
+    background-color: #fdfcfc;
+    border: 1px solid #eee;
+    overflow: hidden; /* Важно: чтобы ничего не вылезало за границы */
+}
+
+
+
+.chat__title {
+    text-align: center;
+}
+.chat {
+    display: flex;
+    flex-direction: column;
+    height: 60vh; /* Убедись, что высота задана */
+    
+    /* Управление скроллом */
+    overflow-y: auto; 
+    overflow-x: hidden;
+    
+    /* Чтобы чат не дергался, когда полоска появляется/исчезает */
+    scrollbar-gutter: stable; 
+
+    /* Стилизация полоски для современных браузеров (Chrome, Safari) */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* Для Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 transparent;
+}
+
+/* Добавьте класс для скрытия до первой прогрузки */
+.chatHidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.chatVisible {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.1s ease-in;
+}
+
+
+
+
+   
+
+
+.priview {
+    
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 0px 0px 20px 0px;
+
+} 
+
+.send__clip input {
+    display: none;
+}
+.send__clip img {
+   max-width: 23px;
+}
+
+.input__message {
+    flex:60%;
+    margin: 0px 5px;
+}
+.input__message input {
+    display: block;
+    height: 40px;
+    width: 100%;
+    border: 1px solid lightblue;
+    border-radius: 5px;
+    padding: 0px 10px;
+    font-size: 16px;
+}
+.input__message input:focus {
+    outline: none;
+    border: 1px solid rgb(15, 177, 231);
+}
+
+.send__message button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 30px;
+    background-color: #ffffff;
+    border:none;
+    border-radius: 5px;
+
+}
+.send__message img {
+   
+    width: 25px;
+    max-height: 20px;
+}
+
+
+@media (max-width:1400px) {
+    .chat__container {
+        width: 60%;
+    
+    }
+}
+@media (max-width:1200px) {
+    .chat__container {
+        width: 60%;
+    
+    }
+}
+@media (max-width:768px) {
+    .chat__container {
+       width: 100%; /* На мобилках на весь экран */
+    
+    }
+}
+
+
+@media (max-width:500px) {
+    .chat__container {
+        width: 98%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat__wrapper {
+        padding: 0px 0px 0px 0px;
+    }
 }

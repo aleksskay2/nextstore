@@ -1,0 +1,170 @@
+.header {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #eaeaea;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* Информация о пользователе */
+.userInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #6e8efb, #a777e3);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-weight: bold;
+    position: relative;
+    font-size: 18px;
+}
+
+.avatar img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    
+}
+
+.onlineBadge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+    background-color: #4ade80;
+    border: 2px solid white;
+    border-radius: 50%;
+}
+
+.textDetails {
+    display: flex;
+    flex-direction: column;
+}
+
+.userName {
+    text-decoration: none;
+    color: #1a1a1a;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.userName:hover {
+    color: #007bff;
+}
+
+.status {
+    font-size: 12px;
+}
+
+.online { color: #4ade80; }
+.offline { color: #94a3b8; }
+
+/* Кнопки и контроллы */
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 30px;
+}
+
+.callGroup {
+    display: flex;
+    gap: 15px;
+}
+
+.iconBtn {
+    background: none;
+    border: none;
+    color: #007bff;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: transform 0.2s, color 0.2s;
+    padding: 5px;
+}
+
+.iconBtn:hover {
+    transform: scale(1.1);
+    color: #0056b3;
+}
+
+.endCall {
+    color: #ef4444;
+}
+
+/* Кнопки принятия вызова */
+.incomingGroup {
+    display: flex;
+    gap: 8px;
+}
+
+.btn {
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.accept {
+    background-color: #4ade80;
+    color: white;
+}
+
+.decline {
+    background-color: #ef4444;
+    color: white;
+}
+
+/* Скрытые видео */
+/* ChatHeader.module.css или где у тебя стили */
+.hiddenVideos {
+    position: fixed;
+    bottom: -200px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 9999; /* Чтобы было поверх всего */
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 12px;
+}
+
+.MYvideoElement {
+    position: absolute;
+    top: 426px;
+    right: -35px;
+    height: 110px;
+    width: 100px;
+    background: #000;
+    border-radius: 8px;
+    object-fit: cover;
+    z-index: 500;
+}
+
+.friendVideoElement {
+    width: 280px;  
+    height: 100%;
+    background: #000;
+    position: relative;
+    top: 120px;
+    border-radius: 8px;
+    object-fit: cover;
+   
+}

@@ -4,21 +4,24 @@
    
 }
 
-    .region__list {
-        width: 140px;
-        height: 18px;
-        font-size: 13.5px;
-        background-color: #ABDEF4;
-      
-    }   
+
+
+.region__list {
+    width: 140px;
+    height: 18px;
+    font-size: 13.5px;
+    background-color: #ABDEF4;
+    
+}   
 
 .search__container {
     display: flex;
-    background-color: #ABDEF4;
+    background-color: #5884c6;
     justify-content:center;
     margin: 0px 0px 13px 0px;
     font-size: 24px;
     padding: 3px;
+    
 }
 
 .search__text {
@@ -29,6 +32,7 @@
     border:none;
     padding: 0px 10px;
     margin: 0px 15px 0px 0px;
+    line-height: 1.4;
 }
 .search__logo {
     /* width: 22px; */
@@ -38,6 +42,55 @@
     width: 27px;
     height: 27px;
 }
+
+
+.search-parametr__container {
+    display: flex;    
+}
+.search-parametr {
+    display: flex;
+    justify-content: center;
+    margin: 0px 0px 10px 0px;
+}
+
+
+
+.search-parametr__item {
+    
+    margin: 0px 20px 0px 0px;
+}
+.search-parametr__item input {
+    margin: 0px 3px 0px 0px;
+    
+}
+
+.price-filter__label {
+    font-size: 14px;
+}
+
+.price-range {
+    display: flex;
+    justify-content: space-around;
+    font-size: 14px;
+}
+
+.price-range__min {
+    margin: 0px 10px 0px 0px;
+    
+}
+.price-range__min input {
+    width: 70px;
+    font-size: inherit;
+    margin: 0px 0px 0px 4px;
+}
+
+.price-range__max input{
+    width: 70px;
+    font-size: inherit;
+    margin: 0px 0px 0px 4px;
+
+}
+
 
 .btn-search {
     display: flex;
@@ -67,6 +120,22 @@
         max-width: 70%;
     }
 
+     .region__item {
+        margin: 0px 0px 5px 0px;
+    }
+
+.categ-add__add {
+       
+        
+    }
+
+.categ-add__add-photo  {
+    height: 20px;
+}
+
+
+
+
 @media (max-width:500px) {
     .header__container {
         margin: 0 15px;
@@ -86,8 +155,9 @@
         
     }
 
+    
     .region__item {
-        
+        margin: 0px 0px 0px 0px;
     }
     .region__title {
         font-size: 14px;
@@ -103,11 +173,8 @@
 
 
     .search__container {
-      
-        /* background-color: gray; */
-     
-        background-color: #F4FCFF;
-        margin: 0px 0px 13px 0px;
+        background-color: #fff;
+        margin: 0px 0px 3px 0px;
     }
     .search__text {
         flex:0 1 82%;
@@ -130,6 +197,36 @@
         height: 27px;
     }
 
+     .search-parametr {
+        display: flex;
+        flex-direction: column;
+        margin: 0px 0px 4px 0px;
+    }
+
+    .search-parametr__container {
+        display: flex;
+        justify-content: center;
+        /* margin: 0px 0px 5px 0px; */
+    }
+
+    .price-filter__label {
+        font-size: 14px;
+    }
+
+
+    .price-range {
+        font-size: 12px;
+        justify-content: center;
+    }
+  
+    .search-parametr__item {
+        
+        margin: 0px 10px 0px 0px;
+    }
+   
+    .search-parametr__item {
+        font-size: 14px;
+    }
     .btn-search {
         display: flex;
         justify-content: center;
@@ -161,15 +258,15 @@
 
     .categ-add__add {
          
-        border-radius: 6px;
+        border-radius: 4px;
         text-align: center;
-        box-shadow: 3px 2px rgb(196, 192, 192);
+        box-shadow: 2px 1px rgb(196, 192, 192);
         margin: 0px 0px 9px 0px;
         width: 50px;
-        height: 18px;
-        font-size: 16px;
+        height: 14px;
+        font-size: 13px;
         background-color: #ABDEF4;
-        color:#000;
+        color: #000;
         
     }
 

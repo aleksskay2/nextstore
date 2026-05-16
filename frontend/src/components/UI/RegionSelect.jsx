@@ -1,27 +1,44 @@
-import React from 'react' ;
+import React, { useEffect } from 'react' ;
 import Select from 'react-select'
 import { useState } from 'react';
+import useDictionary from '../store/useDictionary';
+import { useProductFilter } from '../store/useProductFilter';
 
-const RegionSelect = ({regions, value, onChange}) => {
+const RegionSelect = ({ region, onChange}) => {
     
+    const {regions, fetchRegions, IsloadingRegions} = useDictionary()
+    const { setRegion} = useProductFilter()
+    
+    const regionId = region?.value
     const options = [
-       {value:'0', label:'Все регионы'},
+       {value:'', label:'Все регионы'},
         ...regions.map((region) => ({
         value:region.id,
         label:region.nameRegions,
     }))
     ] 
 
-    // по умолчанию "Все регионы"
-  const [selectedOption, setSelectedOption] = useState(options[0]);
+    useEffect(() => {
+        console.log('region', region)
+    }, [])
+     // Находим то, что сейчас выбрано в Zustand
 
-  const handleChange = (option) => {
-    setSelectedOption(option);        // обновляем локально
-    onChange(option.value);           // прокидываем наверх (all или id)
-  };
+    const selectedOption =
+        options.find(opt => opt.value === region) || options[0]
+    
 
+    
+
+    const handleChange = (option) => {
+        // onChange(option.value || null); // просто передаём наверх
+        // handleShowSearch(true)
+        setRegion(option.value)
+    };
+
+    const isMobile = window.innerWidth <= 500;
 
     return (
+        
         <Select
             options={options}
             value={selectedOption }
@@ -29,29 +46,40 @@ const RegionSelect = ({regions, value, onChange}) => {
             
             isSearchable={false}
             styles ={{
-                menu:(base) => ({
+                
+                 menu:(base) => ({
                     ...base,
                     maxHeight:300,
                     // overflowY:'auto',
                     // maxWidth:"150px",
-                    fontSize:'14px',
+                     fontSize: isMobile ? "12px" : "14px",
                     // // height:"20px"
                 }),
                 container:(base) => ({
                     ...base,
                     margin:'0px',
                     // overflowY:'auto',
-                    maxWidth:"200px",
+                    maxWidth:"150px",
                     //  maxHeight:'10px',
                   
                 }),
                 control:(base) => ({
                     ...base,
-                    padding:'0px 5px',
-                    minHeight:'12px',
-                    backgroundColor:'#c5eaf4',
-                    border:'1px'
                   
+                    minHeight:'6px',
+                    backgroundColor:'#c5eaf4',
+                    border:'1px',
+                    fontSize: isMobile ? "12px" : "14px",
+                    width: "130px",
+                    padding: '0px 16px',
+                    background: 'rgb(186, 220, 246)',
+                    color: 'white',
+                 
+                    fontWeight: '600',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    transition: '0.25s ease',
                     
                 }),
                 
@@ -93,7 +121,8 @@ const RegionSelect = ({regions, value, onChange}) => {
                 option:(base, state) => ({
                     ...base,
                    padding:'4px 4px',
-                   fontSize:'12px'
+                 
+                    fontSize: isMobile ? "12px" : "12px",
                   
                     
                 })

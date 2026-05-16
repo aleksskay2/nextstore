@@ -15,6 +15,7 @@
 .category-buttons {
 	display: flex;
 	justify-content: center;
+ 	padding: 35px 0px 0px 0px;
 }
 .category-buttons-wrapper {
 	display: flex;
@@ -48,12 +49,36 @@
         background-color: #d0d0d0;
     }
 
-    .category-btn.active {
-        background-color: #134563;
-        color:white;
-        border-color: #134563;
-    }
+.category-btn.active {
+    background-color: #134563;
+    color:white;
+    border-color: #134563;
+}
 
+.showMoreBtn {
+  	flex-shrink: 0;
+	padding: 8px 16px;
+	text-decoration: underline;
+	background-color: #c5eaf4;
+	border:none;
+	border-radius: 20px;
+	font-size: 12px;
+	transition: background-color 0.3s ease;
+}
+
+.showMoreBtn:hover {
+  text-decoration: underline;
+}
+
+@media (max-width:1024px) {
+  .category-buttons {
+    padding: 0;
+  }
+    .category-buttons-wrapper {
+      width: 80%;
+      padding: 10px;
+    }
+}
 
 
  @media (max-width:375px) {
@@ -64,15 +89,25 @@
 
 
  @media (max-width:500px) {
-        
+		
+    .showMoreBtn {
+    display: none;
+    }
+    .category-buttons {
+      padding: 0px 0px 0px 0px;  
+    }
     
+  .product__buttons-container {
+    padding: 2px;
+  }
+  
     .category-buttons-wrapper {
-       
-        white-space: nowrap;
-        scrollbar-width: none; /*FireFox */
-        -ms-overflow-style:none; /*IE 10+*/
-		width: 100%;
-		flex-wrap: nowrap;
+        
+      white-space: nowrap;
+      scrollbar-width: none; /*FireFox */
+      -ms-overflow-style:none; /*IE 10+*/
+      width: 100%;
+      flex-wrap: nowrap;
     }
 
     .categories-buttons-wrapper::-webkit-scrollbar {
@@ -167,52 +202,4 @@
 
 
 
-/* .category-btn {
-  padding: 10px 16px;
-  border: 1px solid #ccc;
-  background: #f8f8f8;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.3s ease;
-} 
 
-/* .category-btn:hover {
-  background: #eee;
-}
-
-.category-btn.active {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
-}
-
-.category-btn.fullWidth {
-  width: 100%; 
-  font-weight: bold;
-  font-size: 18px;
-}
-
-.subcategory-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-  margin-left: 12px;
-}
-
-.subcategory-btn {
-  padding: 8px 14px;
-  border: 1px solid #aaa;
-  background: #fafafa;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
-
-
-
-.subcategory-btn.active {
-  background: #28a745;
-  color: white;
-  border-color: #28a745;
-} */

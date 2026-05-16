@@ -15,6 +15,7 @@ const SellerProductPage =  () => {
                 console.log('id - ', id)
                 const response = await api.get(`/owner-products/by-user/${id}`)
                 setProducts(response.data)
+                console.log('res.data in SellerProductPage ', response.data)
             }
             catch(error) {
                 console.error('Ошибка получения всех товаров владельца', error)

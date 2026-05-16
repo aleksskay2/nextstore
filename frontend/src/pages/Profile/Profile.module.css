@@ -1,0 +1,17 @@
+.container {
+    padding: 55px 20px 30px 30px;
+}
+
+
+.profile__content {
+    background-color: rgb(208, 226, 232);
+    /* display: flex; */
+    
+}
+
+.profile__group {
+    
+    width: 200px;
+    padding: 5px 0px;
+    color:#000;
+}

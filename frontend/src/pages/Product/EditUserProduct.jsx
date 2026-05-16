@@ -63,11 +63,13 @@ const EditUserProduct = () => {
             try {
                 const response = await api.get(`edit-user-products/${id}/`);
                 setFormData(response.data);
-                setPreview(response.data.main_image);
+                setPreview(response.data.main_image_webp);
                 setPreviewsAdd(response.data.images);
+                
                 {
                     console.log("resImage", response.data.main_image);
                 }
+
                 console.log("resDataEditUser", response.data);
             } catch (error) {
                 console.error("Ошибка при загрузке товара", error);
@@ -118,6 +120,7 @@ const EditUserProduct = () => {
         return Object.keys(newErrors).length === 0;
     };
 
+    
     const handleSubmit = async (e) => {
         e.preventDefault();
         {

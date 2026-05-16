@@ -1,0 +1,35 @@
+.members {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    padding: 100px 0px 0px 0px;
+   
+}
+.members h3 {
+    
+}
+
+.members__container {
+    width: 30%;
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    cursor: pointer;
+    border-bottom: 1px solid #858cff;
+   
+}
+
+
+.members__delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    width: 30%;
+    margin: 20px 0px 0px 0px;
+    border-radius: 5px;
+    border:1px solid #858cff;
+    color: red;
+    background-color: #e2e6e856;
+}

@@ -1,0 +1,308 @@
+
+.contextMenuWrapper {
+  /* position: fixed; */
+  /* z-index: 9999; */
+}
+
+
+
+.replyPreviewBar {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  background: rgb(255 235 235 / 66%); /* или под тон твоего чата */
+  padding: 8px 15px;
+  border-bottom: 1px solid #eee;
+  position: relative;
+  animation: slideIn 0.2s ease;
+}
+
+.replyVerticalLine {
+    width: 3px;
+    height: 100%;
+    background-color: #007bff; /* Цвет линии ответа */
+    margin-right: 10px;
+    border-radius: 2px;
+}
+
+.replyContent {
+    flex: 1;
+    overflow: hidden;
+}
+
+.replySender {
+    color: #007bff;
+    font-weight: bold;
+    display: block;
+    font-size: 0.85rem;
+}
+
+.replyText {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cancelReply {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #999;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+
+
+.delete {
+   
+    left: 0px;
+    bottom: 0px;
+}
+
+.chat__answer button {
+    background-color: white;
+    border:1px lightblue solid;
+    border-radius:5px;
+    font-size: 14px;
+    width: 150px;
+    height: 25px;
+    
+   
+    
+}
+
+
+.chat__delete-message {
+    position: absolute;
+    z-index: 5;
+   
+}
+
+.chat__own-message {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
+    
+    background-color: rgb(248, 244, 244);
+    position: absolute;
+    z-index: 5;
+}
+
+.chat__other-message{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: absolute;
+
+}
+
+.replyThumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  margin-top: 4px;
+}
+
+
+
+/* Контейнер даты (разделитель дней) */
+.chat__date {
+  display: block;
+  text-align: center;
+  /* margin: 20px 0; */
+  color: #5e5858;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  /* padding-bottom: 18px;  */
+}
+
+/* Общий контейнер сообщения (ряд) */
+.messageRow {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 14px;
+  width: 100%;
+}
+
+.chat__message {
+
+
+  display: flex;
+  max-width: 75%;
+  position: relative;
+  transition: all 0.2s ease;
+
+    touch-action: pan-y;
+
+
+
+
+
+
+}
+
+/* Мои сообщения (справа) */
+.own {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+  background-color: #c7f0fd;
+  color: #000;
+  border-radius: 10px 10px 4px 10px;
+}
+
+/* Чужие сообщения (слева) */
+.other {
+  align-self: flex-start;
+  background-color: #aff0cd;
+  border-radius: 8px 8px 8px 4px;
+  
+}
+
+/* Сам "пузырь" с текстом и контентом */
+.chat__text {
+  padding: 4px 4px;
+  font-size: 14.5px;
+  line-height: 1.4;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+
+  
+}
+
+
+
+
+
+/* Стиль для чужих */
+.sender {
+  /* background-color: #efefef; */
+  background-color: #e0fff5;
+  color: #262626;
+  border-radius: 10px 10px 10px 4px; /* Сглаженные углы с "хвостиком" слева */
+}
+
+/* Стили для медиа-контента внутри сообщения */
+.chat__text video,
+.chat__text img {
+  display: block;
+  max-width: 280px;
+  width: 100%;
+  border-radius: 12px;
+ 
+  object-fit: cover;
+}
+
+
+.chat__text img,
+.chat__text video {
+    display: block;
+    max-width: 200px;
+    width: 100%;
+    /* Важно! Задаем минимальную высоту, чтобы браузер заранее зарезервировал место */
+    min-height: 120px; 
+    background-color: #f0f0f0; /* Легкий фон, пока грузится */
+    border-radius: 12px;
+    object-fit: cover;
+    
+}
+
+
+/* Текст сообщения, если он есть вместе с файлом */
+.chat__text span {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 4px;
+  word-wrap: break-word;
+}
+
+.fileItem {
+  /* padding: 4px 4px; */
+  font-size: 14.5px;
+  line-height: 1.4;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+
+   
+}
+
+.fileItem img {
+  
+}
+
+.fileItem video {
+  max-height: 120px;
+  padding: 2px 2px 0px 2px; 
+  width: 200px;
+}
+
+.time {
+  font-size: 10px;
+  color:#4c3c3c;
+}
+
+
+/* Контейнер статуса (галочки) */
+.statusContainer {
+  display: flex;
+    align-items: center;
+    justify-content: end;
+    margin-left: 8px;
+    vertical-align: middle;
+    height: 4px;
+}
+
+/* Эффект при наведении (как в Telegram) */
+.chat__message:hover {
+  filter: brightness(0.95);
+}
+
+@media (max-width: 480px) {
+  .chat__message {
+    max-width: 85%;
+  }
+}
+@media (max-width: 500px) {
+  .chat__message {
+    max-width: 85%;
+  }
+
+  /* Контейнер даты (разделитель дней) */
+.chat__date {
+ 
+ 
+  font-size: 10px;
+   
+}
+}
+
+
+.chat__text {
+  
+
+ 
+    /* Резервируем место под галочки, чтобы текст на них не налезал */
+  
+   
+}
+
+
+
+.chat__answer {
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.chat__message {
+  touch-action: pan-y;
+}

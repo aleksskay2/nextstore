@@ -1,6 +1,6 @@
 import Header from "./Header/Header";
 import {Link, useNavigate} from 'react-router-dom'
-import BottomNavbar from './BottomNavbar/BottomNavbar'
+import BottomNavbar from "./BottomNavbar/BottomNavbar"
 
 const Layout = () => {
     return(

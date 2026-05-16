@@ -23,7 +23,7 @@ const DoubleClickImage = ({src, onDoubleClick}) => {
         <img 
             src={src} 
             alt='no image'
-            width={150}
+             height={250} width={250}
             className={styles['chat__images']}
             onClick={handleClick} 
         />

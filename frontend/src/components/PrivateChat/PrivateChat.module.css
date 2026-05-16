@@ -1,0 +1,154 @@
+.wrapper {
+    padding: 100px 0px 0px 0px;
+}
+
+.chat__wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    padding: 40px 0px 30px 0px;
+}
+.chat__container {
+    width: 40%;
+    display: flex;
+    flex-direction: column;
+    background-color: #fdfcfc;
+    padding: 0px 15px 30px 15px;
+
+}
+.chat__title {
+    text-align: center;
+}
+.chat {
+    display: flex;
+    flex-direction: column;
+    height: 60vh; /* Убедись, что высота задана */
+    
+    /* Управление скроллом */
+    overflow-y: auto; 
+    overflow-x: hidden;
+    
+    /* Чтобы чат не дергался, когда полоска появляется/исчезает */
+    scrollbar-gutter: stable; 
+
+    /* Стилизация полоски для современных браузеров (Chrome, Safari) */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* Для Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 transparent;
+}
+
+/* Добавьте класс для скрытия до первой прогрузки */
+.chatHidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.chatVisible {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.1s ease-in;
+}
+
+
+
+
+   
+
+
+.priview {
+    
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 0px 0px 20px 0px;
+
+} 
+
+.send__clip input {
+    display: none;
+}
+.send__clip img {
+   max-width: 23px;
+}
+
+.input__message {
+    flex:60%;
+    margin: 0px 5px;
+}
+.input__message input {
+    display: block;
+    height: 40px;
+    width: 100%;
+    border: 1px solid lightblue;
+    border-radius: 5px;
+    padding: 0px 10px;
+    font-size: 16px;
+}
+.input__message input:focus {
+    outline: none;
+    border: 1px solid rgb(15, 177, 231);
+}
+
+.send__message button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 30px;
+    background-color: #ffffff;
+    border:none;
+    border-radius: 5px;
+
+}
+.send__message img {
+   
+    width: 25px;
+    max-height: 20px;
+}
+
+
+@media (max-width:1400px) {
+    .chat__container {
+        width: 60%;
+    
+    }
+}
+@media (max-width:1200px) {
+    .chat__container {
+        width: 60%;
+    
+    }
+}
+@media (max-width:768px) {
+    .chat__container {
+        width: 70%;
+    
+    }
+}
+
+
+@media (max-width:500px) {
+    .chat__container {
+        width: 98%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat__wrapper {
+        padding: 0px 0px 0px 0px;
+    }
+}

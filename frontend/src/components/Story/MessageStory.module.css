@@ -1,0 +1,110 @@
+.priview {
+    /* display: flex; */
+}
+
+.microphone__content img {
+    height: 25px;
+    width: 25px;
+}
+
+.microphone__message {
+   background-color: rgb(255 255 255);
+    border-radius: 50%;
+    border: 1px solid #bbbbc7;
+
+}
+
+.microphone__line {
+    background-color: lightblue;
+}
+
+
+
+.chat__send {
+   
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0px 7px;
+}
+
+.send__clip input {
+    display: none;
+}
+.send__clip img {
+   max-width: 23px;
+}
+
+
+
+.input__message {
+     flex: 0 0 70%;
+    margin: 0px 5px;
+}
+.input__message input {
+    display: block;
+    height: 40px;
+    width: 100%;
+    border: 1px solid lightblue;
+    border-radius: 5px;
+    padding: 0px 10px;
+    font-size: 16px;
+}
+.input__message input:focus {
+    outline: none;
+    border: 1px solid rgb(15, 177, 231);
+}
+
+.send__message button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 30px;
+    background-color: #ffffff;
+    border:none;
+    border-radius: 5px;
+
+}
+.send__message img {
+   
+    width: 25px;
+    max-height: 20px;
+}
+
+
+
+@media (max-width:500px) {
+    .chat__container {
+        width: 98%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .chat__wrapper {
+        padding: 0px 0px 0px 0px;
+    }
+
+    .send__message img {
+        max-width: 14px;
+        max-height: 20px;
+    }
+    .send__message button {
+        width: 23px;
+        height: 21px;
+        border-radius: 5px;
+    }
+
+    .input__message {
+        flex: 0 1 95%;
+        margin: 0px 5px;
+    }
+
+    .microphone__message {
+        height: 26px;
+    }
+    .microphone__message img{
+        height: 16px;
+        width: 19px;
+    }
+}

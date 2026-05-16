@@ -1,35 +1,138 @@
 .chats {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.chat__list {
-    width: 90%;
-    display: flex;
-    justify-content: space-evenly;
-    background-color: rgb(217, 233, 243);
-    margin: 0px 0px 10px 0px;
-    padding: 2px;
-    border-radius: 5px;
-
-
-}
-
-.chats__image {
-    width: 100px;
-    height: 80px;
-    flex-shrink: 0;
-    border-radius: 8px;
-    overflow: hidden;
-    display:flex;
     justify-content: center;
-    align-items: center;
-   
+    background-color: #fefeff;
 }
 
-.chats__image img {
-    width: 100%;
-    height: 100%;
-    object-fit:contain;
+.chats__container {
+    display: flex;
+    flex-direction: column;
+    padding:60px 40px 20px 40px;
+    width: 60%;
+    justify-content: center;
+
+}
+
+.avatar {
+    width: 100px;
+    height: 100px;
+}
+.chats__search {
+   
+
+    display: flex;
+    width: 50%;
+    justify-content: space-evenly;
+}
+
+
+/* Контейнер со скроллом */
+.storiesContainer {
+  display: flex;
+  gap: 15px;
+  padding: 5px 5px;
+  overflow-x: auto;
+  scrollbar-width: none; /* Скрываем скроллбар в Firefox */
+  -ms-overflow-style: none; /* Скрываем скроллбар в IE/Edge */
+  background-color: #e5f1ff;
+  border-radius: 13px;
+
+}
+
+.storiesContainer::-webkit-scrollbar {
+  display: none; /* Скрываем скроллбар в Chrome/Safari */
+}
+
+.storyItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  min-width: 74px; /* Чтобы элементы не сжимались */
+}
+
+/* Кольцо вокруг аватарки */
+.avatarBorder {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px; /* Толщина кольца */
+}
+
+/* Градиент для новых сторис */
+.unviewed {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
+
+/* Серый цвет для просмотренных */
+.viewed {
+  background: #dbdbdb;
+}
+
+/* Белая прослойка между кольцом и фото */
+.avatarBackground {
+  background: #fff;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(0,0,0,0.05); /* Легкий контур для светлых фото */
+}
+
+/* Никнейм */
+.username {
+  font-size: 12px;
+  max-width: 74px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #262626;
+  text-align: center;
+}
+
+/* Эффект нажатия */
+.storyItem:active .avatarImage {
+  transform: scale(0.95);
+  transition: transform 0.1s ease;
+}
+
+
+.chat__audio {
+    max-width: 200px;
+    height: 35px; /* Делает плеер узким */
+}
+@media (max-width:500px) {
+
+  .storiesContainer {
+    gap: 5px;
+    padding: 2px 0px;
+  }
+
+  .storyItem {
+    gap:0px;
+  }
+  .chats__container {
+    padding: 0px 0px 0px 0px;
+    width: 100%
+  }
+
+
+
+  .username {
+    font-size: 14px;
+  }
 }

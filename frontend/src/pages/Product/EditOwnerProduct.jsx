@@ -23,7 +23,7 @@ const EditOwnerProduct = () => {
     });
 
     const [images, setImages] = useState([]);
-    const [main_image, setMain_image] = useState(null);
+    const [main_image_webp, setMain_image_webp] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
     const [previewsAdd, setPreviewsAdd] = useState(null);
     const [previews, setPreviews] = useState([]);
@@ -85,7 +85,7 @@ const EditOwnerProduct = () => {
                 });
                 setFormData(response.data);
                 console.log("resDataEditOnwer", response.data);
-                setPreviewImage(response.data.main_image);
+                setPreviewImage(response.data.main_image_webp);
                 setPreviewsAdd(response.data.images);
                 {
                     console.log("resImage", response.data.image);
@@ -158,7 +158,7 @@ const EditOwnerProduct = () => {
             newErrors.category = 'поле "Название магазина обязательно" ';
         if (!formData.price.trim() && formData.price <= 0)
             newErrors.price = 'Цена не заполнено или меньше либо равно 0!" ';
-        if (!formData.main_image === null)
+        if (!formData.main_image_webp === null)
             newErrors.price = 'Нет изображение товара!" ';
 
         setErrors(newErrors);
@@ -176,13 +176,19 @@ const EditOwnerProduct = () => {
 
         const data = new FormData();
 
-        Object.entries(formData).forEach(([key, value]) => {
-            if (formData[key] !== null && formData[key] !== undefined)
+        for (const key in formData) {
+            if (key !== "user" && key !== "owner")
                 data.append(key, formData[key]);
-        });
+        }
 
-        if (main_image) {
-            data.append("main_image", main_image);
+        if (images) {
+            Array.from(images).forEach((file) => {
+                data.append("product_images", file.file);
+            });
+        }
+
+        if (main_image_webp) {
+            data.append("main_image_webp", main_image_webp);
         }
         // if (images) {
         //     Array.from(images).forEach((file) => {
@@ -242,9 +248,10 @@ const EditOwnerProduct = () => {
     const handleMainImage = (e) => {
         const file = e.target.files[0];
         if (file) {
-            setMain_image(file);
+            setMain_image_webp(file);
           
             const imageUrl = URL.createObjectURL(file);
+            console.log('image_url - ', imageUrl)
             setPreviewImage(imageUrl);
         }
     };
@@ -261,6 +268,8 @@ const EditOwnerProduct = () => {
     
 
     return (
+        <>
+           <img src={previewImage} alt="" width={49} height={45} />
         <FormAddEdit
             edit={true}
             handleSubmit={handleSubmit}
@@ -278,119 +287,9 @@ const EditOwnerProduct = () => {
             featureValues={featureValues}
             handleFeatureChange={handleFeatureChange}
         />
+        </>
 
-        //#region
-        // <form onSubmit={handleSubmit} enctype="multipart/form-data">
-        //     <input
-        //         type="text"
-        //         name="storeName"
-        //         value={formData.storeName}
-        //         placeholder="Название магазина"
-        //         onChange={handleChange}
-        //     />
-        //     <br />
-        //     <br />
-
-        //     <input
-        //         type="text"
-        //         name="productName"
-        //         value={formData.productName}
-        //         placeholder="Товар"
-        //         onChange={handleChange}
-        //     />
-        //     <br />
-        //     <br />
-
-        //     <input
-        //         type="text"
-        //         name="price"
-        //         placeholder="Цена"
-        //         value={formData.price}
-        //         onChange={handleChange}
-        //     />
-        //     {errors && <p style={{ color: "red" }}>{errors.price}</p>}
-        //     <br />
-        //     <br />
-
-        //     <input
-        //         type="text"
-        //         name="address"
-        //         placeholder="Адрес"
-        //         value={formData.address}
-        //         onChange={handleChange}
-        //     />
-        //     <br />
-        //     <br />
-
-        //     <input
-        //         type="date"
-        //         name="dateUpdate"
-        //         value={formData.dateUpdate}
-        //         readOnly
-        //         onChange={handleChange}
-        //     />
-        //     <br />
-        //     <br />
-
-        //     <select
-        //         name="region"
-        //         value={formData.region}
-        //         onChange={handleChange}
-        //     >
-        //         <option value="">Выбери регион</option>
-
-        //         {regions.map((region) => (
-        //             <option key={region.id} value={region.id}>
-        //                 {region.nameRegions}
-        //             </option>
-        //         ))}
-        //     </select>
-        //     <br />
-        //     <br />
-        //     <select
-        //         name="category"
-        //         value={formData.category}
-        //         onChange={handleChange}
-        //     >
-        //         <option value="">Выбери категории</option>
-        //         {categories.map((cat) => (
-        //             <option key={cat.id} value={cat.id}>
-        //                 {cat.CategoryName}
-        //             </option>
-        //         ))}
-        //     </select>
-        //     <br />
-        //     <br />
-
-        //     <br />
-        //     <br />
-
-        //     {previewImage && (
-        //         <div>
-        //             <p>Текущее изображение</p>
-        //             <img src={previewImage} alt="" width={30} />
-        //         </div>
-        //     )}
-
-        //     <input type="file" accept="image/*" onChange={handleMainImage} />
-        //     <input
-        //         type="file"
-        //         multiple
-        //         accept="image/*"
-        //         onChange={handleImageChange}
-        //     />
-        //     <br />
-        //     <br />
-
-        //     <button type="submit">Сохранить</button>
-
-        //     <div>
-        //         <Link to="/my-products" style={{ marginRight: "1rem" }}>
-        //             Мои товары
-        //         </Link>
-        //     </div>
-        // </form>
-        //#endregion
+        
     );
 };
 

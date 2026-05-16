@@ -1,10 +1,26 @@
 
+.bookmark {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 50px 0px 0px 0px;
+  justify-content: center;
+    
+}
+
+.bookmark__container {
+  display: flex;
+  flex-wrap: wrap;
+  flex:0 1 75%
+
+}
+
+
 
 .item-product__image {
         display: flex;
         justify-content: center;
         align-items: center;
-        max-width: 200px;
+        max-width: 10px;
         max-height: 235px;
         overflow: hidden;
         border-radius: 1px;

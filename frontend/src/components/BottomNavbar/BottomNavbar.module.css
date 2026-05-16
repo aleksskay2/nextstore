@@ -1,19 +1,38 @@
 .bottom-bar {
+    display: flex;
+    justify-content: center;
     position: fixed;
-    bottom:0;
+    top:0;
     left:0;
     background-color: #fff;
     height: 50px;
     width: 100%;
     border:1px solid lightblue;
     z-index: 3;
+    transition: background-color 0.3s ease;
 }
+
+
+@media (max-width:500px) {
+    .bottom-bar {
+        display: block;
+        position:fixed;
+        top:auto;
+        bottom:0;
+        left:0;
+        
+    }
+
+}
+
 
 .bottom-bar__container {
     display: flex;
     justify-content: space-between;
     height: 100%;
+    width: 80%;   
 }
+
 .bottom-bar__right {
     display: flex;
 }
@@ -29,20 +48,51 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    
 }
 .item-bar__image img{
     width: 22px;
 }
 
+.item-bar__title-full {
+   letter-spacing: 1px;
+   font-size: 20px;
+   color:#0e2082;
+}
+
 .item-bar__title {
     font-size: 14px;
     color:#000;
+    
 }
+
 
 
 .item-bar__messages {
     padding-top: 3px;
 }
+
+
+@media (max-width:500px) {
+    .bottom-bar {
+        position:fixed;
+        bottom:0;
+        left:0;
+    }
+
+    .bottom-bar__container {
+        display: flex;
+        justify-content: space-between;
+        height: 100%;
+        width: 100%;  
+    }
+
+}
+
+
+
+
+
 /* 
 <div className={styles.bottomBar}>
             <div className="bottom-bar__container">

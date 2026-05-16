@@ -1,0 +1,428 @@
+/* 
+.stories-viewer { 
+  position: fixed;
+  inset: 0;
+  background: #e1e3e8f2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9;
+  overflow: hidden;
+}
+
+
+.viewers {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+}
+
+
+.viewersBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.572);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.viewersBtn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.viewersBtn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+
+
+
+
+.story-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  width: 100%;
+  background: transparent;
+  color: white;
+  z-index: 20;
+}
+
+.story-header__avatar {
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.story-header__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-header span {
+  font-weight: 600;
+  font-size: 16px;
+  flex: 1;
+}
+
+.stories-add {
+  background-color: #1abc9c;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 16px;
+  color: white;
+  transition: background 0.2s;
+}
+
+.stories-add:hover {
+  background-color: #16a085;
+}
+
+.story-content {
+  max-width: 77%;
+  max-height: 80%;
+  width: 100%;
+  height: 80%;
+  position: relative;
+  z-index: 10;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.story-content img,
+.story-content video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-progress {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  z-index: 25;
+}
+
+.story-progress .bar {
+  flex: 1;
+  height: 3px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.story-progress .bar .fill {
+  height: 100%;
+  background: white;
+  width: 0%;
+  transition: width linear;
+}
+
+
+.storyClick {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 15;
+  cursor: pointer;
+  user-select: none;
+}
+
+.storyClick.left {
+  left: 0;
+}
+
+.storyClick.right {
+  right: 0;
+}
+
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 30;
+}
+
+.close:hover {
+  color: #ff4d4f;
+} */ 
+
+
+
+
+
+
+
+.storiesViewer {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.95); /* Глубокий темный фон */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(10px); /* Легкое размытие заднего плана */
+}
+
+/* Контейнер, имитирующий экран телефона */
+.storyWindow {
+  position: relative;
+  width: 100%;
+  max-width: 450px; /* Идеально для десктопа */
+  height: 100vh;
+  max-height: 90vh; /* Отступ сверху и снизу на больших экранах */
+  background-color: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 500px) {
+  .storyWindow {
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}
+
+/* Верхний градиент, чтобы текст был читаемым */
+.storyHeader {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 35px 15px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+  color: white;
+  z-index: 30;
+}
+
+.avatarWrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  padding: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatarWrapper img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.username {
+  font-weight: 600;
+  font-size: 14px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+/* --- ПРОГРЕСС БАР (ИСПРАВЛЕНО) --- */
+.story-progress {
+  position: absolute;
+  top: 15px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 5px;
+  z-index: 100;
+  pointer-events: none; /* Чтобы не мешал кликам */
+}
+
+.bar {
+  flex: 1;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Анимация заполнения */
+@keyframes progressAnimation {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  /* background: #fff; */
+  background: greenyellow;
+  width: 0%; /* По умолчанию пусто */
+}
+
+/* Активная полоска: запускаем анимацию */
+.fillActive {
+  width: 0%; 
+  animation-name: progressAnimation;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* Завершенная полоска: всегда 100% */
+.fillFinished {
+  width: 100% !important;
+}
+
+/* Контент (фото/видео) */
+.storyContent {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.storyContent img, 
+.storyContent video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Заполняет всё пространство окна */
+}
+
+/* Зоны клика (невидимые) */
+.clickZone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  z-index: 20;
+  cursor: pointer;
+}
+
+
+/* Кнопка закрыть */
+.closeButton {
+  position: absolute;
+  top: 25px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 50;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+
+.storyWindow {
+  display: flex;
+  flex-direction: column;
+}
+
+.storyChatFooter {
+  /* position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0; */
+   padding: 10px 10px 15px; /*Отступ снизу для мобильных устройств */
+  background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
+ 
+  z-index: 1000; /* Максимальный приоритет */
+  pointer-events: auto; /* Явно разрешаем клики */
+}
+
+/* Настройка самого инпута внутри сторис */
+.storyChatFooter input {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-radius: 20px !important;
+  color: white !important;
+  /* padding: 8px 15px !important; */
+  height: 25px;
+  font-size: 12px;
+     
+}
+
+.storyChatFooter input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+
+
+.Zone{
+  position: absolute;
+  top: 100px; /* Оставляем место сверху (шапка) */
+  bottom: 70px; /* Важно! Оставляем место снизу для инпута */
+  width: 40%;
+  z-index: 50;
+  height: 100vh;
+}
+
+.leftZone {
+  /* background-color: rgb(74, 124, 211); */
+  position: absolute;
+  top: 80px; /* Оставляем место сверху (шапка) */
+  bottom: 70px; /* Важно! Оставляем место снизу для инпута */
+  width: 40%;
+  z-index: 50;
+  height: 100vh;
+  left: 0;
+}
+
+
+.rightZone {
+  /* background-color: lightblue; */
+  right: 0;
+  position: absolute;
+  top: 80px; /* Оставляем место сверху (шапка) */
+  bottom: 70px; /* Важно! Оставляем место снизу для инпута */
+  width: 40%;
+  z-index: 50;
+  height: 100vh;
+}
+
+.storyChatFooter {
+  display: flex;
+  position: absolute;
+  bottom: 0px;
+  flex-direction: column;
+  bottom: 0px;
+  left: 0px;
+  right: 0px;
+  z-index: 100; /* Инпут должен быть выше зон клика */
+}
