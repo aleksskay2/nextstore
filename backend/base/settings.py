@@ -234,7 +234,19 @@ import dj_database_url  # 🔥 ДОБАВЛЕН ИМПОРТ ДЛЯ RENDER
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 MEDIA_URL = '/media/'
+
+
+
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# 🔥 Проверяем, находимся ли мы на сервере Render
+if 'RENDER' in os.environ:
+    # ⚠️ ВАЖНО: Замени '/var/data' на ТОТ САМЫЙ путь, который написан у тебя в Mount path в панели Render!
+    # Добавляем /media в конце, чтобы внутри диска была аккуратная папка
+    MEDIA_ROOT = '/var/data/media' 
+else:
+    # Для локальной разработки на твоем компьютере всё остается по-старому
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 # SECRET_KEY = 'django-insecure-$t4$hx78_j=x^nbczm3_o-@j&e8a6!&7ef(n#&n7oop1#!es*9'
 
