@@ -246,6 +246,11 @@ DEBUG = os.environ.get('RENDER') is None
 
 # 🔥 УМНЫЕ ХОСТЫ: Разрешаем Render подключаться к нашему приложению
 ALLOWED_HOSTS = ["*", "localhost", "http://localhost:5173", '10.192.85.180', "127.0.0.1"]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://nextstore-iumj.onrender.com",
+]
+
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
