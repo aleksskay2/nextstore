@@ -216,7 +216,9 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import FCMDevice
+from rest_framework.decorators import action
 from .serializers import FCMDeviceSerializer
+
 
 class FCMDeviceViewSet(viewsets.ModelViewSet):
     queryset = FCMDevice.objects.all()
@@ -248,11 +250,37 @@ class FCMDeviceViewSet(viewsets.ModelViewSet):
             status=response_status
         )
 
-
     def get_queryset(self):
         # Хорошая практика: показывать пользователю только его устройства
         return self.queryset.filter(user=self.request.user)
 
+    # 🔥 НОВЫЙ МЕТОД: Удаление токена при выходе (logout)
+    @action(detail=False, methods=['post'], url_path='remove-token')
+    def remove_token(self, request):
+        token = request.data.get('expo_push_token')
+        
+        if not token:
+            return Response(
+                {"error": "Поле expo_push_token обязательно."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Удаляем конкретно этот токен у текущего пользователя
+        deleted_count, _ = FCMDevice.objects.filter(
+            expo_push_token=token, 
+            user=request.user
+        ).delete()
+        
+        if deleted_count > 0:
+            return Response(
+                {"status": "success", "message": "Устройство успешно отвязано"},
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"status": "not_found", "message": "Токен не найден или уже удален"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 
