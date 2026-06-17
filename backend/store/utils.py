@@ -166,7 +166,7 @@ import threading
 from django.conf import settings  # 🔥 Исправлено: Добавили импорт настроек
 from firebase_admin import credentials, messaging
 import firebase_admin
-from .models import ExpoPushToken
+from .models import FCMDevice
 
 # =========================================================
 # ИНИЦИАЛИЗАЦИЯ FIREBASE
