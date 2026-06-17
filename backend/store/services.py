@@ -3,26 +3,56 @@ from django.conf import settings
 from django.db.models import Q, Count
 from django.utils import timezone
 from .models import PrivateMessage, Message, GroupMessage, Group
-
+from urllib.parse import urlparse
 
 
 
 # 1. Сначала определяем вспомогательные функции, чтобы они были доступны ниже
+# def get_full_url(path):
+#     """Формирует полный URL для медиа-файлов"""
+#     if not path:
+#         return None
+#     if str(path).startswith('http'):
+#         return path
+    
+#     # Исправляем получение домена
+#     domain = getattr(settings, 'BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
+#     # Убеждаемся, что путь начинается с /
+#     str_path = str(path)
+#     if not str_path.startswith('/'):
+#         str_path = f"/{str_path}"
+        
+#     return f"{domain}{str_path}"
+
+
+# 1. Сначала определяем вспомогательные функции, чтобы они были доступны ниже
 def get_full_url(path):
-    """Формирует полный URL для медиа-файлов"""
+    """
+    Формирует ЧИСТЫЙ относительный URL.
+    Вырезает любые старые локальные IP-адреса, чтобы фронтенд сам решал, какой домен подставить.
+    """
     if not path:
         return None
-    if str(path).startswith('http'):
-        return path
-    
-    # Исправляем получение домена
-    domain = getattr(settings, 'BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
-    # Убеждаемся, что путь начинается с /
+        
     str_path = str(path)
+    
+    # Если путь содержит домен (начинается с http)
+    if str_path.startswith('http'):
+        parsed = urlparse(str_path)
+        hostname = str(parsed.hostname)
+        
+        # Если это наши старые локальные адреса или текущий сервер - оставляем только путь (/media/...)
+        if hostname in ['127.0.0.1', 'localhost'] or hostname.startswith('10.') or hostname.startswith('192.168.') or 'onrender.com' in hostname:
+            str_path = parsed.path
+        else:
+            # Если это чужая внешняя ссылка (например, юзер зашел через Google/VK), отдаем как есть
+            return str_path
+
+    # Убеждаемся, что путь начинается с '/'
     if not str_path.startswith('/'):
         str_path = f"/{str_path}"
         
-    return f"{domain}{str_path}"
+    return str_path
 
 
 def format_last_message(msg):
