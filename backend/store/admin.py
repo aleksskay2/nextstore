@@ -39,7 +39,7 @@ regions_list = [
 
 # Цикл get_or_create защитит от дубликатов, если какие-то регионы уже есть
 for name in regions_list:
-    obj, created = Region.objects.get_or_create(name=name)
+    obj, created = Regions.objects.get_or_create(name=name)
     if created:
         print(print(f"✅ Регион '{name}' успешно добавлен"))
     else:
