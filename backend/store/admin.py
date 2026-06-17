@@ -24,7 +24,7 @@ admin.site.register(Regions)
 
 
 # Замени 'store.models' и 'Region' на твое приложение и модель регионов
-from store.models import Region 
+from store.models import Regions 
 
 # Список регионов, которые нужно добавить
 regions_list = [
