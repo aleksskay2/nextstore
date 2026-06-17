@@ -158,22 +158,26 @@ def get_audio_duration(file_path: str) -> int | None:
 
 
 
-
-
 import os
 import threading
 from django.conf import settings
 from firebase_admin import credentials, messaging
 import firebase_admin
 
-# 🔥 1. МЕНЯЕМ ИМПОРТ: удаляем ExpoPushToken, добавляем FCMDevice
+# 🔥 1. ИМПОРТ ПРАВИЛЬНОЙ МОДЕЛИ
 from .models import FCMDevice 
 
 # =========================================================
-# ИНИЦИАЛИЗАЦИЯ FIREBASE
+# ИНИЦИАЛИЗАЦИЯ FIREBASE (С АВТООПРЕДЕЛЕНИЕМ ПУТИ НА RENDER)
 # =========================================================
 if not firebase_admin._apps:
-    cred_path = os.path.join(settings.BASE_DIR, 'firebase-adminsdk.json') 
+    render_secret_path = '/etc/secrets/firebase-adminsdk.json'
+    local_path = os.path.join(settings.BASE_DIR, 'firebase-adminsdk.json') 
+    
+    # Если секрет Render существует, используем его, иначе ищем локально
+    cred_path = render_secret_path if os.path.exists(render_secret_path) else local_path
+    print(f"🔥 [Firebase Init] Использование файла конфигурации из: {cred_path}")
+    
     cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
 
@@ -201,11 +205,11 @@ def _execute_send_each(messages, tokens):
 def send_push_notification(user, title=None, body=None, data=None):
     print(f"🔍 [Utils] Ищем устройства для пользователя: {user.username} (ID: {user.id})")
     
-    # 🔥 2. ИЩЕМ В ПРАВИЛЬНОЙ ТАБЛИЦЕ: делаем прямую фильтрацию по модели FCMDevice
+    # Прямая выборка устройств из корректной таблицы FCMDevice
     devices = FCMDevice.objects.filter(user=user)
     print(f"📊 [Utils] Найдено устройств в базе FCMDevice: {devices.count()}")
 
-    # Берем токены девайсов
+    # Собираем токены устройств
     tokens = [d.expo_push_token for d in devices if d.expo_push_token]
     
     if not tokens:
@@ -246,6 +250,7 @@ def send_push_notification(user, title=None, body=None, data=None):
 
         messages.append(messaging.Message(**message_kwargs))
 
+    # Запуск сетевого запроса в изолированном фоновом потоке
     push_thread = threading.Thread(
         target=_execute_send_each,
         args=(messages, tokens)
