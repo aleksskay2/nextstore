@@ -463,7 +463,6 @@ channel_layer = get_channel_layer()
 import os
 
 
-from .utils import send_push_notification
 
 from .utils import send_push_notification
 

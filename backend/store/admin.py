@@ -18,3 +18,32 @@ admin.site.register(SelectionObject)
 admin.site.register(FeatureProduct)
 admin.site.register(FeatureTemplate)
 admin.site.register(Regions)
+
+
+
+
+
+# Замени 'store.models' и 'Region' на твое приложение и модель регионов
+from store.models import Region 
+
+# Список регионов, которые нужно добавить
+regions_list = [
+    "Москва", 
+    "Санкт-Петербург", 
+    "Краснодарский край", 
+    "Ростовская область",
+    "Ставропольский край",
+    "Республика Дагестан",
+    "Чеченская Республика"
+]
+
+# Цикл get_or_create защитит от дубликатов, если какие-то регионы уже есть
+for name in regions_list:
+    obj, created = Region.objects.get_or_create(name=name)
+    if created:
+        print(print(f"✅ Регион '{name}' успешно добавлен"))
+    else:
+        print(f"ℹ️ '{name}' уже существует")
+
+# Выходим из шелла
+exit()
