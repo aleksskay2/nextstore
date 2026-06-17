@@ -160,20 +160,19 @@ def get_audio_duration(file_path: str) -> int | None:
 
 
 
-
 import os
 import threading
-from django.conf import settings  # 🔥 Исправлено: Добавили импорт настроек
+from django.conf import settings
 from firebase_admin import credentials, messaging
 import firebase_admin
-from .models import FCMDevice
+
+# 🔥 1. МЕНЯЕМ ИМПОРТ: удаляем ExpoPushToken, добавляем FCMDevice
+from .models import FCMDevice 
 
 # =========================================================
 # ИНИЦИАЛИЗАЦИЯ FIREBASE
 # =========================================================
 if not firebase_admin._apps:
-    # Укажи правильный путь к скачанному JSON-файлу
-    # Например, если он лежит рядом с manage.py:
     cred_path = os.path.join(settings.BASE_DIR, 'firebase-adminsdk.json') 
     cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
@@ -186,11 +185,9 @@ def _execute_send_each(messages, tokens):
     """Выполняет реальный сетевой запрос к Firebase в отдельном потоке"""
     try:
         print("🌐 [Utils - Thread] Отправка запросов напрямую в Firebase...")
-        # Отправляем пакетно (до 500 сообщений за раз)
         response = messaging.send_each(messages)
         print(f"✅ [Utils - Thread] Успешно отправлено: {response.success_count}, Ошибок: {response.failure_count}")
         
-        # Логируем детальные ошибки для каждого упавшего токена
         for idx, resp in enumerate(response.responses):
             if not resp.success:
                 print(f"❌ Ошибка отправки на токен {tokens[idx]}: {resp.exception}")
@@ -204,8 +201,9 @@ def _execute_send_each(messages, tokens):
 def send_push_notification(user, title=None, body=None, data=None):
     print(f"🔍 [Utils] Ищем устройства для пользователя: {user.username} (ID: {user.id})")
     
-    devices = user.devices.all() 
-    print(f"📊 [Utils] Найдено устройств в базе: {devices.count()}")
+    # 🔥 2. ИЩЕМ В ПРАВИЛЬНОЙ ТАБЛИЦЕ: делаем прямую фильтрацию по модели FCMDevice
+    devices = FCMDevice.objects.filter(user=user)
+    print(f"📊 [Utils] Найдено устройств в базе FCMDevice: {devices.count()}")
 
     # Берем токены девайсов
     tokens = [d.expo_push_token for d in devices if d.expo_push_token]
@@ -218,48 +216,39 @@ def send_push_notification(user, title=None, body=None, data=None):
 
     messages = []
     for token in tokens:
-        # 🔥 ПРЕВРАЩАЕМ ВСЕ ДАННЫЕ В СТРОКИ (Критично для Firebase):
         safe_data = {str(k): str(v) for k, v in data.items()} if data else {}
 
-        # Базовая структура
         message_kwargs = {
             "token": token,
             "data": safe_data,
             "android": messaging.AndroidConfig(
                 priority='high' 
             ),
-            # 🔥 ДОБАВЛЕНО: Настройка для iOS, чтобы пуши приходили в бэкграунде
             "apns": messaging.APNSConfig(
                 payload=messaging.APNSPayload(
                     aps=messaging.Aps(
-                        content_available=True, # Позволяет будить приложение
+                        content_available=True,
                         sound="default"
                     )
                 )
             )
         }
 
-        # Если это текстовое сообщение (есть заголовок или текст), добавляем блоки уведомлений
         if title or body:
             message_kwargs["notification"] = messaging.Notification(
                 title=title,
                 body=body
             )
-            # Привязываем канал уведомлений для Android
             message_kwargs["android"].notification = messaging.AndroidNotification(
                 channel_id="alerts_v1",
                 sound="default"
             )
 
-        # Создаем объект сообщения Firebase
         messages.append(messaging.Message(**message_kwargs))
 
-    # 🔥 МАГИЯ АСИНХРОННОСТИ: Запускаем отправку в изолированном фоновом потоке.
-    # Django мгновенно продолжит работу (выполнит транзакцию, отправит сокеты),
-    # а тяжелый запрос к серверам Google выполнится параллельно.
     push_thread = threading.Thread(
         target=_execute_send_each,
         args=(messages, tokens)
     )
-    push_thread.daemon = True  # Поток автоматически закроется при остановке сервера
+    push_thread.daemon = True
     push_thread.start()
