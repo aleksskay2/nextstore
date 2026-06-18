@@ -1713,7 +1713,9 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
                                             .prefetch_related('files')
         
         region_id = self.request.query_params.get('region')
-        if region_id:
+        # Если region_id передан и он не равен 0 (или пустоте), фильтруем по нему
+        # Иначе отдаем все сообщения (для "Все регионы")
+        if region_id and str(region_id) != '0':
             queryset = queryset.filter(region_id=region_id)
         
         # Сортируем от старых к новым (по возрастанию)
@@ -1739,10 +1741,22 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
 
         # 3. 🔔 SOCKET NOTIFY: Говорим всем в чате, что сообщение удалено
         channel_layer = get_channel_layer()
+        
+        # Если сообщение из конкретного региона, удаляем его у тех, кто сидит в этом регионе
+        if str(region_id) != '0':
+            async_to_sync(channel_layer.group_send)(
+                f"region_{region_id}",
+                {
+                    "type": "delete_message_notify", 
+                    "message_id": message_id,
+                }
+            )
+
+        # 🔥 КРИТИЧЕСКАЯ ПРАВКА: Также обязательно удаляем его у тех, кто сидит во "Всех регионах"
         async_to_sync(channel_layer.group_send)(
-            f"region_{region_id}",
+            "region_0",
             {
-                "type": "delete_message_notify", # Новый тип события
+                "type": "delete_message_notify", 
                 "message_id": message_id,
             }
         )
@@ -1784,8 +1798,20 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
         channel_layer = get_channel_layer()
         region_id = message.region_id
 
+        # Если сообщение отправлено в конкретный регион, шлем его жителям региона
+        if str(region_id) != '0':
+            async_to_sync(channel_layer.group_send)(
+                f"region_{region_id}",
+                {
+                    "type": "new_message_notify",
+                    "message_id": message.id,
+                    "message": full_message_data,
+                }
+            )
+        
+        # 🔥 КРИТИЧЕСКАЯ ПРАВКА: Всегда отправляем копию тем, кто сидит во "Всех регионах"
         async_to_sync(channel_layer.group_send)(
-            f"region_{region_id}",
+            "region_0",
             {
                 "type": "new_message_notify",
                 "message_id": message.id,
@@ -1794,7 +1820,6 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
         )
         
         return Response(full_message_data, status=status.HTTP_201_CREATED)
-
 
 
 
