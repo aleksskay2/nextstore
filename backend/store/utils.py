@@ -157,7 +157,6 @@ def get_audio_duration(file_path: str) -> int | None:
 
 
 
-
 import os
 import threading
 from django.conf import settings
@@ -194,7 +193,15 @@ def _execute_send_each(messages, tokens):
         
         for idx, resp in enumerate(response.responses):
             if not resp.success:
-                print(f"❌ Ошибка отправки на токен {tokens[idx]}: {resp.exception}")
+                error_msg = str(resp.exception)
+                bad_token = tokens[idx]
+                print(f"❌ Ошибка отправки на токен {bad_token}: {error_msg}")
+                
+                # 🔥 МАГИЯ ЗДЕСЬ: Автоочистка базы от мертвых токенов
+                if "Requested entity was not found" in error_msg or "UNREGISTERED" in error_msg or "invalid registration" in error_msg.lower():
+                    FCMDevice.objects.filter(expo_push_token=bad_token).delete()
+                    print(f"🗑️ [Автоочистка] Мертвый токен удален из базы: {bad_token}")
+
     except Exception as e:
         print(f"❌ [Utils - Thread] ОШИБКА при запросе к Firebase: {e}")
 
