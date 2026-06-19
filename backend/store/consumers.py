@@ -319,6 +319,387 @@ def active_chat_key(user_id: int) -> str:
     return f"active_chats:{user_id}"
 
 
+# class PrivateChatConsumer(AsyncWebsocketConsumer):
+
+#     # ==================================================
+#     # CONNECT / DISCONNECT
+#     # ==================================================
+#     async def connect(self):
+#         self.user_id = int(self.scope["url_route"]["kwargs"]["user_id"])
+#         self.room_group_name = f"chat_{self.user_id}"
+
+#         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+#         await self.accept()
+
+#     async def disconnect(self, close_code):
+#         await self.clear_active_chats(self.user_id)
+#         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+
+#     # ==================================================
+#     # RECEIVE
+#     # ==================================================
+#     async def receive(self, text_data):
+#         data = json.loads(text_data)
+#         msg_type = data.get("type")
+
+#         if msg_type == "message":
+#             await self.handle_send_message(data)
+
+#         elif msg_type == "chat_open":
+#             await self.handle_chat_open(data)
+
+#         # 🔥 ДОБАВЛЯЕМ СЮДА:
+#         elif msg_type == "chat_close":
+#             await self.handle_chat_close(data)
+
+#         elif msg_type == "message_created":
+#             await self.handle_existing_message(data)
+
+#         elif msg_type == "product_message_created":
+#             await self.handle_product_message_created(data)
+
+
+
+#     # ... ниже добавь саму функцию:
+#     async def handle_chat_close(self, data):
+#         target = int(data.get("target", 0))
+#         if target:
+#             print(f"🛑 CHAT CLOSE: {self.user_id} -> {target}")
+#             await self.remove_active_chat(self.user_id, target)
+    
+#     from asgiref.sync import sync_to_async
+
+#     async def handle_product_message_created(self, content):
+#         from .models import Message  # модель сообщений по товару
+#         from django_redis import get_redis_connection
+
+#         message_id = content.get("message_id")
+#         receiver_id = content.get("receiver_id")
+#         product_id = content.get("product_id")
+
+#         if not message_id or not receiver_id or not product_id:
+#             return
+
+#         # получаем сообщение
+#         msg = await database_sync_to_async(
+#             lambda: Message.objects.get(id=message_id)
+#         )()
+
+#         # проверяем онлайн ли получатель
+#         online_users = await sync_to_async(
+#             lambda: get_redis_connection("default").smembers(ONLINE_USERS_KEY)
+#         )()
+
+#         if str(receiver_id).encode() not in online_users:
+#             return
+
+#         # помечаем delivered
+#         await database_sync_to_async(
+#             lambda: Message.objects.filter(id=message_id, is_delivered=False)
+#             .update(is_delivered=True)
+#         )()
+
+#         # уведомляем все сессии отправителя и получателя
+#         for uid in [msg.sender_id, msg.receiver_id]:
+#             await self.channel_layer.group_send(
+#                 f"user_{uid}",
+#                 {
+#                     "type": "product_message_delivered",
+#                     "message_id": msg.id,
+#                     "product_id": product_id,
+#                     "receiver_id": msg.receiver_id,
+#                 }
+#             )
+
+
+
+#     # ==================================================
+#     # EXISTING MESSAGE
+#     # ==================================================
+#     async def handle_existing_message(self, data):
+#         message_id = data["message_id"]
+#         target = int(data["target"])
+
+#         from .models import PrivateMessage
+
+#         # msg = await database_sync_to_async(
+#         #     lambda: PrivateMessage.objects.get(id=message_id)
+#         # )()
+
+#         msg = await database_sync_to_async(
+#             lambda: PrivateMessage.objects
+#                 .prefetch_related("files")
+#                 .get(id=message_id)
+#         )()
+
+
+#         target_chat_open = await self.is_chat_open(target, self.user_id)
+
+#         if target_chat_open:
+#             await self.mark_delivered(msg.id)
+#             await self.mark_read_single(msg.id)
+
+#             msg = await database_sync_to_async(
+#                 lambda: PrivateMessage.objects
+#                     .prefetch_related("files")
+#                     .get(id=msg.id)
+#             )()
+
+#         serialized = await self.serialize_message(msg)
+
+#         await self.channel_layer.group_send(
+#             f"chat_{target}",
+#             {"type": "chat_message", "message": serialized}
+#         )
+#         await self.mark_delivered(msg.id)
+
+#         await self.channel_layer.group_send(
+#             f"chat_{self.user_id}",
+#             {"type": "chat_message", "message": serialized}
+#         )
+
+#         await self.channel_layer.group_send(
+#             f"chat_{self.user_id}",
+#             {"type": "message_delivered", "message_id": msg.id}
+#         )
+
+#         if target_chat_open:
+#             await self.channel_layer.group_send(
+#                 f"chat_{self.user_id}",
+#                 {"type": "messages_read", "message_ids": [msg.id]}
+#             )
+
+#     # ==================================================
+#     # SEND MESSAGE
+#     # ==================================================
+#     async def handle_send_message(self, data):
+#         text = data["text"]
+#         target = int(data["target"])
+#         temp_id = data.get("temp_id")
+
+#         msg = await self.create_message(self.user_id, target, text)
+
+#         target_chat_open = await self.is_chat_open(target, self.user_id)
+
+#         if target_chat_open:
+#             await self.mark_delivered(msg.id)
+#             await self.mark_read_single(msg.id)
+
+#             from .models import PrivateMessage
+#             msg = await database_sync_to_async(
+#                 lambda: PrivateMessage.objects
+#                     .prefetch_related("files")
+#                     .get(id=msg.id)
+#             )()
+
+
+#         serialized = await self.serialize_message(msg)
+#         # serialized["temp_id"] = temp_id
+
+#         await self.channel_layer.group_send(
+#             f"chat_{target}",
+#             {"type": "chat_message", "message": serialized}
+#         )
+
+#         await self.channel_layer.group_send(
+#             f"chat_{self.user_id}",
+#             {"type": "chat_message", "message": serialized}
+#         )
+
+#         # await self.channel_layer.group_send(
+#         #     f"chat_{self.user_id}",
+#         #     {
+#         #         "type": "message_delivered",
+#         #         "message_id": msg.id, 
+#         #         "receiver_id": target
+#         #         # "temp_id": temp_id
+#         #     }
+#         # )
+
+#         if await self.is_user_online(target):
+#             await self.channel_layer.group_send(
+#                 f"user_{target}",        # глобальная группа получателя
+#                 {"type": "message_delivered", "message_id": msg.id, "receiver_id": target}
+#             )
+
+#         if target_chat_open:
+#             await self.channel_layer.group_send(
+#                 f"chat_{target}",
+#                 {
+#                     "type": "messages_read",
+#                     "message_ids": [msg.id],
+#                     "reader_id": self.user_id
+#                 }
+#             )
+
+#     # ==================================================
+#     # CHAT OPEN
+#     # ==================================================
+#     async def handle_chat_open(self, data):
+#         other_user_id = int(data["target"])
+#         print(f"🔥 CHAT OPEN: {self.user_id} -> {other_user_id}")
+
+#         await self.add_active_chat(self.user_id, other_user_id)
+
+#         message_ids = await self.mark_messages_read(
+#             reader_id=self.user_id,
+#             sender_id=other_user_id
+#         )
+
+#         if not message_ids:
+#             return
+
+#         payload = {
+#             "type": "messages_read",
+#             "message_ids": message_ids,
+#             "reader_id": self.user_id,
+#         }
+
+#         await self.channel_layer.group_send(
+#             f"chat_{other_user_id}",
+#             payload
+#         )
+
+#         await self.channel_layer.group_send(
+#             f"chat_{self.user_id}",
+#             payload
+#         )
+
+
+#     @database_sync_to_async
+#     def is_user_online(self, user_id: int):
+#         r = get_redis_connection("default")
+#         return r.sismember("online_users", user_id)
+
+
+#     # ==================================================
+#     # REDIS HELPERS
+#     # ==================================================
+#     @database_sync_to_async
+#     def add_active_chat(self, user_id: int, target_id: int):
+#         r = get_redis_connection("default")
+#         r.sadd(active_chat_key(user_id), target_id)
+#         r.expire(active_chat_key(user_id), 60 * 60)
+
+#     @database_sync_to_async
+#     def clear_active_chats(self, user_id: int):
+#         r = get_redis_connection("default")
+#         r.delete(active_chat_key(user_id))
+
+#     @database_sync_to_async
+#     def is_chat_open(self, user_id: int, target_id: int) -> bool:
+#         r = get_redis_connection("default")
+#         return r.sismember(active_chat_key(user_id), target_id)
+
+#     # ==================================================
+#     # DB HELPERS
+#     # ==================================================
+#     @database_sync_to_async
+#     def create_message(self, sender_id, target_id, text):
+#         from .models import PrivateMessage
+#         return PrivateMessage.objects.create(
+#             sender_id=sender_id,
+#             target_id=target_id,
+#             text=text,
+#             is_delivered=False,
+#             is_read=False
+#         )
+
+#     @database_sync_to_async
+#     def mark_delivered(self, message_id):
+#         from .models import PrivateMessage
+#         PrivateMessage.objects.filter(id=message_id).update(is_delivered=True)
+
+#     @database_sync_to_async
+#     def mark_read_single(self, message_id):
+#         from .models import PrivateMessage
+#         PrivateMessage.objects.filter(id=message_id).update(is_read=True)
+
+#     @database_sync_to_async
+#     def mark_messages_read(self, reader_id, sender_id):
+#         from .models import PrivateMessage
+#         qs = PrivateMessage.objects.filter(
+#             sender_id=sender_id,
+#             target_id=reader_id,
+#             is_read=False
+#         )
+#         ids = list(qs.values_list("id", flat=True))
+#         qs.update(is_read=True)
+#         return ids
+
+#     @database_sync_to_async
+#     def serialize_message(self, msg):
+#         print("files ", [
+#             (f.id, f.type)
+#             for f in msg.files.all()
+#         ])
+#         return {
+#             "id": msg.id,
+#             "text": msg.text,
+#             "created_at": msg.created_at.isoformat(),
+#             "is_delivered": msg.is_delivered,
+#             "is_read": msg.is_read,
+#             "sender_id": msg.sender_id,
+#             "target_id": msg.target_id,
+#             "files": [
+#                 {
+#                     "id": f.id,
+#                     "url": f.file.url,
+#                     "type": f.type,
+#                     "duration": f.duration,
+#                 }
+#                 for f in msg.files.all()
+#             ]
+#         }
+
+#     # ==================================================
+#     # WS OUT
+#     # ==================================================
+#     async def chat_message(self, event):
+#         await self.send(text_data=json.dumps({
+#             "type": "message",
+#             "message": event["message"]
+#         }))
+
+#     async def messages_read(self, event):
+#         await self.send(text_data=json.dumps({
+#             "type": "read",
+#             "message_ids": event["message_ids"]
+#         }))
+
+#     async def message_delivered(self, event):
+#         await self.send(text_data=json.dumps({
+#             "type": "delivered",
+#             "message_id": event["message_id"]
+#         }))
+
+
+#     async def chat_update_event(self, event):
+#         await self.send_json({
+#             "type": "chat_update",
+#             "chat": event["chat"]
+#         })
+
+#     async def message_deleted(self, event):
+#         """Вызывается при удалении сообщения"""
+#         await self.send(text_data=json.dumps({
+#             "type": "message_deleted",
+#             "message_id": event["message_id"]
+#         }))
+
+#     # ... в самом низу, в разделе REDIS HELPERS добавь этот метод:
+#     @database_sync_to_async
+#     def remove_active_chat(self, user_id: int, target_id: int):
+#         r = get_redis_connection("default")
+#         r.srem(active_chat_key(user_id), target_id)
+
+
+
+
+
+
+
+
 class PrivateChatConsumer(AsyncWebsocketConsumer):
 
     # ==================================================
@@ -348,9 +729,12 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         elif msg_type == "chat_open":
             await self.handle_chat_open(data)
 
-        # 🔥 ДОБАВЛЯЕМ СЮДА:
         elif msg_type == "chat_close":
             await self.handle_chat_close(data)
+
+        # 🔥 🔥 🔥 ДОБАВЛЕНО: Перехват мгновенного прочтения сообщения из открытого чата
+        elif msg_type == "message_read":
+            await self.handle_message_read(data)
 
         elif msg_type == "message_created":
             await self.handle_existing_message(data)
@@ -358,20 +742,37 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         elif msg_type == "product_message_created":
             await self.handle_product_message_created(data)
 
-
-
-    # ... ниже добавь саму функцию:
+    # ==================================================
+    # HANDLERS
+    # ==================================================
     async def handle_chat_close(self, data):
         target = int(data.get("target", 0))
         if target:
             print(f"🛑 CHAT CLOSE: {self.user_id} -> {target}")
             await self.remove_active_chat(self.user_id, target)
-    
-    from asgiref.sync import sync_to_async
+
+    # 🔥 🔥 🔥 ДОБАВЛЕНО: Метод обработки отчета о прочтении отдельного сообщения
+    async def handle_message_read(self, data):
+        message_id = data.get("message_id")
+        target = int(data.get("target", 0))
+        
+        if message_id and target:
+            # 1. Записываем статус в PostgreSQL
+            await self.mark_read_single(message_id)
+            
+            payload = {
+                "type": "messages_read",
+                "message_ids": [message_id],
+                "reader_id": self.user_id,
+            }
+            
+            # 2. Уведомляем собеседника, чтобы у него зажглись галочки прочтения
+            await self.channel_layer.group_send(f"chat_{target}", payload)
+            # 3. Уведомляем другие свои сессии
+            await self.channel_layer.group_send(f"chat_{self.user_id}", payload)
 
     async def handle_product_message_created(self, content):
         from .models import Message  # модель сообщений по товару
-        from django_redis import get_redis_connection
 
         message_id = content.get("message_id")
         receiver_id = content.get("receiver_id")
@@ -380,12 +781,12 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         if not message_id or not receiver_id or not product_id:
             return
 
-        # получаем сообщение
         msg = await database_sync_to_async(
             lambda: Message.objects.get(id=message_id)
         )()
 
-        # проверяем онлайн ли получатель
+        # Проверяем онлайн ли получатель (предполагается, что константа ONLINE_USERS_KEY импортирована или заменена на строку)
+        ONLINE_USERS_KEY = "online_users"
         online_users = await sync_to_async(
             lambda: get_redis_connection("default").smembers(ONLINE_USERS_KEY)
         )()
@@ -393,13 +794,11 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         if str(receiver_id).encode() not in online_users:
             return
 
-        # помечаем delivered
         await database_sync_to_async(
             lambda: Message.objects.filter(id=message_id, is_delivered=False)
             .update(is_delivered=True)
         )()
 
-        # уведомляем все сессии отправителя и получателя
         for uid in [msg.sender_id, msg.receiver_id]:
             await self.channel_layer.group_send(
                 f"user_{uid}",
@@ -411,8 +810,6 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-
-
     # ==================================================
     # EXISTING MESSAGE
     # ==================================================
@@ -422,16 +819,11 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
         from .models import PrivateMessage
 
-        # msg = await database_sync_to_async(
-        #     lambda: PrivateMessage.objects.get(id=message_id)
-        # )()
-
         msg = await database_sync_to_async(
             lambda: PrivateMessage.objects
                 .prefetch_related("files")
                 .get(id=message_id)
         )()
-
 
         target_chat_open = await self.is_chat_open(target, self.user_id)
 
@@ -475,10 +867,8 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
     async def handle_send_message(self, data):
         text = data["text"]
         target = int(data["target"])
-        temp_id = data.get("temp_id")
 
         msg = await self.create_message(self.user_id, target, text)
-
         target_chat_open = await self.is_chat_open(target, self.user_id)
 
         if target_chat_open:
@@ -492,9 +882,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                     .get(id=msg.id)
             )()
 
-
         serialized = await self.serialize_message(msg)
-        # serialized["temp_id"] = temp_id
 
         await self.channel_layer.group_send(
             f"chat_{target}",
@@ -506,19 +894,9 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             {"type": "chat_message", "message": serialized}
         )
 
-        # await self.channel_layer.group_send(
-        #     f"chat_{self.user_id}",
-        #     {
-        #         "type": "message_delivered",
-        #         "message_id": msg.id, 
-        #         "receiver_id": target
-        #         # "temp_id": temp_id
-        #     }
-        # )
-
         if await self.is_user_online(target):
             await self.channel_layer.group_send(
-                f"user_{target}",        # глобальная группа получателя
+                f"user_{target}",
                 {"type": "message_delivered", "message_id": msg.id, "receiver_id": target}
             )
 
@@ -555,22 +933,13 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             "reader_id": self.user_id,
         }
 
-        await self.channel_layer.group_send(
-            f"chat_{other_user_id}",
-            payload
-        )
-
-        await self.channel_layer.group_send(
-            f"chat_{self.user_id}",
-            payload
-        )
-
+        await self.channel_layer.group_send(f"chat_{other_user_id}", payload)
+        await self.channel_layer.group_send(f"chat_{self.user_id}", payload)
 
     @database_sync_to_async
     def is_user_online(self, user_id: int):
         r = get_redis_connection("default")
         return r.sismember("online_users", user_id)
-
 
     # ==================================================
     # REDIS HELPERS
@@ -590,6 +959,11 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
     def is_chat_open(self, user_id: int, target_id: int) -> bool:
         r = get_redis_connection("default")
         return r.sismember(active_chat_key(user_id), target_id)
+
+    @database_sync_to_async
+    def remove_active_chat(self, user_id: int, target_id: int):
+        r = get_redis_connection("default")
+        r.srem(active_chat_key(user_id), target_id)
 
     # ==================================================
     # DB HELPERS
@@ -629,10 +1003,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def serialize_message(self, msg):
-        print("files ", [
-            (f.id, f.type)
-            for f in msg.files.all()
-        ])
+        print("files ", [(f.id, f.type) for f in msg.files.all()])
         return {
             "id": msg.id,
             "text": msg.text,
@@ -673,7 +1044,6 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             "message_id": event["message_id"]
         }))
 
-
     async def chat_update_event(self, event):
         await self.send_json({
             "type": "chat_update",
@@ -681,19 +1051,10 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         })
 
     async def message_deleted(self, event):
-        """Вызывается при удалении сообщения"""
         await self.send(text_data=json.dumps({
             "type": "message_deleted",
             "message_id": event["message_id"]
         }))
-
-    # ... в самом низу, в разделе REDIS HELPERS добавь этот метод:
-    @database_sync_to_async
-    def remove_active_chat(self, user_id: int, target_id: int):
-        r = get_redis_connection("default")
-        r.srem(active_chat_key(user_id), target_id)
-
-
 
 
 
