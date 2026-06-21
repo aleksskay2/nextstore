@@ -2122,7 +2122,7 @@ class StoryViewSet(viewsets.ModelViewSet):
 
         # 2) подзапрос: есть ли не просмотренные сторис
         unviewed_qs = Story.objects.filter(
-            user=OuterRef("user"),
+            user_id=OuterRef("user_id"), # 🔥 ИСПРАВЛЕНО: используем явный суффикс id
             is_active=True,
             expires_at__gt=timezone.now()
         ).exclude(
@@ -2131,10 +2131,10 @@ class StoryViewSet(viewsets.ModelViewSet):
 
         # 3) аннотация: дата последней сторис
         last_story_at = Story.objects.filter(
-            user=OuterRef("user"),
+          user_id=OuterRef("user_id"),
             is_active=True,
             expires_at__gt=timezone.now()
-        ).values("user").annotate(
+        ).values("user_id").annotate(
             last_at=Max("created_at")
         ).values("last_at")
 
