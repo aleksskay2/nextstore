@@ -51,7 +51,7 @@ urlpatterns = [
     path('delete-user-product/<int:pk>/', DeleteUserProductView.as_view(),
          name='delete-user-product' ),
     path('categories/<int:category_id>/features/', CategoryFeaturesView.as_view()),
-    path("users/<int:user_id>/full-profile/", UserFullProfileView.as_view()),
+    # path("users/<int:user_id>/full-profile/", UserFullProfileView.as_view()),
     
     path("ws/chat/<int:user_id>/", PrivateChatConsumer.as_asgi()),
     
