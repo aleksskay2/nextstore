@@ -22,38 +22,85 @@ from rest_framework.reverse import reverse
 
 User = get_user_model()
 
-class RegisterSerializer (serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, validators=[validate_password])
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    # 🔥 1. Делаем username необязательным, чтобы при регистрации по телефону он не требовался жестко
+    username = serializers.CharField(required=False, allow_blank=True)
+    
+    password = serializers.CharField(
+        write_only=True, 
+        required=False, 
+        allow_blank=True,
+        validators=[validate_password]
+    )
+    email = serializers.EmailField(required=False, allow_blank=True)
 
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'phone', 'region']
 
+    def validate(self, attrs):
+        phone = attrs.get('phone')
+        username = attrs.get('username')
+        password = attrs.get('password')
+        email = attrs.get('email')
+
+        # Если регистрируются по классическому пути (без телефона)
+        if not phone:
+            if not username:
+                raise serializers.ValidationError({"username": "Имя пользователя обязательно."})
+            if not password:
+                raise serializers.ValidationError({"password": "При регистрации по Email пароль обязателен."})
+            if not email:
+                raise serializers.ValidationError({"email": "При регистрации по Email почта обязательна."})
+        
+        return attrs
+
     def create(self, validated_data):
-        user = User.objects.create(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            phone=validated_data['phone'],
-            region=validated_data['region'],
-            is_active=False,
+        phone = validated_data.get('phone')
+        password = validated_data.get('password')
+        email = validated_data.get('email', '')
+        
+        # 🔥 2. Умная генерация username, если регистрируемся по телефону
+        username = validated_data.get('username')
+        if not username and phone:
+            username = f"user_{phone[-4:]}" # Например, user_2233
+
+        # Хитрый паттерн: если вдруг сгенерированный никнейм уже занят, дописываем случайные цифры
+        while User.objects.filter(username=username).exists():
+            import random
+            username = f"user_{phone[-4:]}_{random.randint(10, 99)}"
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password if password else None,  
+            phone=phone,
+            region=validated_data.get('region', ''),
+            is_active=False if not phone else True,  
         )
-        user.set_password(validated_data['password'])
-        user.save()
 
+        if not phone and email:
+            try:
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+                activation_link = f"{settings.FRONTEND_URL}/activate?uid={uid}&token={token}"
 
-        #Отправка письма активации
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = default_token_generator.make_token(user)
-        activation_link = f"{settings.FRONTEND_URL}/activate?uid={uid}&token={token}"
+                send_mail(
+                    subject='Подтверждение email',
+                    message=f"Привет, {user.username}! Перейди по ссылке, чтобы активировать аккаунт:\n{activation_link}",
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'webmaster@localhost'),
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                print(f"❌ Ошибка отправки письма: {e}")
 
-        send_mail (
-            subject='Потверждение email',
-            message=f"Привет, {user.username}! Перейди по ссылке, чтобы активировать аккаунт:\n{activation_link}",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
         return user
+
+
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
