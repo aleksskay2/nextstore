@@ -9,7 +9,7 @@ from .views import FCMDeviceViewSet
 from .consumers import PrivateChatConsumer , ProductChatConsumer
 
 from .views import CustomTokenObtainPairView, MessageRegionChatViewSet, StoryViewSet, ChatSummaryViewSet, SearchUserViewSet, UserInfoView, EditUserProductViewSet
-from .views import CategoryViewSet, ActivateAccountView, FollowViewSet, GroupMessageViewSet, SearchGroupsView, GroupViewSet, CustomUserViewSet, PrivateMessageViewSet, ProductVipViewSet, ResendActivationView, ProductReviewViewSet, CategoryFeaturesView, MessageViewSet, FeatureProductViewSet, BookmarkViewSet, OwnerProductViewSet, MyProductViewSet, LogoutView
+from .views import CategoryViewSet, ActivateAccountView,  FollowViewSet, FirebasePhoneAuthView, GroupMessageViewSet, SearchGroupsView, GroupViewSet, CustomUserViewSet, PrivateMessageViewSet, ProductVipViewSet, ResendActivationView, ProductReviewViewSet, CategoryFeaturesView, MessageViewSet, FeatureProductViewSet, BookmarkViewSet, OwnerProductViewSet, MyProductViewSet, LogoutView
  
 router = DefaultRouter()
 router.register(r'owner-products', OwnerProductViewSet, basename='owner-products')
@@ -40,9 +40,10 @@ router.register(r'follows', FollowViewSet , basename='follows')
 
 urlpatterns = [
     path('register/', RegisterView.as_view()),
+    path('firebase-phone/', FirebasePhoneAuthView.as_view(), name='firebase_phone_auth'), # 👈 Добавили сюда
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('user/', UserInfoView.as_view(), name='activate'),
-    path('activate/', ActivateAccountView.as_view(), name='user-info'),
+    path('user/', UserInfoView.as_view(),  name='user-info'),
+    path('activate/', ActivateAccountView.as_view(), name='activate'),
     
     path('resend-activation/', ResendActivationView.as_view(), name='resend-activation'),
     path('logout/', LogoutView.as_view(), name='logout'),  # Добавляем маршр

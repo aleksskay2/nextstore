@@ -2355,3 +2355,55 @@ class FollowViewSet(viewsets.ModelViewSet):
             "following_count": following_count,
             "is_following": is_following,
         })
+
+
+
+
+
+
+from firebase_admin import auth as firebase_auth
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import CustomUser  # Или get_user_model()
+
+class FirebasePhoneAuthView(APIView):
+    def post(self, request):
+        id_token = request.data.get('id_token')
+        if not id_token:
+            return Response({"error": "Токен не передан"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # 🔥 Проверяем токен напрямую у Google
+            decoded_token = firebase_auth.verify_id_token(id_token)
+            phone_number = decoded_token.get('phone_number')
+
+            if not phone_number:
+                return Response({"error": "В токене нет номера телефона"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Создаем или логиним пользователя
+            user, created = CustomUser.objects.get_or_create(
+                phone=phone_number,
+                defaults={
+                    'username': f"user_{phone_number[-4:]}",
+                    'is_active': True
+                }
+            )
+
+            # Генерируем JWT для авторизации в чате
+            refresh = RefreshToken.for_user(user)
+
+            return Response({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "phone": user.phone
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"❌ Ошибка Firebase токена: {e}")
+            return Response({"error": "Невалидный токен Firebase"}, status=status.HTTP_400_BAD_REQUEST)
