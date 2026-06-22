@@ -1620,8 +1620,56 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
 
 
 
-    @action(detail=True, methods=["post"])
-    def mark_read(self, request, pk=None):
+    @action(detail=False, methods=["post"], url_path="mark-read")
+    def mark_read(self, request):
+        region_id = request.data.get("region")
+        
+        if region_id is None or region_id == '':
+            return Response({"error": "Параметр region обязателен."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Превращаем в строку для безопасного сравнения
+        region_str = str(region_id)
+
+        # 1. Формируем фильтр в зависимости от выбранного региона
+        if region_str == '0':
+            # Если "Все регионы" — берем ВСЕ непрочитанные сообщения во всей таблице
+            unread_messages = MessageRegionChat.objects.filter(is_read=False)
+        else:
+            # Если конкретный регион — фильтруем строго по нему
+            unread_messages = MessageRegionChat.objects.filter(region_id=region_id, is_read=False)
+        
+        # Исключаем сообщения, которые отправил сам этот пользователь
+        unread_messages = unread_messages.exclude(user=request.user)
+        
+        # Выполняем массовое обновление в БД
+        updated_count = unread_messages.update(is_read=True)
+
+        # 2. 🔔 SOCKET NOTIFY: Оповещаем фронтенд через сокеты
+        channel_layer = get_channel_layer()
+        
+        # Всегда отправляем уведомление в комнату "Все регионы" (region_0)
+        async_to_sync(channel_layer.group_send)(
+            "region_0",
+            {
+                "type": "messages_read_notify",
+                "region": region_id  # передаем исходный region, чтобы фронт понимал контекст
+            }
+        )
+
+        # Если мы читали сообщения конкретного региона, то уведомляем еще и его комнату
+        if region_str != '0':
+            async_to_sync(channel_layer.group_send)(
+                f"region_{region_str}",
+                {
+                    "type": "messages_read_notify",
+                    "region": region_id
+                }
+            )
+
+        return Response({
+            "status": "success", 
+            "message": f"Помечено прочитанными сообщений: {updated_count}"
+        }, status=status.HTTP_200_OK)
         message = GroupMessage.objects.select_related("sender").get(pk=pk)
         user = request.user
 
