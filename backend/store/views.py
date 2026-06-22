@@ -1765,6 +1765,55 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
         
     
+    # 🔥 ДОБАВЛЯЕМ КАСТOMНЫЙ ЭКШЕН ДЛЯ ПРОЧТЕНИЯ СООБЩЕНИЙ
+    @action(detail=False, methods=["post"], url_path="mark-read")
+    def mark_read(self, request):
+        region_id = request.data.get("region")
+        
+        # Защита на случай пустых данных
+        if region_id is None or region_id == '':
+            return Response({"error": "Параметр region обязателен."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Помечаем прочитанными в базе данных ВСЕ чужие сообщения в этом регионе
+        # (свои сообщения читать не нужно, они по умолчанию прочитаны)
+        unread_messages = MessageRegionChat.objects.filter(
+            region_id=region_id,
+            is_read=False
+        ).exclude(user=request.user)
+        
+        # Выполняем массовое обновление (Bulk Update)
+        updated_count = unread_messages.update(is_read=True)
+
+        # 2. 🔔 SOCKET NOTIFY: Отправляем широковещательный сигнал в сокеты
+        # Чтобы у других пользователей в реальном времени обновился статус чата
+        channel_layer = get_channel_layer()
+        
+        if str(region_id) != '0':
+            async_to_sync(channel_layer.group_send)(
+                f"region_{region_id}",
+                {
+                    "type": "messages_read_notify", # Название метода в твоем потребителе (consumer)
+                    "region": region_id
+                }
+            )
+
+        # Не забываем про глобальную комнату "Все регионы"
+        async_to_sync(channel_layer.group_send)(
+            "region_0",
+            {
+                "type": "messages_read_notify",
+                "region": region_id
+            }
+        )
+
+        return Response({
+            "status": "success", 
+            "message": f"Помечено прочитанными сообщений: {updated_count}"
+        }, status=status.HTTP_200_OK)
+
+
+    
+    
     def destroy(self, request, *args, **kwargs):
         # Получаем объект сообщения, который пытаются удалить
         instance = self.get_object()
