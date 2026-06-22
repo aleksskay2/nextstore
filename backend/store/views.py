@@ -1620,56 +1620,8 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
 
 
 
-    @action(detail=False, methods=["post"], url_path="mark-read")
-    def mark_read(self, request):
-        region_id = request.data.get("region")
-        
-        if region_id is None or region_id == '':
-            return Response({"error": "Параметр region обязателен."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Превращаем в строку для безопасного сравнения
-        region_str = str(region_id)
-
-        # 1. Формируем фильтр в зависимости от выбранного региона
-        if region_str == '0':
-            # Если "Все регионы" — берем ВСЕ непрочитанные сообщения во всей таблице
-            unread_messages = MessageRegionChat.objects.filter(is_read=False)
-        else:
-            # Если конкретный регион — фильтруем строго по нему
-            unread_messages = MessageRegionChat.objects.filter(region_id=region_id, is_read=False)
-        
-        # Исключаем сообщения, которые отправил сам этот пользователь
-        unread_messages = unread_messages.exclude(user=request.user)
-        
-        # Выполняем массовое обновление в БД
-        updated_count = unread_messages.update(is_read=True)
-
-        # 2. 🔔 SOCKET NOTIFY: Оповещаем фронтенд через сокеты
-        channel_layer = get_channel_layer()
-        
-        # Всегда отправляем уведомление в комнату "Все регионы" (region_0)
-        async_to_sync(channel_layer.group_send)(
-            "region_0",
-            {
-                "type": "messages_read_notify",
-                "region": region_id  # передаем исходный region, чтобы фронт понимал контекст
-            }
-        )
-
-        # Если мы читали сообщения конкретного региона, то уведомляем еще и его комнату
-        if region_str != '0':
-            async_to_sync(channel_layer.group_send)(
-                f"region_{region_str}",
-                {
-                    "type": "messages_read_notify",
-                    "region": region_id
-                }
-            )
-
-        return Response({
-            "status": "success", 
-            "message": f"Помечено прочитанными сообщений: {updated_count}"
-        }, status=status.HTTP_200_OK)
+    @action(detail=True, methods=["post"])
+    def mark_read(self, request, pk=None):
         message = GroupMessage.objects.select_related("sender").get(pk=pk)
         user = request.user
 
@@ -1813,46 +1765,52 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
         
     
-    # 🔥 ДОБАВЛЯЕМ КАСТOMНЫЙ ЭКШЕН ДЛЯ ПРОЧТЕНИЯ СООБЩЕНИЙ
+    
     @action(detail=False, methods=["post"], url_path="mark-read")
     def mark_read(self, request):
         region_id = request.data.get("region")
         
-        # Защита на случай пустых данных
         if region_id is None or region_id == '':
             return Response({"error": "Параметр region обязателен."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Помечаем прочитанными в базе данных ВСЕ чужие сообщения в этом регионе
-        # (свои сообщения читать не нужно, они по умолчанию прочитаны)
-        unread_messages = MessageRegionChat.objects.filter(
-            region_id=region_id,
-            is_read=False
-        ).exclude(user=request.user)
+        # Превращаем в строку для безопасного сравнения
+        region_str = str(region_id)
+
+        # 1. Формируем фильтр в зависимости от выбранного региона
+        if region_str == '0':
+            # Если "Все регионы" — берем ВСЕ непрочитанные сообщения во всей таблице
+            unread_messages = MessageRegionChat.objects.filter(is_read=False)
+        else:
+            # Если конкретный регион — фильтруем строго по нему
+            unread_messages = MessageRegionChat.objects.filter(region_id=region_id, is_read=False)
         
-        # Выполняем массовое обновление (Bulk Update)
+        # Исключаем сообщения, которые отправил сам этот пользователь
+        unread_messages = unread_messages.exclude(user=request.user)
+        
+        # Выполняем массовое обновление в БД
         updated_count = unread_messages.update(is_read=True)
 
-        # 2. 🔔 SOCKET NOTIFY: Отправляем широковещательный сигнал в сокеты
-        # Чтобы у других пользователей в реальном времени обновился статус чата
+        # 2. 🔔 SOCKET NOTIFY: Оповещаем фронтенд через сокеты
         channel_layer = get_channel_layer()
         
-        if str(region_id) != '0':
-            async_to_sync(channel_layer.group_send)(
-                f"region_{region_id}",
-                {
-                    "type": "messages_read_notify", # Название метода в твоем потребителе (consumer)
-                    "region": region_id
-                }
-            )
-
-        # Не забываем про глобальную комнату "Все регионы"
+        # Всегда отправляем уведомление в комнату "Все регионы" (region_0)
         async_to_sync(channel_layer.group_send)(
             "region_0",
             {
                 "type": "messages_read_notify",
-                "region": region_id
+                "region": region_id  # передаем исходный region, чтобы фронт понимал контекст
             }
         )
+
+        # Если мы читали сообщения конкретного региона, то уведомляем еще и его комнату
+        if region_str != '0':
+            async_to_sync(channel_layer.group_send)(
+                f"region_{region_str}",
+                {
+                    "type": "messages_read_notify",
+                    "region": region_id
+                }
+            )
 
         return Response({
             "status": "success", 
