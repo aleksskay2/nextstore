@@ -211,7 +211,48 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         }, status=200)   
 
 
-    
+    @action(detail=True, methods=["get"], url_path="full-profile")
+    def full_profile(self, request, pk=None):
+        """Возвращает расширенный профиль пользователя и его товары"""
+        
+        # 🔥 ЗАЩИТА: Проверяем, что ID — это число. 
+        # Если фронтенд прислал 'undefined', мы отдадим красивый 400 Bad Request без падения базы
+        if not str(pk).isdigit():
+            return Response(
+                {"error": "Invalid user ID. Expected an integer."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_id = pk
+        cache_key = f"user_full_profile:{user_id}"
+
+        # 1) ПРОБА КЭША
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data, status=status.HTTP_200_OK)
+
+        # 2) ДЕЛАЕМ ЗАПРОСЫ К БД
+        # Используем self.get_queryset() или твою модель User
+        user = get_object_or_404(CustomUser, id=user_id)
+        
+        # Передаем self.get_serializer, либо твой CustomUserSerializer
+        user_data = CustomUserSerializer(user, context={"request": request}).data
+
+        products = Product.objects.filter(owner_id=user_id, productUser='owner')
+        product_data = ProductListSerializer(
+            products, many=True, context={"request": request}
+        ).data
+
+        payload = {
+            "user": user_data,
+            "products": product_data
+        }
+
+        # 3) КЭШИРУЕМ НА 60 СЕК
+        cache.set(cache_key, payload, timeout=60)
+
+        return Response(payload, status=status.HTTP_200_OK)
+
 
 
 from rest_framework import viewsets, status
