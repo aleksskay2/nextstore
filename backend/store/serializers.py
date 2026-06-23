@@ -22,10 +22,18 @@ from rest_framework.reverse import reverse
 
 User = get_user_model()
 
+import random
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.conf import settings
 
+# 🔥 ИМПОРТИРУЙ ТВОЮ ЗАДАЧУ CELERY (укажи правильный путь к твоему приложению вместо 'your_app')
+from store.tasks import send_verification_email_task 
+
+User = get_user_model()
 
 class RegisterSerializer(serializers.ModelSerializer):
-    # 🔥 1. Делаем username необязательным, чтобы при регистрации по телефону он не требовался жестко
     username = serializers.CharField(required=False, allow_blank=True)
     
     password = serializers.CharField(
@@ -54,6 +62,10 @@ class RegisterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"password": "При регистрации по Email пароль обязателен."})
             if not email:
                 raise serializers.ValidationError({"email": "При регистрации по Email почта обязательна."})
+            
+            # Проверяем уникальность email, чтобы избежать ошибок бэкенда при сохранении
+            if User.objects.filter(email=email).exists():
+                raise serializers.ValidationError({"email": "Пользователь с такой почтой уже зарегистрирован."})
         
         return attrs
 
@@ -62,16 +74,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         password = validated_data.get('password')
         email = validated_data.get('email', '')
         
-        # 🔥 2. Умная генерация username, если регистрируемся по телефону
+        # Умная генерация username, если регистрируемся по телефону
         username = validated_data.get('username')
         if not username and phone:
-            username = f"user_{phone[-4:]}" # Например, user_2233
+            username = f"user_{phone[-4:]}"
 
-        # Хитрый паттерн: если вдруг сгенерированный никнейм уже занят, дописываем случайные цифры
         while User.objects.filter(username=username).exists():
-            import random
             username = f"user_{phone[-4:]}_{random.randint(10, 99)}"
 
+        # Создаем пользователя. Если регистрации по телефону нет (то есть по email) — 
+        # аккаунт создается неактивным (is_active=False), пока почта не подтвердится.
         user = User.objects.create_user(
             username=username,
             email=email,
@@ -81,26 +93,27 @@ class RegisterSerializer(serializers.ModelSerializer):
             is_active=False if not phone else True,  
         )
 
+        # 🔥 ИНТЕГРАЦИЯ С CELERY ДЛЯ КЛАССИЧЕСКОЙ РЕГИСТРАЦИИ ПО EMAIL
         if not phone and email:
             try:
-                uid = urlsafe_base64_encode(force_bytes(user.pk))
-                token = default_token_generator.make_token(user)
-                activation_link = f"{settings.FRONTEND_URL}/activate?uid={uid}&token={token}"
+                # 1. Генерируем 6-значный цифровой код для ввода в мобильном приложении
+                verification_code = str(random.randint(100000, 999999))
+                
+                # 2. Сохраняем код в модель пользователя, чтобы потом сверить его на этапе активации.
+                # ⚠️ Убедись, что у твоей кастомной модели User есть поле для хранения кода, 
+                # например, verification_code = models.CharField(max_length=6, blank=True, null=True)
+                user.verification_code = verification_code
+                user.save(update_fields=['verification_code'])
 
-                send_mail(
-                    subject='Подтверждение email',
-                    message=f"Привет, {user.username}! Перейди по ссылке, чтобы активировать аккаунт:\n{activation_link}",
-                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'webmaster@localhost'),
-                    recipient_list=[email],
-                    fail_silently=False,
-                )
+                # 3. 🔥 ЗАПУСКАЕМ ЗАДАЧУ CELERY В ФОНЕ (.delay())
+                # Django мгновенно вернет ответ приложению, а Celery отправит письмо через SMTP Gmail
+                send_verification_email_task.delay(email, verification_code)
+                print(f"🚀 [Celery Отправка] Задача на отправку кода {verification_code} добавлена в очередь для {email}")
+
             except Exception as e:
-                print(f"❌ Ошибка отправки письма: {e}")
+                print(f"❌ Ошибка при инициализации отправки через Celery: {e}")
 
         return user
-
-
-
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod

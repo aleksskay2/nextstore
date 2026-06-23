@@ -402,7 +402,22 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+
+# 🔥 НАСТРОЙКИ РЕАЛЬНОЙ ОТПРАВКИ ПОЧТЫ
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.mail.ru')  # или smtp.yandex.ru / smtp.gmail.com
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 465))
+EMAIL_USE_SSL = True  # Для порта 465 используем True. Если порт 587, то EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'aleksskayivanov@gmail.com')
+
+# Переменная приложения-пароля (не обычный пароль от почты, а сгенерированный в настройках безопасности)
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'azcuofdkndboxljx')
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
 
 # 🔥 УМНЫЙ CELERY
 CELERY_BROKER_URL = REDIS_URL
