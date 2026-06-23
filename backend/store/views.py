@@ -254,6 +254,47 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         return Response(payload, status=status.HTTP_200_OK)
 
 
+class VerifyEmailView(APIView):
+    # Этот эндпоинт должен быть доступен гостям без токена авторизации
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+
+        # Валидация входных данных
+        if not email or not code:
+            return Response(
+                {"detail": "Email и код подтверждения обязательны."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Ищем пользователя, у которого совпадает и почта, и сохраненный код
+            user = User.objects.get(email=email, verification_code=code)
+            
+            # Активируем пользователя
+            user.is_active = True
+            user.verification_code = None  # Стираем код, так как он больше не нужен
+            user.save()
+
+            return Response(
+                {"status": "success", "detail": "Аккаунт успешно активирован! Теперь вы можете войти."}, 
+                status=status.HTTP_200_OK
+            )
+            
+        except User.DoesNotExist:
+            # Если код не совпал или пользователя с таким email нет
+            return Response(
+                {"detail": "Неверный код подтверждения или некорректный Email."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+
+
+
+
 
 from rest_framework import viewsets, status
 from rest_framework.response import Response

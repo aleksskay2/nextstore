@@ -21,6 +21,7 @@ class CustomUser(AbstractUser):
     phone = models.CharField(max_length=20, unique=True, null=True, blank=True)
     region = models.CharField(max_length=100, null=True, blank=True)
     avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
+    verification_code = models.CharField(max_length=6, blank=True, null=True)
 
     def __str__(self):
         return self.username
