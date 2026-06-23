@@ -813,28 +813,33 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
     # ==================================================
     # EXISTING MESSAGE
     # ==================================================
+   
     async def handle_existing_message(self, data):
         message_id = data["message_id"]
         target = int(data["target"])
 
         from .models import PrivateMessage
-
         msg = await database_sync_to_async(
-            lambda: PrivateMessage.objects
-                .prefetch_related("files")
-                .get(id=message_id)
+            lambda: PrivateMessage.objects.prefetch_related("files").get(id=message_id)
         )()
 
-        target_chat_open = await self.is_chat_open(target, self.user_id)
+        is_target_online = await self.is_user_online(target)
+        target_chat_open = False
+        
+        if is_target_online:
+            target_chat_open = await self.is_chat_open(target, self.user_id)
 
+        # Обновляем БД в зависимости от онлайна
         if target_chat_open:
             await self.mark_delivered(msg.id)
             await self.mark_read_single(msg.id)
-
             msg = await database_sync_to_async(
-                lambda: PrivateMessage.objects
-                    .prefetch_related("files")
-                    .get(id=msg.id)
+                lambda: PrivateMessage.objects.prefetch_related("files").get(id=msg.id)
+            )()
+        elif is_target_online:
+            await self.mark_delivered(msg.id)
+            msg = await database_sync_to_async(
+                lambda: PrivateMessage.objects.prefetch_related("files").get(id=msg.id)
             )()
 
         serialized = await self.serialize_message(msg)
@@ -843,17 +848,17 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             f"chat_{target}",
             {"type": "chat_message", "message": serialized}
         )
-        await self.mark_delivered(msg.id)
-
+        
         await self.channel_layer.group_send(
             f"chat_{self.user_id}",
             {"type": "chat_message", "message": serialized}
         )
 
-        await self.channel_layer.group_send(
-            f"chat_{self.user_id}",
-            {"type": "message_delivered", "message_id": msg.id}
-        )
+        if is_target_online:
+            await self.channel_layer.group_send(
+                f"chat_{self.user_id}",
+                {"type": "message_delivered", "message_id": msg.id}
+            )
 
         if target_chat_open:
             await self.channel_layer.group_send(
@@ -869,47 +874,60 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         target = int(data["target"])
 
         msg = await self.create_message(self.user_id, target, text)
-        target_chat_open = await self.is_chat_open(target, self.user_id)
+        
+        # 🔥 ФИКС 1: Строгая двойная проверка! 
+        # Сначала убеждаемся, что юзер вообще в сети, иначе не верим зависшему Redis
+        is_target_online = await self.is_user_online(target)
+        target_chat_open = False
+        
+        if is_target_online:
+            target_chat_open = await self.is_chat_open(target, self.user_id)
 
+        # Выставляем статусы в БД на основе онлайна
         if target_chat_open:
             await self.mark_delivered(msg.id)
             await self.mark_read_single(msg.id)
-
             from .models import PrivateMessage
             msg = await database_sync_to_async(
-                lambda: PrivateMessage.objects
-                    .prefetch_related("files")
-                    .get(id=msg.id)
+                lambda: PrivateMessage.objects.prefetch_related("files").get(id=msg.id)
+            )()
+        elif is_target_online:
+            # Если он в приложении, но чат закрыт — ставим только "Доставлено"
+            await self.mark_delivered(msg.id)
+            from .models import PrivateMessage
+            msg = await database_sync_to_async(
+                lambda: PrivateMessage.objects.prefetch_related("files").get(id=msg.id)
             )()
 
         serialized = await self.serialize_message(msg)
 
+        # Отправляем само сообщение обоим юзерам
         await self.channel_layer.group_send(
             f"chat_{target}",
             {"type": "chat_message", "message": serialized}
         )
-
         await self.channel_layer.group_send(
             f"chat_{self.user_id}",
             {"type": "chat_message", "message": serialized}
         )
 
-        if await self.is_user_online(target):
+        # 🔥 ФИКС 2: Если сообщение доставлено, уведомляем ОТПРАВИТЕЛЯ (чтобы зажечь 2 серые галочки)
+        if is_target_online:
             await self.channel_layer.group_send(
-                f"user_{target}",
-                {"type": "message_delivered", "message_id": msg.id, "receiver_id": target}
+                f"chat_{self.user_id}", 
+                {"type": "message_delivered", "message_id": msg.id}
             )
 
+        # 🔥 ФИКС 3: Если чат открыт, уведомляем ОТПРАВИТЕЛЯ (чтобы зажечь синие галочки)
         if target_chat_open:
             await self.channel_layer.group_send(
-                f"chat_{target}",
+                f"chat_{self.user_id}", # Раньше тут был target, что было ошибкой!
                 {
                     "type": "messages_read",
                     "message_ids": [msg.id],
-                    "reader_id": self.user_id
+                    "reader_id": target
                 }
             )
-
     # ==================================================
     # CHAT OPEN
     # ==================================================
