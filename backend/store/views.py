@@ -1784,66 +1784,53 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
 
         return Response({"status": "deleted"}, status=status.HTTP_200_OK)
 
-
-
-
 class MessageRegionChatViewSet(viewsets.ModelViewSet):
     serializer_class = MessageRegionChatSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = RegionChatPagination
+
+    # 🔥 КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Гарантируем, что request попадает в контекст сериализатора
+    # Это заставит DRF генерировать полные URI (https://...) при GET-запросах истории чата
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
     def get_queryset(self):
         queryset = MessageRegionChat.objects.select_related('user', 'reply_to') \
                                             .prefetch_related('files')
         
         region_id = self.request.query_params.get('region')
-        # Если region_id передан и он не равен 0 (или пустоте), фильтруем по нему
-        # Иначе отдаем все сообщения (для "Все регионы")
         if region_id and str(region_id) != '0':
             queryset = queryset.filter(region_id=region_id)
         
-        # Сортируем от старых к новым (по возрастанию)
         return queryset.order_by('-created_at')
         
-    
-    
     @action(detail=False, methods=["post"], url_path="mark-read")
     def mark_read(self, request):
         region_id = request.data.get("region")
-        
         if region_id is None or region_id == '':
             return Response({"error": "Параметр region обязателен."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Превращаем в строку для безопасного сравнения
         region_str = str(region_id)
 
-        # 1. Формируем фильтр в зависимости от выбранного региона
         if region_str == '0':
-            # Если "Все регионы" — берем ВСЕ непрочитанные сообщения во всей таблице
             unread_messages = MessageRegionChat.objects.filter(is_read=False)
         else:
-            # Если конкретный регион — фильтруем строго по нему
             unread_messages = MessageRegionChat.objects.filter(region_id=region_id, is_read=False)
         
-        # Исключаем сообщения, которые отправил сам этот пользователь
         unread_messages = unread_messages.exclude(user=request.user)
-        
-        # Выполняем массовое обновление в БД
         updated_count = unread_messages.update(is_read=True)
 
-        # 2. 🔔 SOCKET NOTIFY: Оповещаем фронтенд через сокеты
         channel_layer = get_channel_layer()
-        
-        # Всегда отправляем уведомление в комнату "Все регионы" (region_0)
         async_to_sync(channel_layer.group_send)(
             "region_0",
             {
                 "type": "messages_read_notify",
-                "region": region_id  # передаем исходный region, чтобы фронт понимал контекст
+                "region": region_id
             }
         )
 
-        # Если мы читали сообщения конкретного региона, то уведомляем еще и его комнату
         if region_str != '0':
             async_to_sync(channel_layer.group_send)(
                 f"region_{region_str}",
@@ -1858,14 +1845,9 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
             "message": f"Помечено прочитанными сообщений: {updated_count}"
         }, status=status.HTTP_200_OK)
 
-
-    
-    
     def destroy(self, request, *args, **kwargs):
-        # Получаем объект сообщения, который пытаются удалить
         instance = self.get_object()
 
-        # 1. Защита: проверяем, что удаляет именно автор
         if instance.user != request.user:
             return Response(
                 {"detail": "Вы не можете удалить чужое сообщение."}, 
@@ -1875,13 +1857,18 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
         region_id = instance.region_id
         message_id = instance.id
 
-        # 2. Удаляем сообщение из базы данных
+        # 🛠 ОПТИМИЗАЦИЯ: Физически удаляем файлы с диска Render перед удалением записи
+        if hasattr(instance, "files"):
+            for f in instance.files.all():
+                if f.file:
+                    f.file.delete(save=False)
+                if hasattr(f, 'thumbnail') and f.thumbnail:
+                    f.thumbnail.delete(save=False)
+                f.delete()
+
         self.perform_destroy(instance)
 
-        # 3. 🔔 SOCKET NOTIFY: Говорим всем в чате, что сообщение удалено
         channel_layer = get_channel_layer()
-        
-        # Если сообщение из конкретного региона, удаляем его у тех, кто сидит в этом регионе
         if str(region_id) != '0':
             async_to_sync(channel_layer.group_send)(
                 f"region_{region_id}",
@@ -1891,7 +1878,6 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
                 }
             )
 
-        # 🔥 КРИТИЧЕСКАЯ ПРАВКА: Также обязательно удаляем его у тех, кто сидит во "Всех регионах"
         async_to_sync(channel_layer.group_send)(
             "region_0",
             {
@@ -1902,18 +1888,16 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-
     def create(self, request, *args, **kwargs):
         data = request.data
-        files = request.FILES.getlist('uploaded_files') # Обычные файлы (фото/видео)
-        voice = request.FILES.get('voice') # 🔥 Отлавливаем голосовое сообщение!
+        files = request.FILES.getlist('uploaded_files') 
+        voice = request.FILES.get('voice') 
         
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         
         message = serializer.save(user=self.request.user)
 
-        # Сохраняем обычные прикрепленные файлы
         for f in files:
             content_type = f.content_type
             file_type = 'image'
@@ -1924,20 +1908,18 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
 
             MessageRegionFile.objects.create(message=message, file=f, type=file_type)
         
-        # 🔥 Сохраняем голосовое сообщение, если оно прилетело
         if voice:
             MessageRegionFile.objects.create(message=message, file=voice, type='audio')
         
+        # Перегенерация данных с request-контекстом
         full_message_data = MessageRegionChatSerializer(
             message, 
             context={'request': request} 
         ).data
 
-        # 🔔 SOCKET NOTIFY
         channel_layer = get_channel_layer()
         region_id = message.region_id
 
-        # Если сообщение отправлено в конкретный регион, шлем его жителям региона
         if str(region_id) != '0':
             async_to_sync(channel_layer.group_send)(
                 f"region_{region_id}",
@@ -1948,7 +1930,6 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
                 }
             )
         
-        # 🔥 КРИТИЧЕСКАЯ ПРАВКА: Всегда отправляем копию тем, кто сидит во "Всех регионах"
         async_to_sync(channel_layer.group_send)(
             "region_0",
             {
@@ -1959,9 +1940,6 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
         )
         
         return Response(full_message_data, status=status.HTTP_201_CREATED)
-
-
-
 
 
 

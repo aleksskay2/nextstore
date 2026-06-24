@@ -500,11 +500,9 @@ class BookmarkSerializer(serializers.ModelSerializer, ):
     class Meta:
         model = Bookmark
         fields = ['id', 'product', 'created_at']
-
 class MessageRegionFileSerializer(serializers.ModelSerializer):
-    """Сериализатор для оптимизированных файлов и их миниатюр"""
+    """Сериализатор для оптимизированных файлов и их миниатюр с полными путями"""
     
-    # 🔥 1. Переопределяем поля как методы
     file = serializers.SerializerMethodField()
     thumbnail = serializers.SerializerMethodField()
 
@@ -515,24 +513,27 @@ class MessageRegionFileSerializer(serializers.ModelSerializer):
             'duration', 'width', 'height'
         ]
 
-    # 🔥 2. Пишем логику: возвращаем только относительный путь (.url)
+    # 🔥 ИСПРАВЛЕНО: Добавлен request для генерации абсолютного URL
     def get_file(self, obj):
         if obj.file:
-            return obj.file.url
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url # Фолбэк, если контекст не передали
         return None
 
     def get_thumbnail(self, obj):
         if obj.thumbnail:
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.thumbnail.url)
             return obj.thumbnail.url
         return None
 
 
 class MessageRegionChatSerializer(serializers.ModelSerializer):
-    # Используем твой CustomUserSerializer для вложенности
     user = CustomUserSerializer(read_only=True)
     files = MessageRegionFileSerializer(many=True, read_only=True)
-    
-    # Краткая инфо об ответе, чтобы React мог отрисовать блок reply
     reply_to_details = serializers.SerializerMethodField()
 
     class Meta:
@@ -543,35 +544,35 @@ class MessageRegionChatSerializer(serializers.ModelSerializer):
         ]
 
     def get_reply_to_details(self, obj):
-            if obj.reply_to:
-                # Ищем первый прикрепленный файл
-                first_file = obj.reply_to.files.first()
+        if obj.reply_to:
+            first_file = obj.reply_to.files.first()
+            
+            file_url = None
+            file_type = None
+            
+            if first_file:
+                # Определяем относительный путь в зависимости от наличия миниатюры
+                relative_url = first_file.thumbnail.url if first_file.thumbnail else first_file.file.url
+                file_type = first_file.type
                 
-                # Берем миниатюру (или сам файл, если это видео/картинка)
-                file_url = None
-                file_type = None
-                if first_file:
-                    file_url = first_file.thumbnail.url if first_file.thumbnail else first_file.file.url
-                    file_type = first_file.type
+                # 🔥 ИСПРАВЛЕНО: Превращаем в абсолютный URI и внутри блока цитирования
+                request = self.context.get('request')
+                if request is not None:
+                    file_url = request.build_absolute_uri(relative_url)
+                else:
+                    file_url = relative_url
 
-                return {
-                    "id": obj.reply_to.id,
-                    "username": obj.reply_to.user.username,
-                    "text": obj.reply_to.text[:50],
-                    "file": file_url,        # 🔥 Добавили ссылку на файл
-                    "file_type": file_type   # 🔥 Добавили тип файла (image/video/audio)
-                }
-            return None
-
-
-# class FeatureProductSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = FeatureProduct
-#         fields = '__all__'
-
-    
+            return {
+                "id": obj.reply_to.id,
+                "username": obj.reply_to.user.username,
+                "text": obj.reply_to.text[:50],
+                "file": file_url,        
+                "file_type": file_type   
+            }
+        return None
 
 
+        
 class AdminsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Admins
