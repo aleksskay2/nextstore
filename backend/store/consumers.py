@@ -1078,35 +1078,11 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
 
 
+import json
+import asyncio # 🔥 ДОБАВИТЬ ЭТОТ ИМПОРТ
+from channels.generic.websocket import AsyncWebsocketConsumer
 
-from channels.db import database_sync_to_async
-from django.contrib.auth import get_user_model
-
-import uuid  # 🔥 1. Обязательно добавь этот импорт в самом верху файла!
-
-@database_sync_to_async
-def trigger_call_push(caller_id, target_id):
-    User = get_user_model()
-    from .utils import send_push_notification
-    try:
-        caller = User.objects.get(id=caller_id)
-        target = User.objects.get(id=target_id)
-        
-        call_uuid = str(uuid.uuid4())
-        
-        # 🔥 ВЫЗЫВАЕМ БЕЗ title И body!
-        send_push_notification(
-            user=target,
-            # Обычные текстовые уведомления (title, body) мы тут больше не пишем!
-            data={
-                "type": "incoming_call", 
-                "caller_id": caller.id,
-                "caller_name": caller.username,
-                "uuid": call_uuid
-            }
-        )
-    except Exception as e:
-        print(f"Ошибка отправки пуша для звонка: {e}")
+# Ваша функция trigger_call_push остается без изменений
 
 class CallConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -1139,22 +1115,18 @@ class CallConsumer(AsyncWebsocketConsumer):
 
         target = int(target)
 
-        # Защита от эха (чтобы не звонить самому себе)
         if target == self.user_id:
             return
 
-        # 🔥 1. ПУШ-УВЕДОМЛЕНИЯ ПРИ СТАРТЕ ЗВОНКА
+        # 🔥 ИСПРАВЛЕНИЕ: Отправляем пуш "в фоне", не блокируя текущий поток!
         if msg_type == "offer":
-            await trigger_call_push(self.user_id, target)
+            asyncio.create_task(trigger_call_push(self.user_id, target))
 
-        # 🚀 2. ЛОГИКА "ОТВЕЧЕНО НА ДРУГОМ УСТРОЙСТВЕ"
         if msg_type == "answer":
             client_id = data.get("client_id")
-            
-            # Если телефон передал свой ID, рассылаем его всем НАШИМ устройствам
             if client_id:
                 await self.channel_layer.group_send(
-                    self.group_name, # Отправляем в СВОЮ группу
+                    self.group_name, 
                     {
                         "type": "forward_call",
                         "data": {
@@ -1164,8 +1136,11 @@ class CallConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-        # 📡 3. СТАНДАРТНАЯ ПЕРЕСЫЛКА (offer, answer, ice-candidate, call-ended)
-        # Отправляем собеседнику
+        # 📡 СТАНДАРТНАЯ ПЕРЕСЫЛКА (Мгновенная, без задержек)
+        # Добавляем логи для отслеживания на сервере
+        if msg_type in ['ice-candidate', 'icecandidate', 'candidate']:
+             print(f"✈️ Бэкенд пересылает ICE кандидата от {self.user_id} к {target}")
+
         await self.channel_layer.group_send(
             f"call_{target}",
             {
@@ -1179,6 +1154,10 @@ class CallConsumer(AsyncWebsocketConsumer):
 
     async def forward_call(self, event):
         await self.send(text_data=json.dumps(event["data"]))
+
+
+
+
 
 
 import json
