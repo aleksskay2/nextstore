@@ -1078,6 +1078,36 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
 
 
+
+from channels.db import database_sync_to_async
+from django.contrib.auth import get_user_model
+
+import uuid  # 🔥 1. Обязательно добавь этот импорт в самом верху файла!
+
+@database_sync_to_async
+def trigger_call_push(caller_id, target_id):
+    User = get_user_model()
+    from .utils import send_push_notification
+    try:
+        caller = User.objects.get(id=caller_id)
+        target = User.objects.get(id=target_id)
+        
+        call_uuid = str(uuid.uuid4())
+        
+        # 🔥 ВЫЗЫВАЕМ БЕЗ title И body!
+        send_push_notification(
+            user=target,
+            # Обычные текстовые уведомления (title, body) мы тут больше не пишем!
+            data={
+                "type": "incoming_call", 
+                "caller_id": caller.id,
+                "caller_name": caller.username,
+                "uuid": call_uuid
+            }
+        )
+    except Exception as e:
+        print(f"Ошибка отправки пуша для звонка: {e}")
+
 import json
 import asyncio # 🔥 ДОБАВИТЬ ЭТОТ ИМПОРТ
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -1154,7 +1184,6 @@ class CallConsumer(AsyncWebsocketConsumer):
 
     async def forward_call(self, event):
         await self.send(text_data=json.dumps(event["data"]))
-
 
 
 
