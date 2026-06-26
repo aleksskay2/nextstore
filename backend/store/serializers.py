@@ -69,12 +69,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         
         return attrs
 
+    
     def create(self, validated_data):
+        import random # Убедитесь, что импорт есть вверху файла
         phone = validated_data.get('phone')
         password = validated_data.get('password')
         email = validated_data.get('email', '')
         
-        # Умная генерация username, если регистрируемся по телефону
         username = validated_data.get('username')
         if not username and phone:
             username = f"user_{phone[-4:]}"
@@ -82,8 +83,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         while User.objects.filter(username=username).exists():
             username = f"user_{phone[-4:]}_{random.randint(10, 99)}"
 
-        # Создаем пользователя. Если регистрации по телефону нет (то есть по email) — 
-        # аккаунт создается неактивным (is_active=False), пока почта не подтвердится.
+        # 1. Генерируем код ЗАРАНЕЕ, если это регистрация по email
+        verification_code = None
+        if not phone and email:
+            verification_code = str(random.randint(100000, 999999))
+
+        # 2. Передаем verification_code СРАЗУ внутрь create_user
         user = User.objects.create_user(
             username=username,
             email=email,
@@ -91,25 +96,15 @@ class RegisterSerializer(serializers.ModelSerializer):
             phone=phone,
             region=validated_data.get('region', ''),
             is_active=False if not phone else True,  
+            verification_code=verification_code, # 🔥 Передаем сразу сюда!
         )
 
-        # 🔥 ИНТЕГРАЦИЯ С CELERY ДЛЯ КЛАССИЧЕСКОЙ РЕГИСТРАЦИИ ПО EMAIL
-        if not phone and email:
+        # 3. Теперь спокойно запускаем Celery
+        if not phone and email and verification_code:
             try:
-                # 1. Генерируем 6-значный цифровой код для ввода в мобильном приложении
-                verification_code = str(random.randint(100000, 999999))
-                
-                # 2. Сохраняем код в модель пользователя, чтобы потом сверить его на этапе активации.
-                # ⚠️ Убедись, что у твоей кастомной модели User есть поле для хранения кода, 
-                # например, verification_code = models.CharField(max_length=6, blank=True, null=True)
-                user.verification_code = verification_code
-                user.save(update_fields=['verification_code'])
-
-                # 3. 🔥 ЗАПУСКАЕМ ЗАДАЧУ CELERY В ФОНЕ (.delay())
-                # Django мгновенно вернет ответ приложению, а Celery отправит письмо через SMTP Gmail
+                # Отправляем в Celery
                 send_verification_email_task.delay(email, verification_code)
                 print(f"🚀 [Celery Отправка] Задача на отправку кода {verification_code} добавлена в очередь для {email}")
-
             except Exception as e:
                 print(f"❌ Ошибка при инициализации отправки через Celery: {e}")
 
