@@ -860,6 +860,12 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 {"type": "message_delivered", "message_id": msg.id}
             )
 
+            # 2. 🔥 ДОБАВЛЕНО: Отправляем в глобальную группу получателя, чтобы его глобальный сокет зафиксировал доставку
+            await self.channel_layer.group_send(
+                f"user_{target}", 
+                {"type": "message_delivered", "message_id": msg.id}
+            )
+
         if target_chat_open:
             await self.channel_layer.group_send(
                 f"chat_{self.user_id}",
