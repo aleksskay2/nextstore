@@ -1193,18 +1193,18 @@ class StoryViewerSerializer(serializers.ModelSerializer):
         if not avatar:
             return None
 
-        # 1. Пытаемся взять URL из настроек
-        backend_url = getattr(settings, 'BACKEND_URL', None)
-        if backend_url:
-            # rstrip('/') убирает слеш на конце, чтобы не получилось http://...//media/...
-            return f"{backend_url.rstrip('/')}{avatar.url}"
-
-        # 2. Фолбэк: если BACKEND_URL не задан, используем стандартный метод
+        # Берем request из контекста сериализатора
         request = self.context.get("request")
         if request:
             return request.build_absolute_uri(avatar.url)
 
+        # Если контекста вдруг нет, проверяем BACKEND_URL, но только как крайний случай
+        backend_url = getattr(settings, 'BACKEND_URL', None)
+        if backend_url:
+            return f"{backend_url.rstrip('/')}{avatar.url}"
+
         return avatar.url
+
 
 
 class FollowSerializer(serializers.ModelSerializer):
