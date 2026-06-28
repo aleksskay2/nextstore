@@ -292,21 +292,28 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
         safe_data = {str(k): str(v) for k, v in data.items()} if data else {}
 
         # Настраиваем конфигурацию Android под конкретный тип сообщения
+
         if is_call:
-            # 🔥 ФИКС ДЛЯ REDMI (XIAOMI): Для звонка выставляем TTL=0 и категорию CALL
+            # 🔥 ФИКС: Передаем заголовки и параметры, совместимые с любой версией firebase_admin
             android_config = messaging.AndroidConfig(
                 priority='high',
-                ttl=0, # Мгновенная доставка
+                ttl=0, # Мгновенная доставка (0 секунд)
+                # Передаем системные флаги на уровне заголовков сообщения Android
+                headers={
+                    "android-priority": "high",
+                },
                 notification=messaging.AndroidNotification(
-                    channel_id="incoming_calls", # Выделенный канал для звонков
-                    category="call",             # Критично для Redmi! Системный тип звонка
-                    visibility="public"
+                    channel_id="incoming_calls", # Твой выделенный канал для звонков
+                    visibility="public",
+                    # Переносим категорию в заголовок или оставляем управление на стороне Android-канала
+                    sound="default" 
                 )
             )
         else:
             android_config = messaging.AndroidConfig(
                 priority='high'
             )
+
 
         message_kwargs = {
             "token": token,
