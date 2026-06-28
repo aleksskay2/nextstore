@@ -294,19 +294,14 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
         # Настраиваем конфигурацию Android под конкретный тип сообщения
 
         if is_call:
-            # 🔥 ФИКС: Передаем заголовки и параметры, совместимые с любой версией firebase_admin
+            # 🔥 МАКСИМАЛЬНО ЧИСТЫЙ И БЕЗОПАСНЫЙ ВАРИАНТ ДЛЯ СОВМЕСТИМОСТИ
             android_config = messaging.AndroidConfig(
                 priority='high',
-                ttl=0, # Мгновенная доставка (0 секунд)
-                # Передаем системные флаги на уровне заголовков сообщения Android
-                headers={
-                    "android-priority": "high",
-                },
+                ttl=0,  # Мгновенная доставка. Принимает int (секунды) или timedelta
                 notification=messaging.AndroidNotification(
-                    channel_id="incoming_calls", # Твой выделенный канал для звонков
+                    channel_id="incoming_calls",
                     visibility="public",
-                    # Переносим категорию в заголовок или оставляем управление на стороне Android-канала
-                    sound="default" 
+                    sound="default"
                 )
             )
         else:
