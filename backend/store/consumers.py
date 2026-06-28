@@ -1101,18 +1101,23 @@ def trigger_call_push(caller_id, target_id):
         call_uuid = str(uuid.uuid4())
         
         # 🔥 ВЫЗЫВАЕМ БЕЗ title И body!
+      # 🔥 ФИКС: Передаем is_call=True, title=None, body=None
         send_push_notification(
             user=target,
-            # Обычные текстовые уведомления (title, body) мы тут больше не пишем!
+            title=None,
+            body=None,
             data={
                 "type": "incoming_call", 
                 "caller_id": caller.id,
                 "caller_name": caller.username,
                 "uuid": call_uuid
-            }
+            },
+            is_call=True  # 🔥 ВОТ ОНО! Активируем скрытый высокоприоритетный пуш для Redmi
         )
+        print(f"📞 [FCM Call Push] Технический пуш звонка успешно улетел к {target.username} от {caller.username}")
     except Exception as e:
-        print(f"Ошибка отправки пуша для звонка: {e}")
+        print(f"❌ Ошибка отправки пуша для звонка: {e}")
+        
 
 import json
 import asyncio # 🔥 ДОБАВИТЬ ЭТОТ ИМПОРТ
