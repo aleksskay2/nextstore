@@ -209,14 +209,76 @@ def _execute_send_each(messages, tokens):
 # =========================================================
 # ОСНОВНАЯ ФУНКЦИЯ (ВЫЗЫВАЕТСЯ В СИГНАЛАХ)
 # =========================================================
-def send_push_notification(user, title=None, body=None, data=None):
+# def send_push_notification(user, title=None, body=None, data=None):
+#     print(f"🔍 [Utils] Ищем устройства для пользователя: {user.username} (ID: {user.id})")
+    
+#     # Прямая выборка устройств из корректной таблицы FCMDevice
+#     devices = FCMDevice.objects.filter(user=user)
+#     print(f"📊 [Utils] Найдено устройств в базе FCMDevice: {devices.count()}")
+
+#     # Собираем токены устройств
+#     tokens = [d.expo_push_token for d in devices if d.expo_push_token]
+    
+#     if not tokens:
+#         print("⚠️ [Utils] FCM Токены не найдены. Отмена отправки.")
+#         return
+
+#     print(f"📲 [Utils] Подготовка к отправке на FCM токены: {tokens}")
+
+#     messages = []
+#     for token in tokens:
+#         safe_data = {str(k): str(v) for k, v in data.items()} if data else {}
+
+#         message_kwargs = {
+#             "token": token,
+#             "data": safe_data,
+#             "android": messaging.AndroidConfig(
+#                 priority='high' 
+#             ),
+#             "apns": messaging.APNSConfig(
+#                 payload=messaging.APNSPayload(
+#                     aps=messaging.Aps(
+#                         content_available=True,
+#                         sound="default"
+#                     )
+#                 )
+#             )
+#         }
+
+#         if title or body:
+#             message_kwargs["notification"] = messaging.Notification(
+#                 title=title,
+#                 body=body
+#             )
+#             message_kwargs["android"].notification = messaging.AndroidNotification(
+#                 channel_id="alerts_v1",
+#                 sound="default"
+#             )
+
+#         messages.append(messaging.Message(**message_kwargs))
+
+#     # Запуск сетевого запроса в изолированном фоновом потоке
+#     push_thread = threading.Thread(
+#         target=_execute_send_each,
+#         args=(messages, tokens)
+#     )
+#     push_thread.daemon = True
+#     push_thread.start()
+
+
+
+
+
+
+# =========================================================
+# ОСНОВНАЯ ФУНКЦИЯ (ДОБАВЛЕН ФЛАГ is_call)
+# =========================================================
+def send_push_notification(user, title=None, body=None, data=None, is_call=False): # 🔥 Добавили is_call
     print(f"🔍 [Utils] Ищем устройства для пользователя: {user.username} (ID: {user.id})")
     
-    # Прямая выборка устройств из корректной таблицы FCMDevice
     devices = FCMDevice.objects.filter(user=user)
     print(f"📊 [Utils] Найдено устройств в базе FCMDevice: {devices.count()}")
 
-    # Собираем токены устройств
     tokens = [d.expo_push_token for d in devices if d.expo_push_token]
     
     if not tokens:
@@ -229,12 +291,27 @@ def send_push_notification(user, title=None, body=None, data=None):
     for token in tokens:
         safe_data = {str(k): str(v) for k, v in data.items()} if data else {}
 
+        # Настраиваем конфигурацию Android под конкретный тип сообщения
+        if is_call:
+            # 🔥 ФИКС ДЛЯ REDMI (XIAOMI): Для звонка выставляем TTL=0 и категорию CALL
+            android_config = messaging.AndroidConfig(
+                priority='high',
+                ttl=0, # Мгновенная доставка
+                notification=messaging.AndroidNotification(
+                    channel_id="incoming_calls", # Выделенный канал для звонков
+                    category="call",             # Критично для Redmi! Системный тип звонка
+                    visibility="public"
+                )
+            )
+        else:
+            android_config = messaging.AndroidConfig(
+                priority='high'
+            )
+
         message_kwargs = {
             "token": token,
             "data": safe_data,
-            "android": messaging.AndroidConfig(
-                priority='high' 
-            ),
+            "android": android_config,
             "apns": messaging.APNSConfig(
                 payload=messaging.APNSPayload(
                     aps=messaging.Aps(
@@ -245,7 +322,9 @@ def send_push_notification(user, title=None, body=None, data=None):
             )
         }
 
-        if title or body:
+        # 🔥 ГЛАВНЫЙ ФИКС: Если это звонок, мы СТРОГО ЗАПРЕЩАЕМ создавать общий объект "notification".
+        # Пуш должен уйти как чистый data-message, чтобы разбудить JS-код в фоне на Redmi.
+        if (title or body) and not is_call:
             message_kwargs["notification"] = messaging.Notification(
                 title=title,
                 body=body
@@ -253,7 +332,7 @@ def send_push_notification(user, title=None, body=None, data=None):
             message_kwargs["android"].notification = messaging.AndroidNotification(
                 channel_id="alerts_v1",
                 sound="default"
-            )
+              )
 
         messages.append(messaging.Message(**message_kwargs))
 
