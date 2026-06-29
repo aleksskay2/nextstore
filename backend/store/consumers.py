@@ -1127,8 +1127,7 @@ def get_caller_name(user_id):
         return User.objects.get(id=user_id).username
     except User.DoesNotExist:
         return "Входящий вызов"
-    
-
+        
 
 import json
 import asyncio # 🔥 ДОБАВИТЬ ЭТОТ ИМПОРТ
@@ -1169,18 +1168,8 @@ class CallConsumer(AsyncWebsocketConsumer):
 
         if target == self.user_id:
             return
-        
-        # 🔥 ФИКС 1: Достаем имя один раз для ЛЮБОГО типа сообщения звонка
-        caller_name = await get_caller_name(self.user_id)
 
-        # 🔥 ФИКС 2: Сразу собираем правильный объект и принудительно зашиваем туда текстовое имя
-        forward_data = {
-            **data, 
-            "from": self.user_id,
-            "caller_name": caller_name
-        }
-
-        # Отправляем пуш в фоне (только для оффера)
+        # 🔥 ИСПРАВЛЕНИЕ: Отправляем пуш "в фоне", не блокируя текущий поток!
         if msg_type == "offer":
             asyncio.create_task(trigger_call_push(self.user_id, target))
 
@@ -1198,19 +1187,21 @@ class CallConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
+        # 📡 СТАНДАРТНАЯ ПЕРЕСЫЛКА (Мгновенная, без задержек)
+        # Добавляем логи для отслеживания на сервере
         if msg_type in ['ice-candidate', 'icecandidate', 'candidate']:
-             print(f"✈️ Бэкенд пересылает ICE кандидата от {self.user_id} к {target} с именем {caller_name}")
+             print(f"✈️ Бэкенд пересылает ICE кандидата от {self.user_id} к {target}")
 
-        # 🔥 ФИКС 3: Передаем в группу именно forward_data, а не старый data!
         await self.channel_layer.group_send(
             f"call_{target}",
             {
                 "type": "forward_call",
-                "data": forward_data
+                "data": {
+                    **data,
+                    "from": self.username
+                }
             }
         )
-
-
 
     async def forward_call(self, event):
         await self.send(text_data=json.dumps(event["data"]))
