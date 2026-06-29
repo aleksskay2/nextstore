@@ -1117,7 +1117,18 @@ def trigger_call_push(caller_id, target_id):
         print(f"📞 [FCM Call Push] Технический пуш звонка успешно улетел к {target.username} от {caller.username}")
     except Exception as e:
         print(f"❌ Ошибка отправки пуша для звонка: {e}")
-        
+
+
+# 🔥 ФИКС: Быстрое получение имени из БД для WebSocket-сессии
+@database_sync_to_async
+def get_caller_name(user_id):
+    User = get_user_model()
+    try:
+        return User.objects.get(id=user_id).username
+    except User.DoesNotExist:
+        return "Входящий вызов"
+    
+
 
 import json
 import asyncio # 🔥 ДОБАВИТЬ ЭТОТ ИМПОРТ
@@ -1158,10 +1169,17 @@ class CallConsumer(AsyncWebsocketConsumer):
 
         if target == self.user_id:
             return
+        
+        # Переменная для расширенных данных
+        forward_data = {**data, "from": self.user_id}
 
         # 🔥 ИСПРАВЛЕНИЕ: Отправляем пуш "в фоне", не блокируя текущий поток!
         if msg_type == "offer":
             asyncio.create_task(trigger_call_push(self.user_id, target))
+            # 🔥 2. ФИКС: Достаем имя звонящего и принудительно подмешиваем в WebSocket данные!
+            # Это гарантирует, что если приложение открыто, оно мгновенно прочитает строку имени.
+            caller_name = await get_caller_name(self.user_id)
+            forward_data["caller_name"] = caller_name
 
         if msg_type == "answer":
             client_id = data.get("client_id")
