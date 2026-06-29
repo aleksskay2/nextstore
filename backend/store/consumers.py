@@ -1165,22 +1165,22 @@ class CallConsumer(AsyncWebsocketConsumer):
         if not msg_type or not target:
             return
 
+        # 🔥 Здесь Python падал, теперь target всегда будет числовым ID!
         target = int(target)
 
         if target == self.user_id:
             return
 
-        # 🔥 1. ОБЯЗАТЕЛЬНО С await получаем имя из базы данных
+        # Получаем имя из базы по числовому ID
         caller_name = await get_caller_name(self.user_id)
 
-        # 🔥 2. Создаем модифицированные данные звонка:
+        # Пересылаем исходные данные, сохраняя "from" как ID, но ДОБАВЛЯЕМ имя отдельно
         forward_data = {
             **data,
-            "caller_id": self.user_id,  # Сохраняем реальный числовой ID на случай, если фронтенду нужно будет слать ответ
-            "from": caller_name         # Перезаписываем 'from' красивым именем (например, "terek")
+            "from": self.user_id, # Оставляем число (например, 2)
+            "caller_name": caller_name # Добавляем имя (например, 'aleks')
         }
 
-        # Отправляем пуш в фоне (только для оффера)
         if msg_type == "offer":
             asyncio.create_task(trigger_call_push(self.user_id, target))
 
@@ -1191,17 +1191,10 @@ class CallConsumer(AsyncWebsocketConsumer):
                     self.group_name, 
                     {
                         "type": "forward_call",
-                        "data": {
-                            "type": "answered_elsewhere",
-                            "client_id": client_id
-                        }
+                        "data": { "type": "answered_elsewhere", "client_id": client_id }
                     }
                 )
 
-        if msg_type in ['ice-candidate', 'icecandidate', 'candidate']:
-             print(f"✈️ Бэкенд пересылает ICE кандидата от {caller_name} к {target}")
-
-        # 🔥 3. Отправляем в группу измененный forward_data
         await self.channel_layer.group_send(
             f"call_{target}",
             {
