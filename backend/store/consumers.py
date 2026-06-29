@@ -1170,16 +1170,19 @@ class CallConsumer(AsyncWebsocketConsumer):
         if target == self.user_id:
             return
         
-        # Переменная для расширенных данных
-        forward_data = {**data, "from": self.user_id}
+        # 🔥 ФИКС 1: Достаем имя один раз для ЛЮБОГО типа сообщения звонка
+        caller_name = await get_caller_name(self.user_id)
 
-        # 🔥 ИСПРАВЛЕНИЕ: Отправляем пуш "в фоне", не блокируя текущий поток!
+        # 🔥 ФИКС 2: Сразу собираем правильный объект и принудительно зашиваем туда текстовое имя
+        forward_data = {
+            **data, 
+            "from": self.user_id,
+            "caller_name": caller_name
+        }
+
+        # Отправляем пуш в фоне (только для оффера)
         if msg_type == "offer":
             asyncio.create_task(trigger_call_push(self.user_id, target))
-            # 🔥 2. ФИКС: Достаем имя звонящего и принудительно подмешиваем в WebSocket данные!
-            # Это гарантирует, что если приложение открыто, оно мгновенно прочитает строку имени.
-            caller_name = await get_caller_name(self.user_id)
-            forward_data["caller_name"] = caller_name
 
         if msg_type == "answer":
             client_id = data.get("client_id")
@@ -1195,21 +1198,19 @@ class CallConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-        # 📡 СТАНДАРТНАЯ ПЕРЕСЫЛКА (Мгновенная, без задержек)
-        # Добавляем логи для отслеживания на сервере
         if msg_type in ['ice-candidate', 'icecandidate', 'candidate']:
-             print(f"✈️ Бэкенд пересылает ICE кандидата от {self.user_id} к {target}")
+             print(f"✈️ Бэкенд пересылает ICE кандидата от {self.user_id} к {target} с именем {caller_name}")
 
+        # 🔥 ФИКС 3: Передаем в группу именно forward_data, а не старый data!
         await self.channel_layer.group_send(
             f"call_{target}",
             {
                 "type": "forward_call",
-                "data": {
-                    **data,
-                    "from": self.user_id
-                }
+                "data": forward_data
             }
         )
+
+
 
     async def forward_call(self, event):
         await self.send(text_data=json.dumps(event["data"]))
