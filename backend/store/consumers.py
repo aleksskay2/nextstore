@@ -1152,6 +1152,7 @@ class CallConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
+    
     async def receive(self, text_data):
         try:
             data = json.loads(text_data)
@@ -1169,7 +1170,17 @@ class CallConsumer(AsyncWebsocketConsumer):
         if target == self.user_id:
             return
 
-        # 🔥 ИСПРАВЛЕНИЕ: Отправляем пуш "в фоне", не блокируя текущий поток!
+        # 🔥 1. ОБЯЗАТЕЛЬНО С await получаем имя из базы данных
+        caller_name = await get_caller_name(self.user_id)
+
+        # 🔥 2. Создаем модифицированные данные звонка:
+        forward_data = {
+            **data,
+            "caller_id": self.user_id,  # Сохраняем реальный числовой ID на случай, если фронтенду нужно будет слать ответ
+            "from": caller_name         # Перезаписываем 'from' красивым именем (например, "terek")
+        }
+
+        # Отправляем пуш в фоне (только для оффера)
         if msg_type == "offer":
             asyncio.create_task(trigger_call_push(self.user_id, target))
 
@@ -1187,19 +1198,15 @@ class CallConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-        # 📡 СТАНДАРТНАЯ ПЕРЕСЫЛКА (Мгновенная, без задержек)
-        # Добавляем логи для отслеживания на сервере
         if msg_type in ['ice-candidate', 'icecandidate', 'candidate']:
-             print(f"✈️ Бэкенд пересылает ICE кандидата от {self.user_id} к {target}")
+             print(f"✈️ Бэкенд пересылает ICE кандидата от {caller_name} к {target}")
 
+        # 🔥 3. Отправляем в группу измененный forward_data
         await self.channel_layer.group_send(
             f"call_{target}",
             {
                 "type": "forward_call",
-                "data": {
-                    **data,
-                    "from": get_caller_name(self.user_id)
-                }
+                "data": forward_data
             }
         )
 
