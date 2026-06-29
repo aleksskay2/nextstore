@@ -1198,7 +1198,7 @@ class CallConsumer(AsyncWebsocketConsumer):
                 "type": "forward_call",
                 "data": {
                     **data,
-                    "from": self.username
+                    "from": get_caller_name(self.user_id)
                 }
             }
         )
