@@ -211,6 +211,29 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         }, status=200)   
 
 
+    @action(detail=False, methods=["patch"], url_path="toggle-privacy")
+    def toggle_privacy(self, request):
+        """Включает или выключает отображение аккаунта в поиске"""
+        user = request.user
+        
+        # Получаем значение из запроса
+        is_open = request.data.get("is_open")
+        
+        if is_open is None:
+            return Response({"error": "Не передано значение is_open"}, status=400)
+            
+        # Защита на случай, если с фронтенда прилетит строка 'true'/'false' вместо boolean
+        if isinstance(is_open, str):
+            is_open = is_open.lower() in ['true', '1', 'yes']
+            
+        user.is_open = is_open
+        user.save()
+        
+        return Response({
+            "status": "success",
+            "is_open": user.is_open
+        }, status=200)
+
     @action(detail=True, methods=["get"], url_path="full-profile")
     def full_profile(self, request, pk=None):
         """Возвращает расширенный профиль пользователя и его товары"""
@@ -498,7 +521,7 @@ class SearchUserViewSet(viewsets.ModelViewSet):
 
         return Response(data)
 
-        
+
 
 class LogoutView(APIView):
     def post(self, request):
