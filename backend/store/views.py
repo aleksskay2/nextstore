@@ -468,8 +468,6 @@ class RegisterView(generics.CreateAPIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
-
-
 class SearchUserViewSet(viewsets.ModelViewSet):
     serializer_class = CustomUserSerializer
     permission_classes = [IsAuthenticated]
@@ -483,7 +481,9 @@ class SearchUserViewSet(viewsets.ModelViewSet):
 
         queryset = (
             User.objects
-                .filter(Q(username__icontains=q) | Q(email__icontains=q))
+                # 🔥 ДОБАВЛЕНО: is_open=True. 
+                # Логика: (Имя содержит q ИЛИ Email содержит q) И Аккаунт открыт
+                .filter(Q(username__icontains=q) | Q(email__icontains=q), is_open=True)
                 .exclude(id=self.request.user.id)
                 .only("id", "username", "avatar")  # используем only для оптимизации выборки
         )
@@ -498,7 +498,7 @@ class SearchUserViewSet(viewsets.ModelViewSet):
 
         return Response(data)
 
-
+        
 
 class LogoutView(APIView):
     def post(self, request):

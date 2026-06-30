@@ -23,6 +23,8 @@ class CustomUser(AbstractUser):
     avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
     verification_code = models.CharField(max_length=6, blank=True, null=True)
 
+    is_open = models.BooleanField(default=True)
+
     def __str__(self):
         return self.username
 
