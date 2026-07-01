@@ -785,6 +785,7 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         request = self.context["request"]
         return obj.sender == request.user
 
+    
     def get_reply_to_data(self, obj):
         if not obj.reply_to:
             return None
@@ -793,12 +794,24 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         file = reply.files.first()
         
         request = self.context.get('request')
-        file_url= None
-        if file and file.file:
-            if request:
-                file_url = request.build_absolute_uri(file.file.url)
-            else:
-                file_url = file.file.url
+        file_url = None
+        thumbnail_url = None
+
+        if file:
+            # 1. Собираем полный путь для самого файла, если он есть
+            if file.file:
+                if request:
+                    file_url = request.build_absolute_uri(file.file.url)
+                else:
+                    file_url = f"https://nextstore-iumj.onrender.com{file.file.url}"
+            
+            # 2. 🔥 Собираем полный путь для thumbnail (превью видео), если оно есть
+            # Предполагаю, что поле в модели называется file.thumbnail
+            if hasattr(file, 'thumbnail') and file.thumbnail:
+                if request:
+                    thumbnail_url = request.build_absolute_uri(file.thumbnail.url)
+                else:
+                    thumbnail_url = f"https://nextstore-iumj.onrender.com{file.thumbnail.url}"
 
         return {
             "id": reply.id,
@@ -807,7 +820,9 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             "text": reply.text,
             "file_type": file.type if file else None,
             "file_url": file_url,
+            "thumbnail": thumbnail_url,  # 🔥 Теперь фронтенд увидит превью видео в ответах!
         }
+
 
     def create(self, validated_data):
        
