@@ -791,6 +791,14 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
 
         reply = obj.reply_to
         file = reply.files.first()
+        
+        request = self.context.get('context')
+        file_url= None
+        if file and file.file:
+            if request:
+                file_url = request.build_absolute_uri(file.file.url)
+            else:
+                file_url = file.file.url
 
         return {
             "id": reply.id,
@@ -798,7 +806,7 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             "sender_username": reply.sender.username,
             "text": reply.text,
             "file_type": file.type if file else None,
-            "file_url": file.file.url if file else None,
+            "file_url": file_url,
         }
 
     def create(self, validated_data):
