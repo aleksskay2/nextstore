@@ -792,7 +792,7 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         reply = obj.reply_to
         file = reply.files.first()
         
-        request = self.context.get('context')
+        request = self.context.get('request')
         file_url= None
         if file and file.file:
             if request:
