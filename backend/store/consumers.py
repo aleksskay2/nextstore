@@ -786,12 +786,10 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         )()
 
         # Проверяем онлайн ли получатель (предполагается, что константа ONLINE_USERS_KEY импортирована или заменена на строку)
-        ONLINE_USERS_KEY = "online_users"
-        online_users = await sync_to_async(
-            lambda: get_redis_connection("default").smembers(ONLINE_USERS_KEY)
-        )()
-
-        if str(receiver_id).encode() not in online_users:
+        
+        # 🔥 ИСПРАВЛЕНО: Используем наш починенный метод проверки онлайна
+        is_receiver_online = await self.is_user_online(receiver_id)
+        if not is_receiver_online:
             return
 
         await database_sync_to_async(
@@ -963,8 +961,9 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def is_user_online(self, user_id: int):
         r = get_redis_connection("default")
-        return r.sismember("online_users", user_id)
-
+        # 🔥 ИСПРАВЛЕНО: Проверяем правильный ключ, который создает GlobalConsumer
+        key = f"online_channels:user:{user_id}"
+        return r.exists(key) > 0  # .exists() в новых версиях redis-py возвращает int (кол-во найденных ключей)
     # ==================================================
     # REDIS HELPERS
     # ==================================================
