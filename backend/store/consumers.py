@@ -1164,7 +1164,7 @@ class CallConsumer(AsyncWebsocketConsumer):
         if not msg_type or not target:
             return
 
-        # 🔥 Здесь Python падал, теперь target всегда будет числовым ID!
+        # Переводим target в числовой ID
         target = int(target)
 
         if target == self.user_id:
@@ -1173,27 +1173,33 @@ class CallConsumer(AsyncWebsocketConsumer):
         # Получаем имя из базы по числовому ID
         caller_name = await get_caller_name(self.user_id)
 
-        # Пересылаем исходные данные, сохраняя "from" как ID, но ДОБАВЛЯЕМ имя отдельно
+        # Формируем данные для пересылки собеседнику
         forward_data = {
             **data,
-            "from": self.user_id, # Оставляем число (например, 2)
-            "caller_name": caller_name # Добавляем имя (например, 'aleks')
+            "from": self.user_id,
+            "caller_name": caller_name
         }
 
+        # Если это инициация звонка, запускаем фоновую отправку пуша
         if msg_type == "offer":
             asyncio.create_task(trigger_call_push(self.user_id, target))
 
+        # 🔥 ИСПРАВЛЕНИЕ: Обработка ответа на звонок
         if msg_type == "answer":
             client_id = data.get("client_id")
             if client_id:
+                # Оповещаем ОСТАЛЬНЫЕ устройства ТОГО ЖЕ пользователя, кто ответил,
+                # чтобы они убрали входящий звонок с экранов
                 await self.channel_layer.group_send(
                     self.group_name, 
                     {
-                        "type": "forward_call",
+                        "type": "forward_call_elsewhere", # Используем новый метод фильтрации
+                        "sender_channel_name": self.channel_name, # Передаем текущий канал для исключения
                         "data": { "type": "answered_elsewhere", "client_id": client_id }
                     }
                 )
 
+        # Отправляем исходное сообщение (offer, answer, candidate) собеседнику
         await self.channel_layer.group_send(
             f"call_{target}",
             {
@@ -1202,8 +1208,19 @@ class CallConsumer(AsyncWebsocketConsumer):
             }
         )
 
+    # 1. Стандартный метод пересылки (без исключений)
     async def forward_call(self, event):
         await self.send(text_data=json.dumps(event["data"]))
+
+    # 🔥 2. НОВЫЙ МЕТОД: Пересылка всем, КРОМЕ устройства, ответившего на звонок
+    async def forward_call_elsewhere(self, event):
+        # Если это тот самый канал, который прислал ответ — игнорируем его
+        if self.channel_name == event.get("sender_channel_name"):
+            return
+            
+        await self.send(text_data=json.dumps(event["data"]))
+
+
 
 
 
