@@ -2059,6 +2059,21 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         return super().update(request, *args, **kwargs)
 
+    
+    def retrieve(self, request, *args, **kwargs):
+        group = self.get_object()
+        serializer = self.get_serializer(group)
+        data = serializer.data
+
+        # 🔥 Проверяем права текущего пользователя прямо при загрузке
+        data['can_edit'] = GroupMember.objects.filter(
+            group=group,
+            user=request.user,
+            role__in=["owner", "admin"]
+        ).exists()
+
+        return Response(data)
+
   
     @action(detail=True, methods=["post"])
     def leave(self, request, pk=None):
