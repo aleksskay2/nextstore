@@ -137,6 +137,12 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 
 
+
+
+
+
+
+
 from rest_framework import serializers
 from .models import FCMDevice
 

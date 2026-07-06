@@ -46,6 +46,8 @@ import logging
 from django.db.models import Avg, Case, When, Value, IntegerField, FloatField, F
 from django.contrib.postgres.search import TrigramSimilarity
 from .pagination import RegionChatPagination
+from calendar import c
+from store.tasks import send_verification_email_task 
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, permissions, serializers
@@ -486,6 +488,72 @@ class UserInfoView(APIView):
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = RegisterSerializer
+
+
+
+
+
+# ШАГ 1: Запрос кода сброса пароля
+class PasswordResetRequestView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"error": "Email обязателен"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Ищем СУЩЕСТВУЮЩЕГО пользователя
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Защита от перебора email: хакер не должен знать, есть ли такой email в базе
+            return Response({"message": "Если email зарегистрирован, код отправлен"}, status=status.HTTP_200_OK)
+        
+        # Генерируем код точно так же, как при регистрации
+        verification_code = str(random.randint(100000, 999999))
+        
+        # Перезаписываем код в модель пользователя
+        user.verification_code = verification_code
+        user.save()
+        
+        # 🔥 Переиспользуем твою Celery-задачу!
+        try:
+            send_verification_email_task.delay(email, verification_code)
+            print(f"🚀 [Celery Восстановление] Задача на отправку кода {verification_code} добавлена для {email}")
+        except Exception as e:
+            print(f"❌ Ошибка при инициализации отправки через Celery: {e}")
+            
+        return Response({"message": "Код успешно отправлен на вашу почту"}, status=status.HTTP_200_OK)
+
+
+# ШАГ 2: Проверка кода и сохранение нового пароля
+class PasswordResetConfirmView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+        new_password = request.data.get('new_password')
+        
+        if not all([email, code, new_password]):
+            return Response({"error": "Все поля (email, code, new_password) обязательны"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "Неверный запрос"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Проверяем код из базы данных
+        if not user.verification_code or user.verification_code != str(code):
+            return Response({"error": "Неверный или просроченный код подтверждения"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Хешируем и сохраняем новый пароль
+        user.set_password(new_password)
+        
+        # Очищаем код, чтобы его нельзя было использовать повторно
+        user.verification_code = None
+        user.save()
+        
+        return Response({"message": "Пароль успешно изменен"}, status=status.HTTP_200_OK)
+
+
+
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
