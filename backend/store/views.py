@@ -493,33 +493,46 @@ class RegisterView(generics.CreateAPIView):
 
 
 
-# ШАГ 1: Запрос кода сброса пароля
 class PasswordResetRequestView(APIView):
     def post(self, request):
-        email = request.data.get('email')
+        # Очищаем email от случайных пробелов
+        email = request.data.get('email', '').strip()
+        
+        # Если прислали пустую строку, сразу выдаем ошибку 400
         if not email:
             return Response({"error": "Email обязателен"}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Ищем СУЩЕСТВУЮЩЕГО пользователя
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            # Защита от перебора email: хакер не должен знать, есть ли такой email в базе
-            return Response({"message": "Если email зарегистрирован, код отправлен"}, status=status.HTTP_200_OK)
+            # 🔥 Вместо .get() используем .filter().first()
+            # Это спасет от ошибки 500, если в базе несколько одинаковых email (или пустых строк)
+            user = User.objects.filter(email=email).first()
+            
+            if not user:
+                # Если пользователь не найден, возвращаем 200 (в целях безопасности)
+                return Response({"message": "Если email зарегистрирован, код отправлен"}, status=status.HTTP_200_OK)
+                
+        except Exception as db_error:
+            print(f"❌ Ошибка базы данных: {db_error}")
+            return Response({"error": "Ошибка при поиске пользователя"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # Генерируем код точно так же, как при регистрации
+        # Генерируем код
         verification_code = str(random.randint(100000, 999999))
         
-        # Перезаписываем код в модель пользователя
-        user.verification_code = verification_code
-        user.save()
+        # Сохраняем код пользователю
+        try:
+            user.verification_code = verification_code
+            user.save()
+        except Exception as save_error:
+            print(f"❌ Ошибка при сохранении кода в модель: {save_error}")
+            return Response({"error": "Не удалось сгенерировать код доступа"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # 🔥 Переиспользуем твою Celery-задачу!
+        # Отправляем в Celery
         try:
             send_verification_email_task.delay(email, verification_code)
             print(f"🚀 [Celery Восстановление] Задача на отправку кода {verification_code} добавлена для {email}")
-        except Exception as e:
-            print(f"❌ Ошибка при инициализации отправки через Celery: {e}")
+        except Exception as celery_error:
+            # Если Celery упал, мы НЕ валим весь сервер (не отдаем 500), а логируем ошибку
+            print(f"❌ Ошибка Celery: {celery_error}")
             
         return Response({"message": "Код успешно отправлен на вашу почту"}, status=status.HTTP_200_OK)
 
