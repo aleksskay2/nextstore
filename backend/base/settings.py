@@ -237,6 +237,14 @@ MEDIA_URL = '/media/'
 
 
 
+# 1. Устанавливаем часовой пояс по умолчанию для функций бэкенда
+TIME_ZONE = 'Europe/Moscow'
+
+# 2. 🔥 САМОЕ ВАЖНОЕ: Включаем поддержку часовых поясов
+USE_TZ = True
+
+
+
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # 🔥 Проверяем, находимся ли мы на сервере Render
