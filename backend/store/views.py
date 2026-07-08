@@ -844,7 +844,7 @@ class BookmarkViewSet(viewsets.ModelViewSet):
 
 
 
-
+import traceback
 
 class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
@@ -965,65 +965,110 @@ class MessageViewSet(viewsets.ModelViewSet):
         response_data.sort(key=lambda x: x['last_message_at'], reverse=True)
         return Response(response_data)
 
+    logger = logging.getLogger(__name__)
+
     @action(detail=False, methods=['post'], url_path='send')
     def send_message(self, request):
-        receiver_id = request.data.get('receiver_id')
-        product_id = request.data.get('product')
-        text = request.data.get('text', '')
-        
-        uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('images')
+        # 🔥 Вся логика оборачивается в try-except, чтобы избежать падения сетевого соединения
+        try:
+            receiver_id = request.data.get('receiver_id')
+            product_id = request.data.get('product')
+            text = request.data.get('text', '')
+            
+            if not receiver_id or not product_id:
+                return Response(
+                    {"error": "receiver_id и product являются обязательными полями."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        # Создаем сообщение
-        message = Message.objects.create(
-            sender=request.user,
-            receiver_id=receiver_id,
-            product_id=product_id,
-            text=text
-        )
+            uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('images')
 
-        # Создаем файлы
-        import mimetypes
-        for file_obj in uploaded_files:
-            mime_type, _ = mimetypes.guess_type(file_obj.name)
-            if mime_type and mime_type.startswith("audio"):
-                f_type = "audio"
-            elif mime_type and mime_type.startswith("video"):
-                f_type = "video"
-            else:
-                f_type = "image"
+            print(f"--- [БЭКЕНД СТАРТ] Получено файлов для обработки: {len(uploaded_files)} ---")
 
-            MessageFile.objects.create(
-                message=message,
-                file=file_obj,
-                type=f_type
-                # duration и thumbnail подтянутся в .save() модели MessageFile
+            # Создаем сообщение
+            message = Message.objects.create(
+                sender=request.user,
+                receiver_id=receiver_id,
+                product_id=product_id,
+                text=text
             )
 
-        # Подгружаем связанные данные для сериализации
-        message = Message.objects.prefetch_related('files').get(pk=message.pk)
-        serialized = MessageSerializer(message, context={'request': request}).data
+            # Обрабатываем файлы
+            for file_obj in uploaded_files:
+                # 🔥 Улучшение 1: Сначала берем оригинальный content_type, присланный из React Native.
+                # Это надежнее, чем просто угадывать по расширению имени файла.
+                content_type = getattr(file_obj, 'content_type', '')
+                
+                if content_type:
+                    if content_type.startswith("audio"):
+                        f_type = "audio"
+                    elif content_type.startswith("video"):
+                        f_type = "video"
+                    else:
+                        f_type = "image"
+                else:
+                    # Резервный вариант, если фронт не прислал mime-тип
+                    mime_type, _ = mimetypes.guess_type(file_obj.name)
+                    if mime_type and mime_type.startswith("audio"):
+                        f_type = "audio"
+                    elif mime_type and mime_type.startswith("video"):
+                        f_type = "video"
+                    else:
+                        f_type = "image"
 
-        # 🔥 Отправляем в WebSocket (используем стабильный chat_id в обертке, если нужно)
-        channel_layer = get_channel_layer()
-        chat_id = f"product_{product_id}_{request.user.id if str(request.user.id) != str(receiver_id) else receiver_id}"
-        
-        # Добавляем ID чата в данные для сокета, чтобы фронт знал, какой чат обновить
-        socket_data = {
-            **serialized,
-            "chat_id": chat_id 
-        }
+                print(f"--- [БЭКЕНД] Сохраняем файл: {file_obj.name} | Тип: {f_type} ---")
 
-        async_to_sync(channel_layer.group_send)(
-            f"product_chat_{product_id}",
-            {
-                "type": "new_message",
-                "message": socket_data,
-            }
-        )
-    
-        return Response(serialized, status=status.HTTP_201_CREATED)
+                # 🔥 Улучшение 2: Изолируем сохранение каждого файла.
+                # Если упадет генерация тумб или сжатие внутри .save(), мы поймаем это здесь.
+                try:
+                    MessageFile.objects.create(
+                        message=message,
+                        file=file_obj,
+                        type=f_type
+                    )
+                except Exception as file_save_err:
+                    print(f"❌ Ошибка внутри модели MessageFile при сохранении файла {file_obj.name}: {str(file_save_err)}")
+                    traceback.print_exc()
+                    raise file_save_err  # Пробрасываем ошибку в глобальный обработчик
 
+            # Подгружаем связанные файлы для ответа
+            message = Message.objects.prefetch_related('files').get(pk=message.pk)
+            serialized = MessageSerializer(message, context={'request': request}).data
 
+            # 🔥 Улучшение 3: Безопасная отправка в сокет (если веб-сокет лежит, сообщение всё равно отправится)
+            try:
+                channel_layer = get_channel_layer()
+                chat_id = f"product_{product_id}_{request.user.id if str(request.user.id) != str(receiver_id) else receiver_id}"
+                
+                socket_data = {
+                    **serialized,
+                    "chat_id": chat_id 
+                }
+
+                async_to_sync(channel_layer.group_send)(
+                    f"product_chat_{product_id}",
+                    {
+                        "type": "new_message",
+                        "message": socket_data,
+                    }
+                )
+            except Exception as ws_err:
+                print(f"⚠️ Ошибка отправки события в WebSocket: {str(ws_err)}")
+
+            return Response(serialized, status=status.HTTP_201_CREATED)
+
+        except Exception as global_err:
+            print(f"💥 КРИТИЧЕСКИЙ СБОЙ МЕТОДА send_message: {str(global_err)}")
+            traceback.print_exc()
+            # Возвращаем 500 ошибку в формате JSON вместо падения сервера. 
+            # Теперь Axios вместо Network Error покажет человеческую ошибку 500 со всеми деталями.
+            return Response(
+                {
+                    "error": "Внутренняя ошибка сервера при обработке медиафайлов", 
+                    "details": str(global_err)
+                }, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 
