@@ -792,6 +792,8 @@ class ProductUserViewSet(viewsets.ModelViewSet):
         #     product.save()
 
 
+from rest_framework.parsers import MultiPartParser, FormParser
+
 class BookmarkViewSet(viewsets.ModelViewSet):
     serializer_class = BookmarkSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -843,7 +845,7 @@ class BookmarkViewSet(viewsets.ModelViewSet):
 
 
 
-
+from rest_framework.decorators import action, parser_classes
 
 
 class MessageViewSet(viewsets.ModelViewSet):
@@ -966,11 +968,21 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Response(response_data)
 
     @action(detail=False, methods=['post'], url_path='send')
+    # 🔥 КРИТИЧНО: Добавляем парсеры для обработки FormData с файлами
+    @parser_classes([MultiPartParser, FormParser])
     def send_message(self, request):
         receiver_id = request.data.get('receiver_id')
         product_id = request.data.get('product')
         text = request.data.get('text', '')
+
+        # Простая проверка, чтобы база данных не падала, если фронт прислал пустые/невалидные id
+        if not receiver_id or not product_id:
+            return Response(
+                {"error": "receiver_id и product_id обязательны для отправки"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
+        # Получаем файлы из FormData
         uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('images')
 
         # Создаем сообщение
@@ -981,8 +993,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             text=text
         )
 
-        # Создаем файлы
-        import mimetypes
+        # Создаем связанные файлы
         for file_obj in uploaded_files:
             mime_type, _ = mimetypes.guess_type(file_obj.name)
             if mime_type and mime_type.startswith("audio"):
@@ -996,18 +1007,16 @@ class MessageViewSet(viewsets.ModelViewSet):
                 message=message,
                 file=file_obj,
                 type=f_type
-                # duration и thumbnail подтянутся в .save() модели MessageFile
             )
 
         # Подгружаем связанные данные для сериализации
         message = Message.objects.prefetch_related('files').get(pk=message.pk)
         serialized = MessageSerializer(message, context={'request': request}).data
 
-        # 🔥 Отправляем в WebSocket (используем стабильный chat_id в обертке, если нужно)
+        # Отправляем в сокет
         channel_layer = get_channel_layer()
         chat_id = f"product_{product_id}_{request.user.id if str(request.user.id) != str(receiver_id) else receiver_id}"
         
-        # Добавляем ID чата в данные для сокета, чтобы фронт знал, какой чат обновить
         socket_data = {
             **serialized,
             "chat_id": chat_id 

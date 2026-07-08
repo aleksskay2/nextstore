@@ -137,21 +137,26 @@ class UserGlobalConsumer(AsyncJsonWebsocketConsumer):
         elif msg_type == "product_message_created":
             await self.handle_product_message_created(content)
 
-        elif msg_type == "get_last_seen":
-            user_id = content.get("user_id")
-            # Проверяем онлайн через новый метод (проверка наличия ключа)
-            online = await self.is_user_online(user_id)
+       # 🔥 ВОТ ЭТОТ БЛОК ОТВЕЧАЕТ ЗА ПРОВЕРКУ СОБЕСЕДНИКА
+        elif msg_type == "check_partner_status":
+            partner_id = content.get("partner_id")
+            
+            # Проверяем онлайн статус собеседника
+            online = await self.is_user_online(partner_id)
             last_seen = None
 
+            # Если не онлайн, достаем время последнего визита
             if not online:
-                last_seen = await self.get_last_seen_ts(user_id)
+                last_seen = await self.get_last_seen_ts(partner_id)
 
+            # Отправляем ответ конкретно тому юзеру, кто спросил
             await self.send_json({
-                "type": "last_seen",
-                "user_id": user_id,
+                "type": "partner_status_result",
+                "partner_id": partner_id,
                 "online": online,
                 "last_seen": last_seen,
             })
+
 
     # ... (handle_message_created, send events остаются без изменений) ...
     async def handle_product_message_created(self, content):
@@ -241,17 +246,22 @@ class UserGlobalConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def get_online_users(self):
         r = get_redis_connection("default")
-        # Ищем ключи по шаблону (осторожно, если юзеров миллионы - SCAN лучше KEYS)
-        keys = r.keys("online_channels:user:*")
-        users = []
-        for k in keys:
-            try:
-                # k = b'online_channels:user:123'
-                uid = int(k.decode().split(":")[-1])
-                users.append(uid)
-            except ValueError:
-                continue
-        return users
+        users = set()
+        cursor = 0
+        
+        # Используем SCAN вместо KEYS, чтобы не блокировать Redis в продакшене
+        while True:
+            cursor, keys = r.scan(cursor=cursor, match="online_channels:user:*", count=100)
+            for k in keys:
+                try:
+                    uid = int(k.decode().split(":")[-1])
+                    users.add(uid)
+                except (ValueError, IndexError):
+                    continue
+            if cursor == 0:
+                break
+                
+        return list(users)
 
     @database_sync_to_async
     def set_last_seen(self, user_id):
