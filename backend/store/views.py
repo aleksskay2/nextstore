@@ -981,9 +981,16 @@ class MessageViewSet(viewsets.ModelViewSet):
                 {"error": "receiver_id и product_id обязательны для отправки"}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Получаем файлы из FormData
-        uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('images')
+        files_data = request.FILES.getlist('files')
+        images_data = request.FILES.getlist('images')
+        uploaded_files = files_data if files_data else images_data
+
+        if not uploaded_files:
+            # Некоторые парсеры в RN могут отправлять файлы по одному в цикле с тем же ключом
+            # request.FILES может выглядеть как {'files': file1, 'files': file2}
+            single_file = request.FILES.get('files') or request.FILES.get('images')
+            if single_file:
+                uploaded_files = [single_file] # Делаем массив из одного файла
 
         # Создаем сообщение
         message = Message.objects.create(
