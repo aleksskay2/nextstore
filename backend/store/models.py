@@ -289,7 +289,7 @@ class Message(models.Model):
         on_delete=models.CASCADE
     )
     product = models.ForeignKey('Product', on_delete=models.CASCADE, null=True, blank=True)
-    text = models.TextField()
+    text = models.TextField(blank=True, default="")
     # image = models.ImageField(upload_to='messages/', blank=True, null=True)
   
     # ✅ доставлено (собеседник открыл чат)
