@@ -544,6 +544,7 @@ class MessageRegionChatSerializer(serializers.ModelSerializer):
             'reply_to', 'reply_to_details', 'files', 'is_read'
         ]
 
+    
     def get_reply_to_details(self, obj):
         if obj.reply_to:
             first_file = obj.reply_to.files.first()
@@ -552,11 +553,14 @@ class MessageRegionChatSerializer(serializers.ModelSerializer):
             file_type = None
             
             if first_file:
-                # Определяем относительный путь в зависимости от наличия миниатюры
-                relative_url = first_file.thumbnail.url if first_file.thumbnail else first_file.file.url
+                # 🔥 ИСПРАВЛЕНО: Безопасная проверка наличия файла
+                if first_file.thumbnail and first_file.thumbnail.name:
+                    relative_url = first_file.thumbnail.url
+                else:
+                    relative_url = first_file.file.url
+                    
                 file_type = first_file.type
                 
-                # 🔥 ИСПРАВЛЕНО: Превращаем в абсолютный URI и внутри блока цитирования
                 request = self.context.get('request')
                 if request is not None:
                     file_url = request.build_absolute_uri(relative_url)
@@ -566,12 +570,11 @@ class MessageRegionChatSerializer(serializers.ModelSerializer):
             return {
                 "id": obj.reply_to.id,
                 "username": obj.reply_to.user.username,
-                "text": obj.reply_to.text[:50],
+                "text": obj.reply_to.text[:50] if obj.reply_to.text else "",
                 "file": file_url,        
                 "file_type": file_type   
             }
         return None
-
 
         
 class AdminsSerializer(serializers.ModelSerializer):

@@ -2048,22 +2048,39 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         data = request.data
         files = request.FILES.getlist('uploaded_files') 
-        voice = request.FILES.get('voice') 
+        voice = request.FILES.get('voice')
+        # 🔥 1. Достаем список превью-картинок из реквеста
+        thumbnails = request.FILES.getlist('thumbnail') 
         
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         
         message = serializer.save(user=self.request.user)
 
+        # 🔥 2. Счетчик, чтобы сопоставлять видео и их превью по порядку
+        video_index = 0 
+
         for f in files:
             content_type = f.content_type
             file_type = 'image'
+            thumbnail_file = None # По умолчанию превью нет
+            
             if 'video' in content_type:
                 file_type = 'video'
+                # 🔥 3. Если это видео, берем соответствующее ему превью (если оно пришло)
+                if video_index < len(thumbnails):
+                    thumbnail_file = thumbnails[video_index]
+                    video_index += 1
             elif 'audio' in content_type:
                 file_type = 'audio'
 
-            MessageRegionFile.objects.create(message=message, file=f, type=file_type)
+            # 🔥 4. Сохраняем файл в БД вместе с превью (если thumbnail_file == None, в БД сохранится null)
+            MessageRegionFile.objects.create(
+                message=message, 
+                file=f, 
+                type=file_type,
+                thumbnail=thumbnail_file
+            )
         
         if voice:
             MessageRegionFile.objects.create(message=message, file=voice, type='audio')
