@@ -1590,7 +1590,6 @@ class ProductChatConsumer(AsyncJsonWebsocketConsumer):
 
 
 
-
 # consumers.py
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -1630,7 +1629,6 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
     # ======================
     # NOTIFY: NEW MESSAGE
     # ======================
-   # ======================================================
     async def new_message_notify(self, event):
         # В event["message"] теперь лежит результат работы сериализатора из View
         await self.send_json({
@@ -1658,6 +1656,14 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
             "user_id": event["user_id"]
         })
 
+    # 🔥 ДОБАВЛЯЕМ ОБРАБОТЧИК ДЛЯ REST API
+    async def messages_read_notify(self, event):
+        """Ловит сигнал из API (mark-read) и пересылает на фронтенд"""
+        await self.send_json({
+            "type": "messages_read", # на фронт отправляем под тем же типом, что и обычно
+            "region": event.get("region")
+        })
+
     # ======================
     # DB
     # ======================
@@ -1669,11 +1675,13 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
             is_read=False
         ).exclude(user=self.user).update(is_read=True)
 
-    #Удаления сообщения
+    # ======================
+    # Удаления сообщения
     # ======================
     async def delete_message_notify(self, event):
         """Отправляет клиенту сигнал об удалении сообщения"""
-        await self.send(text_data=json.dumps({
+        # Заменили json.dumps на удобный send_json
+        await self.send_json({
             'type': 'message_deleted',
             'message_id': event['message_id']
-        }))
+        })

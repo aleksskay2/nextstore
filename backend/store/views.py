@@ -1966,41 +1966,58 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"], url_path="mark-read")
     def mark_read(self, request):
         region_id = request.data.get("region")
+        
+        # Проверяем на None и пустую строку (0 пройдет проверку корректно)
         if region_id is None or region_id == '':
             return Response({"error": "Параметр region обязателен."}, status=status.HTTP_400_BAD_REQUEST)
 
         region_str = str(region_id)
 
+        # 1. Формируем QuerySet непрочитанных сообщений
         if region_str == '0':
             unread_messages = MessageRegionChat.objects.filter(is_read=False)
         else:
             unread_messages = MessageRegionChat.objects.filter(region_id=region_id, is_read=False)
         
+        # Исключаем сообщения самого пользователя
         unread_messages = unread_messages.exclude(user=request.user)
+
+        # 2. Собираем ID регионов, где есть непрочитанные сообщения ДО их обновления.
+        # Это нужно, чтобы знать, в какие WebSocket-группы отправлять уведомления.
+        regions_to_notify = list(unread_messages.values_list('region_id', flat=True).distinct())
+
+        # 3. Обновляем статус в базе (один быстрый SQL UPDATE запрос)
         updated_count = unread_messages.update(is_read=True)
 
+        # 4. Рассылаем уведомления по каналам
         channel_layer = get_channel_layer()
+        
+        # Всегда уведомляем общий канал (для тех, кто слушает все регионы)
         async_to_sync(channel_layer.group_send)(
             "region_0",
             {
                 "type": "messages_read_notify",
-                "region": region_id
+                "region": region_str 
             }
         )
 
-        if region_str != '0':
-            async_to_sync(channel_layer.group_send)(
-                f"region_{region_str}",
-                {
-                    "type": "messages_read_notify",
-                    "region": region_id
-                }
-            )
+        # Уведомляем каналы конкретных регионов
+        for r_id in regions_to_notify:
+            r_str = str(r_id)
+            if r_str != '0':  # Чтобы не отправлять в region_0 дважды
+                async_to_sync(channel_layer.group_send)(
+                    f"region_{r_str}",
+                    {
+                        "type": "messages_read_notify",
+                        "region": r_str # Передаем конкретный ID региона, чтобы фронтенд понял, где обновить UI
+                    }
+                )
 
         return Response({
             "status": "success", 
             "message": f"Помечено прочитанными сообщений: {updated_count}"
         }, status=status.HTTP_200_OK)
+
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
