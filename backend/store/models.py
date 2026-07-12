@@ -648,37 +648,60 @@ class MessageRegionFile(models.Model):
         except Exception as e:
             print(f"Audio processing error: {e}")
 
+  
+
     def process_video(self):
-        """Извлечение кадра и длительности видео через ffmpeg/moviepy"""
+        """Извлечение кадра и длительности видео через ffmpeg (без moviepy!)"""
         try:
-            # 1. Сначала извлекаем длительность через ffmpeg (как в личных сообщениях)
             import ffmpeg
             from pathlib import Path
             import os
+            from PIL import Image
             
             file_path = str(Path(self.file.path))
+            
+            # 1. Извлекаем длительность и размеры через ffprobe
             probe = ffmpeg.probe(file_path)
             self.duration = int(float(probe['format']['duration']))
             
-            # 2. Создаем миниатюру через moviepy (твой оригинальный код)
-            clip = VideoFileClip(self.file.path)
-            self.width, self.height = clip.size
+            # Достаем ширину и высоту из видеопотока
+            video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
+            if video_stream:
+                self.width = int(video_stream['width'])
+                self.height = int(video_stream['height'])
 
-            frame_time = min(1.0, clip.duration / 2)
-            frame = clip.get_frame(frame_time)
-            img = Image.fromarray(frame)
+            # 2. Создаем временную миниатюру через ffmpeg
+            thumb_dir = os.path.join(os.path.dirname(file_path), "thumbnails")
+            os.makedirs(thumb_dir, exist_ok=True)
             
-            thumb_data = self.make_square_thumb(img)
-            name = os.path.splitext(os.path.basename(self.file.name))[0]
-            self.thumbnail.save(f"thumb_{name}.webp", thumb_data, save=False)
+            temp_thumb_path = os.path.join(thumb_dir, f"temp_{Path(file_path).stem}.jpg")
             
-            clip.close()
+            # 🎬 Извлекаем 1 кадр на 1-й секунде (или на 0, если видео короче 1 сек)
+            extract_time = min(1, self.duration if self.duration > 0 else 0)
+            (
+                ffmpeg
+                .input(file_path, ss=extract_time)
+                .output(temp_thumb_path, vframes=1)
+                .run(overwrite_output=True, quiet=True)
+            )
+
+            # 3. Обрабатываем кадр твоей функцией make_square_thumb
+            if os.path.exists(temp_thumb_path):
+                img = Image.open(temp_thumb_path)
+                
+                thumb_data = self.make_square_thumb(img)
+                name = os.path.splitext(os.path.basename(self.file.name))[0]
+                self.thumbnail.save(f"thumb_{name}.webp", thumb_data, save=False)
+                
+                img.close()
+                os.remove(temp_thumb_path) # Удаляем временный файл
             
             # Сохраняем обновленные поля
             super().save(update_fields=['thumbnail', 'duration', 'width', 'height'])
             
         except Exception as e:
             print(f"Video processing error: {e}")
+            
 
     def make_square_thumb(self, img):
         """Создает квадратный ContentFile 200x200"""
