@@ -82,6 +82,9 @@ def format_last_message(msg):
 
 
 # В get_single_chat_summary добавь prefetch_related, чтобы не было 100500 запросов к БД
+from django.db.models import Q
+
+
 def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None, group_id=None):
     try:
         if chat_type == "private":
@@ -90,7 +93,7 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
             ).order_by("-created_at")\
              .select_related("sender", "target")\
              .prefetch_related("files")\
-             .first() # Добавили prefetch_related для файлов
+             .first()
 
             if not msg: return None
             
@@ -112,12 +115,10 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
                 "last_message": format_last_message(msg),
                 "last_message_at": msg.created_at.isoformat(),
                 "unread_count": unread,
+                "is_own": msg.sender == user, # 🔥 ДОБАВЛЕНО: Флаг твоего сообщения
                 "link": f"/chat/private/{companion.id}",
             }
 
-        # --- ЛОГИКА ДЛЯ ТОВАРОВ (Исправлено здесь) ---
-        
-        # --- ЛОГИКА ДЛЯ ТОВАРОВ (Исправлено здесь) ---
         if chat_type == "product":
             msg = Message.objects.filter(
                 product_id=product_id
@@ -142,8 +143,6 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
                 img_url = msg.product.main_image_webp.url
 
             return {
-                # 🔥 ВАЖНО: ID должен быть уникальным для ПАРЫ товар + собеседник, 
-                # а не для конкретного сообщения!
                 "id": f"product_{product_id}_{companion_id}", 
                 "type": "product",
                 "product_id": product_id,
@@ -153,11 +152,9 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
                 "last_message": format_last_message(msg),
                 "last_message_at": msg.created_at.isoformat(),
                 "unread_count": unread,
+                "is_own": msg.sender == user, # 🔥 ДОБАВЛЕНО: Флаг твоего сообщения
                 "link": f"/chat/product/{product_id}/{companion_id}",
             }
-
-
-
 
         elif chat_type == "group":
             g = Group.objects.get(id=group_id)
@@ -179,10 +176,9 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
                 "last_message": format_last_message(last_msg),
                 "last_message_at": last_msg.created_at.isoformat(),
                 "unread_count": unread,
+                "is_own": last_msg.sender == user, # 🔥 ДОБАВЛЕНО: Флаг твоего сообщения
                 "link": f"/groups/{g.id}/chat",
             }
-
-        # Логика для chat_type == "product" аналогично через .prefetch_related("files")
 
     except Exception as e:
         import traceback
