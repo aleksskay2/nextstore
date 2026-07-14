@@ -9,7 +9,7 @@ from .views import FCMDeviceViewSet
 from .consumers import PrivateChatConsumer , ProductChatConsumer
 
 from .views import CustomTokenObtainPairView, MessageRegionChatViewSet, StoryViewSet, ChatSummaryViewSet, SearchUserViewSet, UserInfoView, EditUserProductViewSet
-from .views import CategoryViewSet, ActivateAccountView, PasswordResetConfirmView, PasswordResetRequestView, VerifyEmailView, FollowViewSet, FirebasePhoneAuthView, GroupMessageViewSet, SearchGroupsView, GroupViewSet, CustomUserViewSet, PrivateMessageViewSet, ProductVipViewSet, ResendActivationView, ProductReviewViewSet, CategoryFeaturesView, MessageViewSet, FeatureProductViewSet, BookmarkViewSet, OwnerProductViewSet, MyProductViewSet, LogoutView
+from .views import CategoryViewSet, ActivateAccountView, WebRTCCredentialsViewSet, PasswordResetConfirmView, PasswordResetRequestView, VerifyEmailView, FollowViewSet, FirebasePhoneAuthView, GroupMessageViewSet, SearchGroupsView, GroupViewSet, CustomUserViewSet, PrivateMessageViewSet, ProductVipViewSet, ResendActivationView, ProductReviewViewSet, CategoryFeaturesView, MessageViewSet, FeatureProductViewSet, BookmarkViewSet, OwnerProductViewSet, MyProductViewSet, LogoutView
  
 router = DefaultRouter()
 router.register(r'owner-products', OwnerProductViewSet, basename='owner-products')
@@ -35,6 +35,7 @@ router.register(r'groups', GroupViewSet, basename='groups')
 router.register(r'stories', StoryViewSet, basename='stories')
 router.register(r'devices', FCMDeviceViewSet, basename='device')
 router.register(r'follows', FollowViewSet , basename='follows')
+router.register(r'webrtc', WebRTCCredentialsViewSet, basename='webrtc')
 
 
 
