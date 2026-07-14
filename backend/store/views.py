@@ -2743,3 +2743,73 @@ class FirebasePhoneAuthView(APIView):
         except Exception as e:
             print(f"❌ Ошибка Firebase токена: {e}")
             return Response({"error": "Невалидный токен Firebase"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+import requests
+class WebRTCCredentialsViewSet(viewsets.ViewSet):
+    """
+    ViewSet для безопасной передачи конфигурации WebRTC (STUN/TURN) на фронтенд.
+    """
+    permission_classes = [IsAuthenticated]  # Доступы только для зарегистрированных пользователей
+
+    def list(self, request):
+        # Базовые российские и глобальные STUN-серверы (всегда бесплатные и быстрые)
+        base_stun_servers = [
+            {"urls": "stun:stun.yandex.ru:3478"},
+            {"urls": "stun:stun.mail.ru:3478"},
+            {"urls": "stun:stun.l.google.com:19302"},
+        ]
+
+        # 1. Пробуем получить свежие динамические TURN от Metered через API-ключ
+        metered_api_key = getattr(settings, 'METERED_API_KEY', None)
+
+        if metered_api_key:
+            try:
+                # Делаем запрос от имени сервера к API Metered
+                response = requests.get(
+                    f"https://metered.ca/api/v1/turn/credentials?apiKey={metered_api_key}",
+                    timeout=4
+                )
+                if response.status_code == 200:
+                    dynamic_servers = response.json()  # Metered возвращает готовый список iceServers
+                    
+                    return Response({
+                        "iceServers": base_stun_servers + dynamic_servers
+                    }, status=status.HTTP_200_OK)
+            except requests.RequestException:
+                # Если API Metered временно недоступен — плавно падаем на резервную статику ниже
+                pass
+
+        # 2. Фолбек: отдаем статические настройки из settings.py (твои текущие ключи)
+        username = getattr(settings, 'METERED_STATIC_USERNAME', '5a717a75c6fd9d9819a5a163')
+        credential = getattr(settings, 'METERED_STATIC_CREDENTIAL', 'St8H4EWIRDeMrFNj')
+
+        static_turn_servers = [
+            {"urls": "stun:stun.relay.metered.ca:80"},
+            {
+                "urls": "turn:global.relay.metered.ca:80",
+                "username": username,
+                "credential": credential,
+            },
+            {
+                "urls": "turn:global.relay.metered.ca:80?transport=tcp",
+                "username": username,
+                "credential": credential,
+            },
+            {
+                "urls": "turn:global.relay.metered.ca:443",
+                "username": username,
+                "credential": credential,
+            },
+            {
+                "urls": "turns:global.relay.metered.ca:443?transport=tcp",
+                "username": username,
+                "credential": credential,
+            },
+        ]
+
+        return Response({
+            "iceServers": base_stun_servers + static_turn_servers
+        }, status=status.HTTP_200_OK)

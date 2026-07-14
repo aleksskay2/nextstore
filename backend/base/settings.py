@@ -435,3 +435,12 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+
+
+# Сюда можно положить Secret API Key от Metered (если захочешь генерировать динамические TURN)
+METERED_API_KEY = os.getenv("METERED_API_KEY", "a580068ae04b03e267dc0ea88006c8ac2670")
+
+# Твои статические креды (резервный вариант)
+METERED_STATIC_USERNAME = os.getenv("METERED_STATIC_USERNAME", "5a717a75c6fd9d9819a5a163")
+METERED_STATIC_CREDENTIAL = os.getenv("METERED_STATIC_CREDENTIAL", "St8H4EWIRDeMrFNj")
