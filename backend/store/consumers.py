@@ -308,15 +308,18 @@ class UserGlobalConsumer(AsyncJsonWebsocketConsumer):
         })
 
     # 🔥 ДОБАВЛЯЕМ ОБРАБОТЧИК ПОЛНОЦЕННЫХ СООБЩЕНИЙ
-    async def global_message(self, event):
+    # ==========================================
+    async def message(self, event):
         """
-        Ловит событие type="global_message" из channel_layer 
+        Ловит событие type="message" из channel_layer 
         и прокидывает его в глобальный веб-сокет фронтенда.
         """
         await self.send_json({
-            "type": "global_message", # На фронт тоже отправим под этим именем для ясности
+            "type": "message",
             "message": event.get("message")
         })
+
+
 
 
 
@@ -872,13 +875,9 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         )
 
         # 🔥 ДОБАВЛЕНО: Отправляем ПОЛНОЕ сообщение в глобальный сокет получателя для кэширования
-       # ==========================================
         await self.channel_layer.group_send(
             f"user_{target}",
-            {
-                "type": "global_message",  # <--- ВОТ ТУТ БЫЛА ОШИБКА!
-                "message": serialized
-            }
+            {"type": "message", "message": serialized} # Обрати внимание: type="message"
         )
 
         if is_target_online:
@@ -894,14 +893,11 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             )
 
             # Опционально: можно отправить и себе в глобальный, чтобы обновить кэш на других устройствах
-            # ==========================================
-        await self.channel_layer.group_send(
-            f"user_{target}",
-            {
-                "type": "global_message",  # <--- ВОТ ТУТ БЫЛА ОШИБКА!
-                "message": serialized
-            }
-        )
+            await self.channel_layer.group_send(
+                f"user_{self.user_id}",
+                {"type": "message", "message": serialized}
+            )
+
         if target_chat_open:
             await self.channel_layer.group_send(
                 f"chat_{self.user_id}",
@@ -943,7 +939,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
         serialized = await self.serialize_message(msg)
 
-       # Отправляем само сообщение обоим юзерам (Private)
+        # Отправляем само сообщение обоим юзерам
         await self.channel_layer.group_send(
             f"chat_{target}",
             {"type": "chat_message", "message": serialized}
@@ -951,16 +947,6 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_send(
             f"chat_{self.user_id}",
             {"type": "chat_message", "message": serialized}
-        )
-
-     # 🔥 ИСПРАВЛЕНО: Меняем type на "global_message", чтобы не конфликтовать с ядром Django
-        await self.channel_layer.group_send(
-            f"user_{target}",
-            {"type": "global_message", "message": serialized}
-        )
-        await self.channel_layer.group_send(
-            f"user_{self.user_id}",
-            {"type": "global_message", "message": serialized}
         )
 
         # 🔥 ФИКС 2: Если сообщение доставлено, уведомляем ОТПРАВИТЕЛЯ (чтобы зажечь 2 серые галочки)
