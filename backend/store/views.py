@@ -1515,6 +1515,26 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
             }
         )
 
+        # ==========================================
+        # 🔥 2. ОТПРАВЛЯЕМ В ГЛОБАЛЬНЫЙ КЭШ (GlobalSocket)
+        # ==========================================
+        async_to_sync(channel_layer.group_send)(
+            f"user_{message.target.id}",
+            {
+                "type": "message", # Должно совпадать с именем функции (async def message) в UserGlobalConsumer
+                "message": data
+            }
+        )
+
+        # Отправляем и себе тоже, чтобы кэш обновился на всех твоих устройствах
+        async_to_sync(channel_layer.group_send)(
+            f"user_{message.sender.id}",
+            {
+                "type": "message",
+                "message": data
+            }
+        )
+
 
 
 
