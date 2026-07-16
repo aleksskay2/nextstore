@@ -308,18 +308,15 @@ class UserGlobalConsumer(AsyncJsonWebsocketConsumer):
         })
 
     # 🔥 ДОБАВЛЯЕМ ОБРАБОТЧИК ПОЛНОЦЕННЫХ СООБЩЕНИЙ
-    # ==========================================
-    async def message(self, event):
+    async def global_message(self, event):
         """
-        Ловит событие type="message" из channel_layer 
+        Ловит событие type="global_message" из channel_layer 
         и прокидывает его в глобальный веб-сокет фронтенда.
         """
         await self.send_json({
-            "type": "message",
+            "type": "global_message", # На фронт тоже отправим под этим именем для ясности
             "message": event.get("message")
         })
-
-
 
 
 
@@ -949,16 +946,16 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             {"type": "chat_message", "message": serialized}
         )
 
-        # 🔥 ДОБАВЛЕНО: Рассылаем в глобальные сокеты (чтобы поймал useGlobalSocket на фронте)
+     # 🔥 ИСПРАВЛЕНО: Меняем type на "global_message", чтобы не конфликтовать с ядром Django
         await self.channel_layer.group_send(
             f"user_{target}",
-            {"type": "message", "message": serialized}
+            {"type": "global_message", "message": serialized}
         )
         await self.channel_layer.group_send(
             f"user_{self.user_id}",
-            {"type": "message", "message": serialized}
+            {"type": "global_message", "message": serialized}
         )
-        
+
         # 🔥 ФИКС 2: Если сообщение доставлено, уведомляем ОТПРАВИТЕЛЯ (чтобы зажечь 2 серые галочки)
         if is_target_online:
             await self.channel_layer.group_send(
