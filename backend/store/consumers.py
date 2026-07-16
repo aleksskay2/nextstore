@@ -872,9 +872,13 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         )
 
         # 🔥 ДОБАВЛЕНО: Отправляем ПОЛНОЕ сообщение в глобальный сокет получателя для кэширования
+       # ==========================================
         await self.channel_layer.group_send(
             f"user_{target}",
-            {"type": "message", "message": serialized} # Обрати внимание: type="message"
+            {
+                "type": "global_message",  # <--- ВОТ ТУТ БЫЛА ОШИБКА!
+                "message": serialized
+            }
         )
 
         if is_target_online:
@@ -883,18 +887,21 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 {"type": "message_delivered", "message_id": msg.id}
             )
 
-            # 2. 🔥 ДОБАВЛЕНО: Отправляем в глобальную группу получателя, чтобы его глобальный сокет зафиксировал доставку
-            await self.channel_layer.group_send(
-                f"user_{target}", 
-                {"type": "message_delivered", "message_id": msg.id}
-            )
+        # 2. 🔥 ДОБАВЛЕНО: Отправляем в глобальную группу получателя, чтобы его глобальный сокет зафиксировал доставку
+        await self.channel_layer.group_send(
+            f"user_{target}", 
+            {"type": "message_delivered", "message_id": msg.id}
+        )
 
             # Опционально: можно отправить и себе в глобальный, чтобы обновить кэш на других устройствах
-            await self.channel_layer.group_send(
-                f"user_{self.user_id}",
-                {"type": "message", "message": serialized}
-            )
-
+            # ==========================================
+        await self.channel_layer.group_send(
+            f"user_{target}",
+            {
+                "type": "global_message",  # <--- ВОТ ТУТ БЫЛА ОШИБКА!
+                "message": serialized
+            }
+        )
         if target_chat_open:
             await self.channel_layer.group_send(
                 f"chat_{self.user_id}",
