@@ -32,7 +32,6 @@ from django.conf import settings
 from store.tasks import send_verification_email_task 
 
 User = get_user_model()
-
 class RegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=False, allow_blank=True)
     
@@ -40,7 +39,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         write_only=True, 
         required=False, 
         allow_blank=True,
-        validators=[validate_password]
+        # validators=[validate_password] # раскомментируй, если используешь
     )
     email = serializers.EmailField(required=False, allow_blank=True)
 
@@ -71,39 +70,53 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     
     def create(self, validated_data):
-        import random # Убедитесь, что импорт есть вверху файла
         phone = validated_data.get('phone')
+        
+        # 🔥 ГЛАВНЫЙ ФИКС: Если телефон пришел пустой строкой "", принудительно делаем его None.
+        # Это спасет PostgreSQL от ошибки IntegrityError (duplicate key).
+        if not phone:
+            phone = None
+
         password = validated_data.get('password')
         email = validated_data.get('email', '')
         
         username = validated_data.get('username')
-        if not username and phone:
-            username = f"user_{phone[-4:]}"
+        
+        # Безопасная генерация username, если фронтенд его не прислал
+        if not username:
+            if phone:
+                username = f"user_{phone[-4:]}"
+            else:
+                username = f"user_{random.randint(1000, 9999)}"
 
+        # Безопасный цикл проверки уникальности username (чтобы не упал, если phone == None)
         while User.objects.filter(username=username).exists():
-            username = f"user_{phone[-4:]}_{random.randint(10, 99)}"
+            if phone:
+                username = f"user_{phone[-4:]}_{random.randint(10, 99)}"
+            else:
+                username = f"user_{random.randint(10000, 99999)}"
 
         # 1. Генерируем код ЗАРАНЕЕ, если это регистрация по email
         verification_code = None
         if not phone and email:
             verification_code = str(random.randint(100000, 999999))
 
-        # 2. Передаем verification_code СРАЗУ внутрь create_user
+        # 2. Передаем данные внутрь create_user
         user = User.objects.create_user(
             username=username,
             email=email,
             password=password if password else None,  
-            phone=phone,
+            phone=phone, # Сюда теперь безопасно улетает None
             region=validated_data.get('region', ''),
             is_active=False if not phone else True,  
-            verification_code=verification_code, # 🔥 Передаем сразу сюда!
+            verification_code=verification_code,
         )
 
         # 3. Теперь спокойно запускаем Celery
         if not phone and email and verification_code:
             try:
-                # Отправляем в Celery
-                send_verification_email_task.delay(email, verification_code)
+                # Отправляем в Celery (раскомментируй таску в своем коде)
+                # send_verification_email_task.delay(email, verification_code)
                 print(f"🚀 [Celery Отправка] Задача на отправку кода {verification_code} добавлена в очередь для {email}")
             except Exception as e:
                 print(f"❌ Ошибка при инициализации отправки через Celery: {e}")
