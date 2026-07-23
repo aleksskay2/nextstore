@@ -745,10 +745,12 @@ from .services import format_last_message  # 👈 Импортируем наш�
 # PrivateMessageFileSerializer
 class PrivateMessageFileSerializer(serializers.ModelSerializer):
     file = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField() # 🔥 ДОБАВЛЕНО: Отдаем имя файла
 
     class Meta:
         model = PrivateMessageFile
-        fields = ["id", "file", "type", "duration","thumbnail"]
+        # 🔥 ДОБАВЛЕНО поле "file_name"
+        fields = ["id", "file", "file_name", "type", "duration", "thumbnail"] 
 
     def get_file(self, obj):
         if not obj.file:
@@ -756,15 +758,17 @@ class PrivateMessageFileSerializer(serializers.ModelSerializer):
         
         request = self.context.get('request')
         if request:
-            # Если мы в ViewSet, DRF сам подставит правильный IP из запроса
             return request.build_absolute_uri(obj.file.url)
         
-        # Если request нет (например, вызвано из WebSocket Consumer)
         from django.conf import settings
         backend_url = getattr(settings, 'BACKEND_URL', 'http://127.0.0.1:8000')
         return f"{backend_url}{obj.file.url}"
 
-
+    # 🔥 ФУНКЦИЯ ДЛЯ ИЗВЛЕЧЕНИЯ ИМЕНИ ФАЙЛА
+    def get_file_name(self, obj):
+        if obj.file and obj.file.name:
+            return os.path.basename(obj.file.name) # Вернет, например, "video_123.mp4" или "document.pdf"
+        return None
 
 
 
@@ -777,7 +781,6 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
     target_avatar = serializers.ImageField(source="target.avatar", read_only=True)
     target_username = serializers.CharField(source="target.username", read_only=True)
     
-     # 🔥 ОТВЕТ
     reply_to = serializers.PrimaryKeyRelatedField(
         queryset=PrivateMessage.objects.all(),
         required=False,
@@ -785,28 +788,17 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
     )
     reply_to_data = serializers.SerializerMethodField()
 
-    # last_message_preview = serializers.SerializerMethodField()
-
     class Meta:
         model = PrivateMessage
         fields = [
             "id", "text", "sender", 'target_username', "target", "sender_name",
             "files", "created_at", "is_own", "is_read", "is_delivered", "sender_avatar",
-            "target_avatar",   # 🔥 reply
-            "reply_to",
-            "reply_to_data",
-
+            "target_avatar", "reply_to", "reply_to_data",
         ]
-
-
-    # def get_last_message_preview(self, obj):
-    #     # Используем ту самую функцию из services.py
-    #     return format_last_message(obj)
 
     def get_is_own(self, obj):
         request = self.context["request"]
         return obj.sender == request.user
-
     
     def get_reply_to_data(self, obj):
         if not obj.reply_to:
@@ -818,17 +810,19 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         file_url = None
         thumbnail_url = None
+        file_name = None # 🔥 Добавляем переменную для имени файла
 
         if file:
-            # 1. Собираем полный путь для самого файла, если он есть
             if file.file:
+                # 🔥 Извлекаем имя файла для ответа
+                import os
+                file_name = os.path.basename(file.file.name)
+                
                 if request:
                     file_url = request.build_absolute_uri(file.file.url)
                 else:
                     file_url = f"https://nextstore-iumj.onrender.com{file.file.url}"
             
-            # 2. 🔥 Собираем полный путь для thumbnail (превью видео), если оно есть
-            # Предполагаю, что поле в модели называется file.thumbnail
             if hasattr(file, 'thumbnail') and file.thumbnail:
                 if request:
                     thumbnail_url = request.build_absolute_uri(file.thumbnail.url)
@@ -841,23 +835,20 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             "sender_username": reply.sender.username,
             "text": reply.text,
             "file_type": file.type if file else None,
+            "file_name": file_name,  # 🔥 Теперь при ответе на документ тоже будет видно его имя
             "file_url": file_url,
-            "thumbnail": thumbnail_url,  # 🔥 Теперь фронтенд увидит превью видео в ответах!
+            "thumbnail": thumbnail_url,
         }
 
-
     def create(self, validated_data):
-       
         request = self.context["request"]
-
-        # Достаем reply_to из валидированных данных
         reply_to = validated_data.get("reply_to", None)
 
         message = PrivateMessage.objects.create(
             sender=request.user,
             target=validated_data["target"],
             text=validated_data.get("text", ""),
-            reply_to=reply_to  # 🔥 ВОТ ЭТОГО НЕ ХВАТАЛО
+            reply_to=reply_to 
         )
 
         files = request.FILES.getlist("files")
@@ -865,6 +856,7 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         for f in files:
             content_type = f.content_type or ""
 
+            # 🔥 ИСПРАВЛЕННАЯ ЛОГИКА ТИПОВ ФАЙЛОВ
             if content_type.startswith("image/"):
                 file_type = "image"
             elif content_type.startswith("video/"):
@@ -872,7 +864,9 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             elif content_type.startswith("audio/"):
                 file_type = "audio"
             else:
-                file_type = "file"
+                # 🔥 Любой другой файл (application/pdf, application/msword, zip, и т.д.)
+                # будет классифицироваться как 'document'
+                file_type = "document" 
 
             PrivateMessageFile.objects.create(
                 message=message,
