@@ -959,6 +959,10 @@ from pathlib import Path  # <--- Добавь эту строку
 from django.core.files.base import ContentFile
 from django.db import models
 
+from pathlib import Path
+import os
+from django.db import models
+
 class GroupMessageFile(models.Model):
     message = models.ForeignKey(
         'GroupMessage', # Убедись, что имя модели верное
@@ -967,6 +971,9 @@ class GroupMessageFile(models.Model):
     )
     file = models.FileField(upload_to="groups/messages/")
     
+    # 🔥 НОВОЕ ПОЛЕ: Храним оригинальное название файла с фронтенда
+    file_name = models.CharField(max_length=255, blank=True, null=True)
+    
     # 🔥 NEW: Поле для миниатюры
     thumbnail = models.ImageField(
         upload_to="groups/messages/thumbnails/",
@@ -974,15 +981,13 @@ class GroupMessageFile(models.Model):
         blank=True
     )
 
-
-    
-
     type = models.CharField(
         max_length=20,
         choices=(
             ("image", "Image"),
             ("video", "Video"),
             ("audio", "Audio"),
+            ("document", "Document"), # 🔥 ДОБАВЛЕНО: иначе Django не даст сохранить файлы
         )
     )
     duration = models.PositiveIntegerField(null=True, blank=True)
@@ -1031,7 +1036,6 @@ class GroupMessageFile(models.Model):
 
         except Exception as e:
             print(f"❌ Ошибка GroupMessage обработчика: {e}")
-    
 
 
 

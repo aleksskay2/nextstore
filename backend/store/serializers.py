@@ -976,9 +976,25 @@ class GroupMemberSerializer(serializers.ModelSerializer):
 
 
 class GroupMessageFileSerializer(serializers.ModelSerializer):
+    # 🔥 Делаем абсолютные URL для файлов, как в личных чатах
+    file = serializers.SerializerMethodField()
+
     class Meta:
         model = GroupMessageFile
-        fields = "__all__"
+        # 🔥 Явно указываем новые поля, чтобы фронтенд их получил
+        fields = ["id", "file", "file_name", "type", "duration", "thumbnail"]
+
+    def get_file(self, obj):
+        if not obj.file:
+            return None
+        
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        
+        from django.conf import settings
+        backend_url = getattr(settings, 'BACKEND_URL', 'http://127.0.0.1:8000')
+        return f"{backend_url}{obj.file.url}"
 
 
 class GroupMessageSerializer(serializers.ModelSerializer):
@@ -987,60 +1003,101 @@ class GroupMessageSerializer(serializers.ModelSerializer):
     read_by_ids = serializers.PrimaryKeyRelatedField(
         many=True, source="read_by", read_only=True
     )
-
     read_by_users = serializers.SerializerMethodField()
    
     reply_to = serializers.PrimaryKeyRelatedField(
-    queryset=GroupMessage.objects.all(),
-    required=False,
-    allow_null=True)
+        queryset=GroupMessage.objects.all(),
+        required=False,
+        allow_null=True
+    )
 
+    # 🔥 Убрал дублирующийся reply_to_data
     reply_to_data = serializers.SerializerMethodField()
 
-    reply_to_data = serializers.SerializerMethodField()
+    class Meta:
+        model = GroupMessage
+        fields = [
+            "id", "group", "read_by_users", "sender", "sender_username", "text",
+            "files", "created_at", "read_by_ids", 'reply_to', "reply_to_data"
+        ]
+        read_only_fields = ("sender", "group", "read_by")
+
+    def get_read_by_users(self, obj):
+        return [user.username for user in obj.read_by.all()]
 
     def get_reply_to_data(self, obj):
         if not obj.reply_to:
             return None
 
         msg = obj.reply_to
-
         file = msg.files.first() if hasattr(msg, "files") else None
-
+        
         request = self.context.get("request")
 
         file_url = None
-        if file and file.file:
-            if request:
-                file_url = request.build_absolute_uri(file.file.url)
-            else:
-                file_url = file.file.url  # fallback
+        thumbnail_url = None
+        file_name = None
+
+        if file:
+            # 🔥 БЕРЕМ КРАСИВОЕ ИМЯ
+            if file.file_name:
+                file_name = file.file_name
+            elif file.file:
+                file_name = os.path.basename(file.file.name)
+
+            if file.file:
+                if request:
+                    file_url = request.build_absolute_uri(file.file.url)
+                else:
+                    file_url = f"https://nextstore-iumj.onrender.com{file.file.url}"
+            
+            # 🔥 БЕРЕМ МИНИАТЮРУ (если это видео)
+            if hasattr(file, 'thumbnail') and file.thumbnail:
+                if request:
+                    thumbnail_url = request.build_absolute_uri(file.thumbnail.url)
+                else:
+                    thumbnail_url = f"https://nextstore-iumj.onrender.com{file.thumbnail.url}"
 
         return {
             "id": msg.id,
             "sender_username": msg.sender.username,
             "text": msg.text,
             "file_type": file.type if file else None,
+            "file_name": file_name,     # 🔥 Добавили в ответ
             "file_url": file_url,
+            "thumbnail": thumbnail_url, # 🔥 Добавили в ответ
         }
 
+    # 🔥 САМОЕ ВАЖНОЕ: ДОБАВЛЯЕМ CREATE ДЛЯ СОХРАНЕНИЯ ФАЙЛОВ
+    def create(self, validated_data):
+        # 1. Сохраняем само сообщение стандартным способом
+        message = super().create(validated_data)
 
+        # 2. Перехватываем файлы из запроса и сохраняем их правильно
+        request = self.context.get("request")
+        if request and hasattr(request, "FILES"):
+            files = request.FILES.getlist("files")
 
+            for f in files:
+                content_type = f.content_type or ""
 
+                if content_type.startswith("image/"):
+                    file_type = "image"
+                elif content_type.startswith("video/"):
+                    file_type = "video"
+                elif content_type.startswith("audio/"):
+                    file_type = "audio"
+                else:
+                    file_type = "document" # 🔥 ИСПРАВЛЕНО: Теперь тут всегда document!
 
-    def get_read_by_users(self, obj):
-        # Возвращаем список имён пользователей, которые прочитали сообщение
-        return [user.username for user in obj.read_by.all()]
-    
-    class Meta:
-        model = GroupMessage
-        fields = [
-            "id", "group","read_by_users", "sender", "sender_username", "text",
-            "files", "created_at", "read_by_ids", 'reply_to', "reply_to_data"
-        ]
+                GroupMessageFile.objects.create(
+                    message=message,
+                    file=f,
+                    file_name=f.name, # 🔥 ЗАПИСЫВАЕМ ИСХОДНОЕ КРАСИВОЕ ИМЯ ФАЙЛА
+                    type=file_type
+                )
 
-        read_only_fields = ("sender", "group", "read_by")
-
+        return message
 
 class GroupDetailSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
