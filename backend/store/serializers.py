@@ -1068,36 +1068,36 @@ class GroupMessageSerializer(serializers.ModelSerializer):
             "thumbnail": thumbnail_url, # 🔥 Добавили в ответ
         }
 
-    # 🔥 САМОЕ ВАЖНОЕ: ДОБАВЛЯЕМ CREATE ДЛЯ СОХРАНЕНИЯ ФАЙЛОВ
-    def create(self, validated_data):
-        # 1. Сохраняем само сообщение стандартным способом
-        message = super().create(validated_data)
+    # # 🔥 САМОЕ ВАЖНОЕ: ДОБАВЛЯЕМ CREATE ДЛЯ СОХРАНЕНИЯ ФАЙЛОВ
+    # def create(self, validated_data):
+    #     # 1. Сохраняем само сообщение стандартным способом
+    #     message = super().create(validated_data)
 
-        # 2. Перехватываем файлы из запроса и сохраняем их правильно
-        request = self.context.get("request")
-        if request and hasattr(request, "FILES"):
-            files = request.FILES.getlist("files")
+    #     # 2. Перехватываем файлы из запроса и сохраняем их правильно
+    #     request = self.context.get("request")
+    #     if request and hasattr(request, "FILES"):
+    #         files = request.FILES.getlist("files")
 
-            for f in files:
-                content_type = f.content_type or ""
+    #         for f in files:
+    #             content_type = f.content_type or ""
 
-                if content_type.startswith("image/"):
-                    file_type = "image"
-                elif content_type.startswith("video/"):
-                    file_type = "video"
-                elif content_type.startswith("audio/"):
-                    file_type = "audio"
-                else:
-                    file_type = "document" # 🔥 ИСПРАВЛЕНО: Теперь тут всегда document!
+    #             if content_type.startswith("image/"):
+    #                 file_type = "image"
+    #             elif content_type.startswith("video/"):
+    #                 file_type = "video"
+    #             elif content_type.startswith("audio/"):
+    #                 file_type = "audio"
+    #             else:
+    #                 file_type = "document" # 🔥 ИСПРАВЛЕНО: Теперь тут всегда document!
 
-                GroupMessageFile.objects.create(
-                    message=message,
-                    file=f,
-                    file_name=f.name, # 🔥 ЗАПИСЫВАЕМ ИСХОДНОЕ КРАСИВОЕ ИМЯ ФАЙЛА
-                    type=file_type
-                )
+    #             GroupMessageFile.objects.create(
+    #                 message=message,
+    #                 file=f,
+    #                 file_name=f.name, # 🔥 ЗАПИСЫВАЕМ ИСХОДНОЕ КРАСИВОЕ ИМЯ ФАЙЛА
+    #                 type=file_type
+    #             )
 
-        return message
+    #     return message
 
 class GroupDetailSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
