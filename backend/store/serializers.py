@@ -741,15 +741,15 @@ from .services import format_last_message  # 👈 Импортируем наш�
 #         fields = ["id", "file", "type", "duration"]
 
 
-
 # PrivateMessageFileSerializer
 class PrivateMessageFileSerializer(serializers.ModelSerializer):
     file = serializers.SerializerMethodField()
-    file_name = serializers.SerializerMethodField() # 🔥 ДОБАВЛЕНО: Отдаем имя файла
+    # 🔥 УБРАЛИ file_name = serializers.SerializerMethodField()
+    # DRF сам возьмет file_name из модели, потому что он есть в fields
 
     class Meta:
         model = PrivateMessageFile
-        # 🔥 ДОБАВЛЕНО поле "file_name"
+        # 🔥 Убедись, что file_name есть в списке
         fields = ["id", "file", "file_name", "type", "duration", "thumbnail"] 
 
     def get_file(self, obj):
@@ -764,12 +764,7 @@ class PrivateMessageFileSerializer(serializers.ModelSerializer):
         backend_url = getattr(settings, 'BACKEND_URL', 'http://127.0.0.1:8000')
         return f"{backend_url}{obj.file.url}"
 
-    # 🔥 ФУНКЦИЯ ДЛЯ ИЗВЛЕЧЕНИЯ ИМЕНИ ФАЙЛА
-    def get_file_name(self, obj):
-        if obj.file and obj.file.name:
-            return os.path.basename(obj.file.name) # Вернет, например, "video_123.mp4" или "document.pdf"
-        return None
-
+    # 🔥 УБРАЛИ def get_file_name(self, obj), он больше не нужен!
 
 
 class PrivateMessageSerializer(serializers.ModelSerializer):
@@ -871,7 +866,9 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             PrivateMessageFile.objects.create(
                 message=message,
                 file=f,
+                file_name=f.name,
                 type=file_type
+
             )
 
         return message

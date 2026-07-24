@@ -701,7 +701,7 @@ class MessageRegionFile(models.Model):
             
         except Exception as e:
             print(f"Video processing error: {e}")
-            
+
 
     def make_square_thumb(self, img):
         """Создает квадратный ContentFile 200x200"""
@@ -814,6 +814,9 @@ class PrivateMessageFile(models.Model):
     )
     file = models.FileField(upload_to="private_chat/", null=True, blank=True)
 
+    # 🔥 НОВОЕ ПОЛЕ: Храним оригинальное название файла с фронтенда
+    file_name = models.CharField(max_length=255, blank=True, null=True)
+
     # 🔥 NEW: thumbnail
     thumbnail = models.ImageField(
         upload_to="private_chat/thumbnails/",
@@ -827,7 +830,7 @@ class PrivateMessageFile(models.Model):
             ("image", "Image"),
             ("video", "Video"),
             ("audio", "Audio"),
-            ("file", "File"),
+            ("document", "Document"), # 🔥 Заменил "file" на "document", чтобы совпадало с логикой сериализатора
         )
     )
 
@@ -881,13 +884,6 @@ class PrivateMessageFile(models.Model):
 
         except Exception as e:
             print("Ошибка обработки файла:", e)
-
-
-
-    
-
-
-
 
 
 class Group(models.Model):
