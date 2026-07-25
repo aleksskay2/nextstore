@@ -858,7 +858,8 @@ class PrivateMessageFile(models.Model):
                 self.duration = duration
                 super().save(update_fields=["duration"])
 
-            # 🔥 2. THUMBNAIL ТОЛЬКО ДЛЯ ВИДЕО
+           
+           # 🔥 2. THUMBNAIL ТОЛЬКО ДЛЯ ВИДЕО
             if self.type == "video" and not self.thumbnail:
                 thumb_dir = os.path.join(
                     os.path.dirname(file_path),
@@ -869,13 +870,24 @@ class PrivateMessageFile(models.Model):
                 thumb_filename = f"{Path(file_path).stem}.jpg"
                 thumb_path = os.path.join(thumb_dir, thumb_filename)
 
-                # 🎬 создаём thumbnail (1 секунда видео)
-                (
-                    ffmpeg
-                    .input(file_path, ss=1)
-                    .output(thumb_path, vframes=1)
-                    .run(overwrite_output=True)
-                )
+                # 🎬 создаём thumbnail (бронебойный вариант)
+                try:
+                    # Пробуем взять кадр на 1-й секунде (ss=1)
+                    # update=1 и format='image2' заставят FFmpeg нормально работать с нейро-видео (MJPEG)
+                    (
+                        ffmpeg
+                        .input(file_path, ss=1)
+                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
+                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+                    )
+                except ffmpeg.Error:
+                    # Если видео короче 1 секунды или сломалось, берем самый первый кадр (ss=0)
+                    (
+                        ffmpeg
+                        .input(file_path, ss=0)
+                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
+                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+                    )
 
                 # сохраняем в модель
                 relative_path = f"private_chat/thumbnails/{thumb_filename}"
