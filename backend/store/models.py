@@ -342,7 +342,7 @@ class MessageFile(models.Model):
             return
 
         try:
-            import ffmpeg
+           
             
             file_path = str(Path(self.file.path))
 
@@ -354,6 +354,7 @@ class MessageFile(models.Model):
                 super().save(update_fields=["duration"])
 
             # 🔥 2. Создание превью (только для видео)
+           # 🔥 2. Создание превью (только для видео)
             if self.type == "video" and not self.thumbnail:
                 # Определяем папку для превью внутри MEDIA_ROOT
                 thumb_relative_dir = "messages/thumbnails"
@@ -363,13 +364,22 @@ class MessageFile(models.Model):
                 thumb_filename = f"{Path(file_path).stem}_thumb.jpg"
                 thumb_path = os.path.join(thumb_absolute_dir, thumb_filename)
 
-                # Генерируем кадр на 1-й секунде
-                (
-                    ffmpeg
-                    .input(file_path, ss=1)
-                    .output(thumb_path, vframes=1)
-                    .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-                )
+                # 🎬 Создаём thumbnail (бронебойный вариант с поддержкой MJPEG и коротких видео)
+                try:
+                    (
+                        ffmpeg
+                        .input(file_path, ss=1)
+                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
+                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+                    )
+                except ffmpeg.Error:
+                    # Если видео короче 1 секунды или кодек сложный, берем 0-й кадр
+                    (
+                        ffmpeg
+                        .input(file_path, ss=0)
+                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
+                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+                    )
 
                 # Сохраняем относительный путь в базу
                 self.thumbnail = os.path.join(thumb_relative_dir, thumb_filename)
@@ -1024,27 +1034,37 @@ class GroupMessageFile(models.Model):
                 super().save(update_fields=["duration"])
 
             # 🔥 3. THUMBNAIL ТОЛЬКО ДЛЯ ВИДЕО
+            # 🔥 3. THUMBNAIL ТОЛЬКО ДЛЯ ВИДЕО
             if self.type == "video" and not self.thumbnail:
-                # Определяем директорию для превью (внутри медиа-папки)
+                # Определяем директорию для превью
                 thumb_dir = os.path.join(os.path.dirname(file_path), "thumbnails")
                 os.makedirs(thumb_dir, exist_ok=True)
 
                 thumb_filename = f"thumb_{Path(file_path).stem}.jpg"
                 thumb_path = os.path.join(thumb_dir, thumb_filename)
 
-                # Захватываем кадр на 1-й секунде
-                (
-                    ffmpeg
-                    .input(file_path, ss=1)
-                    .output(thumb_path, vframes=1)
-                    .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-                )
+                # 🎬 создаём thumbnail (бронебойный вариант, как в личных чатах)
+                try:
+                    (
+                        ffmpeg
+                        .input(file_path, ss=1)
+                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
+                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+                    )
+                except ffmpeg.Error:
+                    # Если видео короче 1 секунды, берем нулевой кадр
+                    (
+                        ffmpeg
+                        .input(file_path, ss=0)
+                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
+                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+                    )
 
                 # Сохраняем относительный путь для БД
-                # Относительно корня MEDIA_ROOT
                 relative_thumb_path = f"groups/messages/thumbnails/{thumb_filename}"
                 self.thumbnail = relative_thumb_path
                 super().save(update_fields=["thumbnail"])
+
 
         except Exception as e:
             print(f"❌ Ошибка GroupMessage обработчика: {e}")
