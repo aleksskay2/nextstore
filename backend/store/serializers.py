@@ -847,11 +847,13 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         )
 
         files = request.FILES.getlist("files")
+        thumbnails = request.FILES.getlist("thumbnails") # 🔥 БЕРЕМ МИНИАТЮРЫ ИЗ ЗАПРОСА
 
+        thumb_index = 0 # Счетчик для миниатюр
+        
         for f in files:
             content_type = f.content_type or ""
 
-            # 🔥 ИСПРАВЛЕННАЯ ЛОГИКА ТИПОВ ФАЙЛОВ
             if content_type.startswith("image/"):
                 file_type = "image"
             elif content_type.startswith("video/"):
@@ -859,17 +861,22 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             elif content_type.startswith("audio/"):
                 file_type = "audio"
             else:
-                # 🔥 Любой другой файл (application/pdf, application/msword, zip, и т.д.)
-                # будет классифицироваться как 'document'
                 file_type = "document" 
 
-            PrivateMessageFile.objects.create(
+            # Создаем объект файла
+            msg_file = PrivateMessageFile(
                 message=message,
                 file=f,
                 file_name=f.name,
                 type=file_type
-
             )
+
+            # 🔥 ПРИВЯЗЫВАЕМ МИНИАТЮРУ К ВИДЕО
+            if file_type == "video" and thumb_index < len(thumbnails):
+                msg_file.thumbnail = thumbnails[thumb_index]
+                thumb_index += 1
+
+            msg_file.save() # Сохраняем в базу
 
         return message
 
