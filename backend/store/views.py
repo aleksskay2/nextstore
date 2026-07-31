@@ -161,8 +161,15 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         user.avatar = file
         user.save()
 
+        # 🔥 ОЧИЩАЕМ КЭШ ПОЛЬЗОВАТЕЛЯ
+        cache.delete(f"user_full_profile:{user.id}")
+        # 🔥 Используем сериализатор, чтобы он сгенерировал правильную ссылку с ?t=...
+        avatar_url = CustomUserSerializer(user, context={"request": request}).data.get("avatar")
 
-        return Response({"avatar": request.build_absolute_uri( user.avatar.url)}, status=200)
+        return Response({"avatar": avatar_url}, status=200)
+
+
+       
     
     @action(detail=True, methods=['get'], url_path='edit')
     def edit(self, request, pk=None):
@@ -181,36 +188,35 @@ class CustomUserViewSet(viewsets.ModelViewSet):
     def update_profile(self, request):
         user = request.user
 
-        # 🔹 Получаем данные
         username = request.data.get("username")
         region = request.data.get("region")
         phone = request.data.get("phone")
         email = request.data.get("email")
         avatar = request.FILES.get("avatar")
 
-
-        # 🔹 Обновляем только те поля, которые переданы
         if username:
             user.username = username
-
         if region:
             user.region = region
-
         if phone:
             user.phone = phone
-
         if email:
             user.email = email
-
         if avatar:
             user.avatar = avatar
 
         user.save()
 
-        return Response({
-            "status": "success",
-            "user": CustomUserSerializer(user).data
-        }, status=200)   
+        # 🔥 ОЧИЩАЕМ КЭШ ПОЛЬЗОВАТЕЛЯ, чтобы full_profile отдавал свежие данные!
+        cache.delete(f"user_full_profile:{user.id}")
+
+       # 🔥 ИСПРАВЛЕНО: добавили context={"request": request}
+        user_data = CustomUserSerializer(user, context={"request": request}).data
+
+        return Response(
+            {"status": "success", "user": user_data},
+            status=200,
+        )
 
 
     @action(detail=False, methods=["patch"], url_path="toggle-privacy")
@@ -1490,52 +1496,62 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         message = serializer.save(sender=self.request.user)
 
-        message = (
-            PrivateMessage.objects
-            .prefetch_related("files")
-            .get(id=message.id)
-        )
+        # message = (
+        #     PrivateMessage.objects
+        #     .prefetch_related("files")
+        #     .get(id=message.id)
+        # )
+
+        # channel_layer = get_channel_layer()
+        # data = self.get_serializer(message).data
+
+        # async_to_sync(channel_layer.group_send)(
+        #     f"chat_{message.target.id}",
+        #     {
+        #         "type": "chat_message",
+        #         "message": data
+        #     }
+        # )
+
+        # async_to_sync(channel_layer.group_send)(
+        #     f"chat_{message.sender.id}",
+        #     {
+        #         "type": "chat_message",
+        #         "message": data
+        #     }
+        # )
+
+        # # ==========================================
+        # # 🔥 2. ОТПРАВЛЯЕМ В ГЛОБАЛЬНЫЙ КЭШ (GlobalSocket)
+        # # ==========================================
+        # async_to_sync(channel_layer.group_send)(
+        #     f"user_{message.target.id}",
+        #     {
+        #         "type": "message", # Должно совпадать с именем функции (async def message) в UserGlobalConsumer
+        #         "message": data
+        #     }
+        # )
+
+        # # Отправляем и себе тоже, чтобы кэш обновился на всех твоих устройствах
+        # async_to_sync(channel_layer.group_send)(
+        #     f"user_{message.sender.id}",
+        #     {
+        #         "type": "message",
+        #         "message": data
+        #     }
+        # )
+
 
         channel_layer = get_channel_layer()
-        data = self.get_serializer(message).data
-
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{message.target.id}",
-            {
-                "type": "chat_message",
-                "message": data
-            }
-        )
-
+        
         async_to_sync(channel_layer.group_send)(
             f"chat_{message.sender.id}",
             {
-                "type": "chat_message",
-                "message": data
+                "type": "trigger_new_message",  # Тот самый метод, который мы добавили в consumer
+                "message_id": message.id,
+                "target": message.target.id
             }
         )
-
-        # ==========================================
-        # 🔥 2. ОТПРАВЛЯЕМ В ГЛОБАЛЬНЫЙ КЭШ (GlobalSocket)
-        # ==========================================
-        async_to_sync(channel_layer.group_send)(
-            f"user_{message.target.id}",
-            {
-                "type": "message", # Должно совпадать с именем функции (async def message) в UserGlobalConsumer
-                "message": data
-            }
-        )
-
-        # Отправляем и себе тоже, чтобы кэш обновился на всех твоих устройствах
-        async_to_sync(channel_layer.group_send)(
-            f"user_{message.sender.id}",
-            {
-                "type": "message",
-                "message": data
-            }
-        )
-
-
 
 
 

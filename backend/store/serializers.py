@@ -116,7 +116,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         if not phone and email and verification_code:
             try:
                 # Отправляем в Celery (раскомментируй таску в своем коде)
-                # send_verification_email_task.delay(email, verification_code)
+                send_verification_email_task.delay(email, verification_code)
                 print(f"🚀 [Celery Отправка] Задача на отправку кода {verification_code} добавлена в очередь для {email}")
             except Exception as e:
                 print(f"❌ Ошибка при инициализации отправки через Celery: {e}")

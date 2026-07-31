@@ -1114,6 +1114,15 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         }))
 
 
+    # 🔥 Этот метод ловит сигнал из views.py (perform_create)
+    async def trigger_new_message(self, event):
+        # Эмитируем структуру данных, которую ожидает твой существующий метод
+        data = {
+            "message_id": event["message_id"],
+            "target": event["target"]
+        }
+        # Запускаем твою идеальную логику рассылки!
+        await self.handle_existing_message(data)
 
 
 

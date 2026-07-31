@@ -85,7 +85,12 @@ import axios from 'axios';
 const IS_PRODUCTION = true;
 
 const LOCAL_URL = 'http://127.0.0.1:8000/api/';
-const PROD_URL = 'https://nextstore-iumj.onrender.com/api/';
+const PROD_URL = 'https://storechat.online/api/';
+
+
+// --- Боевые настройки (Твой новый VPS Timeweb) ---
+// const PROD_HTTP = 'https://storechat.online';
+// const PROD_WS = 'wss://storechat.online';
 
 export const API_BASE_URL = IS_PRODUCTION ? PROD_URL : LOCAL_URL;
 
