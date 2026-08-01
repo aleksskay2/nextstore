@@ -887,36 +887,39 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             msg_file.save() # Сначала сохраняем файл на диск
 
          
-            # 🔥 НАДЕЖНЫЙ РАСЧЕТ ДЛИТЕЛЬНОСТИ ДЛЯ .m4a / .mp3 / .wav
+           # 🔥 НАДЕЖНЫЙ РАСЧЕТ ДЛИТЕЛЬНОСТИ
             if file_type == "audio" and msg_file.file:
                 try:
                     duration_sec = 0
                     file_path = msg_file.file.path
 
-                    # 1. Сначала пробуем специфичный для .m4a парсер MP4
-                    if file_path.endswith('.m4a') or file_path.endswith('.mp4'):
+                    # 1. Сначала TinyTag (отлично берет m4a, webm, mp3, ogg)
+                    try:
+                        from tinytag import TinyTag
+                        tag = TinyTag.get(file_path)
+                        if tag and tag.duration:
+                            duration_sec = tag.duration
+                    except Exception:
+                        pass
+
+                    # 2. Если не вышло — Mutagen
+                    if not duration_sec:
                         try:
-                            audio = MP4(file_path)
-                            duration_sec = audio.info.length
+                            from mutagen import File as MutagenFile
+                            audio = MutagenFile(file_path)
+                            if audio and hasattr(audio, 'info') and audio.info:
+                                duration_sec = audio.info.length
                         except Exception:
                             pass
 
-                    # 2. Если не вышло — универсальным MutagenFile
-                    if not duration_sec:
-                        audio = MutagenFile(file_path)
-                        if audio and hasattr(audio, 'info') and audio.info:
-                            duration_sec = audio.info.length
-
-                    # 3. Если посчитали — сохраняем!
                     if duration_sec > 0:
-                        msg_file.duration = round(duration_sec, 1) # Например, 3.4
+                        msg_file.duration = round(float(duration_sec), 1)
                         msg_file.save(update_fields=["duration"])
-                        print(f"✅ Длительность аудио #{msg_file.id} успешно высчитана: {msg_file.duration} сек.")
-                    else:
-                        print(f"⚠️ Mutagen не смог прочитать длительность для #{msg_file.id}")
-
+                        print(f"✅ [AUDIO SUCCESS] Длительность #{msg_file.id}: {msg_file.duration} сек.")
                 except Exception as e:
                     print(f"❌ Ошибка вычисления длительности: {e}")
+
+        return message
 
         return message
 

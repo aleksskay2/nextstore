@@ -1058,27 +1058,11 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         qs.update(is_read=True)
         return ids
 
+   # 🔥 1. Заменяем ручной метод на полноценный DRF Serializer
     @database_sync_to_async
     def serialize_message(self, msg):
-        print("files ", [(f.id, f.type) for f in msg.files.all()])
-        return {
-            "id": msg.id,
-            "text": msg.text,
-            "created_at": msg.created_at.isoformat(),
-            "is_delivered": msg.is_delivered,
-            "is_read": msg.is_read,
-            "sender_id": msg.sender_id,
-            "target_id": msg.target_id,
-            "files": [
-                {
-                    "id": f.id,
-                    "url": f.file.url,
-                    "type": f.type,
-                    "duration": f.duration,
-                }
-                for f in msg.files.all()
-            ]
-        }
+        from .serializers import PrivateMessageSerializer
+        return PrivateMessageSerializer(msg).data
 
     # ==================================================
     # WS OUT
@@ -1114,16 +1098,38 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         }))
 
 
-    # 🔥 Этот метод ловит сигнал из views.py (perform_create)
+    # 🔥 2. Обновляем trigger_new_message, чтобы передавать полный отсериализованный объект
     async def trigger_new_message(self, event):
-        # Эмитируем структуру данных, которую ожидает твой существующий метод
-        data = {
-            "message_id": event["message_id"],
-            "target": event["target"]
-        }
-        # Запускаем твою идеальную логику рассылки!
-        await self.handle_existing_message(data)
+        message_id = event["message_id"]
+        target = int(event["target"])
 
+        from .models import PrivateMessage
+        from .serializers import PrivateMessageSerializer
+
+        def get_fresh_data():
+            try:
+                msg = PrivateMessage.objects.prefetch_related("files").get(id=message_id)
+                return PrivateMessageSerializer(msg).data
+            except PrivateMessage.DoesNotExist:
+                return None
+
+        serialized = await database_sync_to_async(get_fresh_data)()
+        if not serialized:
+            return
+
+        # Рассылаем нормализованный объект в сокеты
+        await self.channel_layer.group_send(
+            f"chat_{target}",
+            {"type": "chat_message", "message": serialized}
+        )
+        await self.channel_layer.group_send(
+            f"chat_{self.user_id}",
+            {"type": "chat_message", "message": serialized}
+        )
+        await self.channel_layer.group_send(
+            f"user_{target}",
+            {"type": "message", "message": serialized}
+        )
 
 
 
