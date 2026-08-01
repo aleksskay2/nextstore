@@ -1111,6 +1111,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
                 # Берем свежий объект с подтянутыми файлами
                 msg = PrivateMessage.objects.prefetch_related("files").get(id=message_id)
                 data = PrivateMessageSerializer(msg).data
+                print('data PrivateChatConsumer - ', data)
                 return data, msg.sender_id
             except PrivateMessage.DoesNotExist:
                 return None, None
