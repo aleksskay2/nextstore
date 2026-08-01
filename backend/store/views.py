@@ -2434,9 +2434,6 @@ class StoryViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     http_method_names = ["get", "post", "delete"] 
 
-    
-
-
   
 
     def get_queryset(self):
@@ -2693,6 +2690,49 @@ class FollowViewSet(viewsets.ModelViewSet):
         })
 
 
+    # ===================== FOLLOWERS LIST (ПОДПИСЧИКИ) =====================
+    @action(detail=False, methods=["get"], url_path="followers/(?P<user_id>[^/.]+)")
+    def followers(self, request, user_id=None):
+        # Ищем всех, у кого following_id равен запрашиваемому юзеру (кто на него подписан)
+        # select_related используем для оптимизации, чтобы не делать 100 запросов к БД (N+1 проблема)
+        follows = Follow.objects.filter(following_id=user_id).select_related('follower')
+        
+        data = []
+        for f in follows:
+            user = f.follower
+            
+            # Формируем полный URL для аватарки (чтобы в RN картинка загрузилась по http://...)
+            avatar_url = request.build_absolute_uri(user.avatar.url) if getattr(user, 'avatar', None) else None
+            
+            data.append({
+                "id": user.id,
+                "username": user.username,
+                "avatar": avatar_url,
+                "region": getattr(user, 'region', None)
+            })
+            
+        return Response(data)
+
+    # ===================== FOLLOWING LIST (ПОДПИСКИ) =====================
+    @action(detail=False, methods=["get"], url_path="following/(?P<user_id>[^/.]+)")
+    def following(self, request, user_id=None):
+        # Ищем всех, у кого follower_id равен запрашиваемому юзеру (на кого он подписан)
+        follows = Follow.objects.filter(follower_id=user_id).select_related('following')
+        
+        data = []
+        for f in follows:
+            user = f.following
+            
+            avatar_url = request.build_absolute_uri(user.avatar.url) if getattr(user, 'avatar', None) else None
+            
+            data.append({
+                "id": user.id,
+                "username": user.username,
+                "avatar": avatar_url,
+                "region": getattr(user, 'region', None)
+            })
+            
+        return Response(data)
 
 
 
