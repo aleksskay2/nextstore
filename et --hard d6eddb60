@@ -1,0 +1,81 @@
+[33m5a5dc29f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: reset: moving to HEAD~2
+[33md6eddb60[m HEAD@{1}: pull --tags origin main: Fast-forward
+[33m5a5dc29f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{2}: reset: moving to HEAD~2
+[33md6eddb60[m HEAD@{3}: pull --tags origin main: Fast-forward
+[33m5a5dc29f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{4}: reset: moving to HEAD@{4}
+[33md7147722[m HEAD@{5}: reset: moving to HEAD~3
+[33mb7eca4cb[m HEAD@{6}: reset: moving to HEAD~4
+[33md6eddb60[m HEAD@{7}: commit: fixed method handle_existing_message to PrivateChatConsumer
+[33m036be066[m HEAD@{8}: commit: fixed consumers privateChatConsumer
+[33m5a5dc29f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{9}: commit: create changed for PrivateMessageViewSet
+[33mdc5bad5c[m HEAD@{10}: commit: fixed duration for voice message to PrivateMessageSerializer
+[33mb7eca4cb[m HEAD@{11}: commit: fixed
+[33me57a049e[m HEAD@{12}: commit: create gitIgnore
+[33m23cd8a63[m HEAD@{13}: reset: moving to HEAD~3
+[33mcfed4f31[m HEAD@{14}: checkout: moving from main to main
+[33mcfed4f31[m HEAD@{15}: checkout: moving from main to main
+[33mcfed4f31[m HEAD@{16}: checkout: moving from main to main
+[33mcfed4f31[m HEAD@{17}: commit: privateMessage send signal after new message
+[33maeb533a5[m HEAD@{18}: commit: reques to UserProfile
+[33ma0d3006e[m HEAD@{19}: commit: update userProfile
+[33m23cd8a63[m HEAD@{20}: commit: fixed send ai video
+[33md7147722[m HEAD@{21}: commit: fixed video to PrivateMessageFile
+[33mfa8bf4c1[m HEAD@{22}: pull --tags origin main: Fast-forward
+[33ma303a3f7[m HEAD@{23}: reset: moving to a303a3f7
+[33mfa8bf4c1[m HEAD@{24}: commit: fixed video to PrivateMessage
+[33m363e9000[m HEAD@{25}: commit: delete create to GroupMessageSerializer
+[33m462ceeb5[m HEAD@{26}: commit: migrate group Models
+[33mb39f83bb[m HEAD@{27}: commit: file support for Group
+[33m7196c5b4[m HEAD@{28}: commit: added FileName
+[33m3542c564[m HEAD@{29}: commit: Added document support
+[33ma303a3f7[m HEAD@{30}: commit: i did bigger count message to first loading
+[33m25c03a5d[m HEAD@{31}: commit: fixed RegistSerializer
+[33ma3568394[m HEAD@{32}: commit: send message globalSocket from PrivateMessageViewSet
+[33mcd3e5cf0[m HEAD@{33}: commit: fixed Global 3
+[33m51bc31a3[m HEAD@{34}: commit: fixed global2
+[33m8f568ad3[m HEAD@{35}: commit: fixed glabal
+[33m4b59a66a[m HEAD@{36}: commit: fixed
+[33m69f8ad96[m HEAD@{37}: commit: fixed global Consumer
+[33mf7467a5c[m HEAD@{38}: commit: added to privateConsumer send message for catching GlobalSocket
+[33m77a95f79[m HEAD@{39}: commit: added path urls for web-rtc
+[33m81d12230[m HEAD@{40}: commit: added webrtc-creditianals
+[33mf8a50159[m HEAD@{41}: commit: add is_own to get_single_chat_summary
+[33m0a553026[m HEAD@{42}: commit: fixed socket for regions
+[33m1a6f8982[m HEAD@{43}: commit: fixed thumbnails for video
+[33m7f6af862[m HEAD@{44}: commit: add thumbnail for messageRegions
+[33m6a6dea0b[m HEAD@{45}: commit: migrate for text is null
+[33m7694d921[m HEAD@{46}: commit: field text may null
+[33m4190ea31[m HEAD@{47}: commit: create to MessageViewSet
+[33m7871d9b4[m HEAD@{48}: commit: return send for MessageView3
+[33m6c9d3184[m HEAD@{49}: commit: fixed send to MessageViewSet
+[33maeab1e9f[m HEAD@{50}: commit: return to old send for product
+[33m553c981c[m HEAD@{51}: commit: send to MessageViewSet2
+[33m4d25eb66[m HEAD@{52}: commit: send to MessageViewSet
+[33mcf328307[m HEAD@{53}: commit: time_zone
+[33mc1240e24[m HEAD@{54}: commit: add random
+[33m849db308[m HEAD@{55}: commit: forget password fixed
+[33m6b90b469[m HEAD@{56}: commit: forget password
+[33m4ba8083b[m HEAD@{57}: commit: add retrive for groups
+[33mf3fb754b[m HEAD@{58}: commit: fixed consumers for Calls
+[33mb29843f1[m HEAD@{59}: commit: fixed message as read, delivered
+[33m9d580b36[m HEAD@{60}: commit: updated function get_reply_to_data
+[33mc9397a9c[m HEAD@{61}: commit: request fixed
+[33md06d25b1[m HEAD@{62}: commit: file_url for answer message
+[33m645d6b2c[m HEAD@{63}: commit: added method toggle_privacy
+[33mb5b63db7[m HEAD@{64}: commit: added is_open for account which for search
+[33m31526a53[m HEAD@{65}: commit: receive fixed
+[33mc9f658fd[m HEAD@{66}: commit: get name Caller
+[33mce205020[m HEAD@{67}: commit: get name Conumser3
+[33mb94dd40b[m HEAD@{68}: commit: return Consumer
+[33m345f232e[m HEAD@{69}: commit: get name caller2
+[33m0c0cc6d1[m HEAD@{70}: commit: get name for caller
+[33m6c3e354e[m HEAD@{71}: commit: fixed call notification3
+[33m8fed6767[m HEAD@{72}: commit: fixed call notification2
+[33mff4cde7d[m HEAD@{73}: commit: fixed callConsumers notification
+[33m52dfe32c[m HEAD@{74}: commit: fixed call notification
+[33m7ba8eb9d[m HEAD@{75}: commit: privateConsumers fixed isdelivered
+[33mcfa570f6[m HEAD@{76}: commit: avatar fixed to viewers
+[33ma9814da8[m HEAD@{77}: commit: fixed verification code
+[33mb7bf62b6[m HEAD@{78}: commit: EMAIL_HOST fixed to smtp.gmail.com
+[33m8b59f89d[m HEAD@{79}: checkout: moving from master to main
+[33mad711340[m[33m ([m[1;32mmaster[m[33m)[m HEAD@{80}: commit (initial): settings email_host changed
