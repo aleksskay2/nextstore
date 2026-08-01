@@ -1494,18 +1494,30 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
 
 
     def perform_create(self, serializer):
+        # 1. Сохраняем сообщение (здесь отрабатывает create() со всем файлами и mutagen)
         message = serializer.save(sender=self.request.user)
 
-        
+        # 2. Сериализуем готовое сообщение С ПЕРЕДАЧЕЙ context={'request': self.request}
+        # Теперь и `file`, и `thumbnail`, и `is_own` определятся ИДЕАЛЬНО!
+        serializer_data = PrivateMessageSerializer(message, context={'request': self.request}).data
 
         channel_layer = get_channel_layer()
         
+        # 3. Отправляем в сокет получателю (target)
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{message.target.id}",
+            {
+                "type": "chat_message", # Или твой экшен отправки
+                "message": serializer_data
+            }
+        )
+
+        # 4. Отправляем в сокет отправителю (sender)
         async_to_sync(channel_layer.group_send)(
             f"chat_{message.sender.id}",
             {
-                "type": "trigger_new_message",  # Тот самый метод, который мы добавили в consumer
-                "message_id": message.id,
-                "target": message.target.id
+                "type": "chat_message",
+                "message": serializer_data
             }
         )
 

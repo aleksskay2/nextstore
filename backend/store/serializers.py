@@ -743,6 +743,7 @@ from .services import format_last_message  # 👈 Импортируем наш�
 
 # PrivateMessageFileSerializer
 import os
+from mutagen.mp4 import MP4
 
 from mutagen import File as MutagenFile # 🔥 Импортируем mutagen для расчета длительности
 
@@ -885,15 +886,37 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
 
             msg_file.save() # Сначала сохраняем файл на диск
 
-            # 🔥 АВТОМАТИЧЕСКИЙ РАСЧЕТ ДЛИТЕЛЬНОСТИ АУДИО
+         
+            # 🔥 НАДЕЖНЫЙ РАСЧЕТ ДЛИТЕЛЬНОСТИ ДЛЯ .m4a / .mp3 / .wav
             if file_type == "audio" and msg_file.file:
                 try:
-                    audio_info = MutagenFile(msg_file.file.path)
-                    if audio_info and audio_info.info:
-                        msg_file.duration = round(audio_info.info.length, 1) # Сохраняем в секундах, например 4.5
+                    duration_sec = 0
+                    file_path = msg_file.file.path
+
+                    # 1. Сначала пробуем специфичный для .m4a парсер MP4
+                    if file_path.endswith('.m4a') or file_path.endswith('.mp4'):
+                        try:
+                            audio = MP4(file_path)
+                            duration_sec = audio.info.length
+                        except Exception:
+                            pass
+
+                    # 2. Если не вышло — универсальным MutagenFile
+                    if not duration_sec:
+                        audio = MutagenFile(file_path)
+                        if audio and hasattr(audio, 'info') and audio.info:
+                            duration_sec = audio.info.length
+
+                    # 3. Если посчитали — сохраняем!
+                    if duration_sec > 0:
+                        msg_file.duration = round(duration_sec, 1) # Например, 3.4
                         msg_file.save(update_fields=["duration"])
+                        print(f"✅ Длительность аудио #{msg_file.id} успешно высчитана: {msg_file.duration} сек.")
+                    else:
+                        print(f"⚠️ Mutagen не смог прочитать длительность для #{msg_file.id}")
+
                 except Exception as e:
-                    print(f"⚠️ Ошибка определения длительности аудио: {e}")
+                    print(f"❌ Ошибка вычисления длительности: {e}")
 
         return message
 
