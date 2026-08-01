@@ -742,29 +742,35 @@ from .services import format_last_message  # 👈 Импортируем наш�
 
 
 # PrivateMessageFileSerializer
+import os
+
+from mutagen import File as MutagenFile # 🔥 Импортируем mutagen для расчета длительности
+
 class PrivateMessageFileSerializer(serializers.ModelSerializer):
     file = serializers.SerializerMethodField()
-    # 🔥 УБРАЛИ file_name = serializers.SerializerMethodField()
-    # DRF сам возьмет file_name из модели, потому что он есть в fields
+    thumbnail = serializers.SerializerMethodField() # 🔥 Тоже оборачиваем thumbnail для абсолютного URL
 
     class Meta:
         model = PrivateMessageFile
-        # 🔥 Убедись, что file_name есть в списке
         fields = ["id", "file", "file_name", "type", "duration", "thumbnail"] 
 
-    def get_file(self, obj):
-        if not obj.file:
+    def _get_absolute_url(self, file_field, request):
+        """Вспомогательный метод для построения абсолютного URL"""
+        if not file_field:
             return None
-        
-        request = self.context.get('request')
         if request:
-            return request.build_absolute_uri(obj.file.url)
+            return request.build_absolute_uri(file_field.url)
         
-        from django.conf import settings
-        backend_url = getattr(settings, 'BACKEND_URL', 'http://127.0.0.1:8000')
-        return f"{backend_url}{obj.file.url}"
+        backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online')
+        return f"{backend_url}{file_field.url}"
 
-    # 🔥 УБРАЛИ def get_file_name(self, obj), он больше не нужен!
+    def get_file(self, obj):
+        request = self.context.get('request')
+        return self._get_absolute_url(obj.file, request)
+
+    def get_thumbnail(self, obj):
+        request = self.context.get('request')
+        return self._get_absolute_url(obj.thumbnail, request)
 
 
 class PrivateMessageSerializer(serializers.ModelSerializer):
@@ -792,8 +798,10 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_own(self, obj):
-        request = self.context["request"]
-        return obj.sender == request.user
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            return obj.sender == request.user
+        return False
     
     def get_reply_to_data(self, obj):
         if not obj.reply_to:
@@ -805,24 +813,24 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         file_url = None
         thumbnail_url = None
-        file_name = None # 🔥 Добавляем переменную для имени файла
+        file_name = None
 
         if file:
             if file.file:
-                # 🔥 Извлекаем имя файла для ответа
-                import os
                 file_name = os.path.basename(file.file.name)
+                backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online')
                 
                 if request:
                     file_url = request.build_absolute_uri(file.file.url)
                 else:
-                    file_url = f"https://nextstore-iumj.onrender.com{file.file.url}"
+                    file_url = f"{backend_url}{file.file.url}"
             
             if hasattr(file, 'thumbnail') and file.thumbnail:
+                backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online')
                 if request:
                     thumbnail_url = request.build_absolute_uri(file.thumbnail.url)
                 else:
-                    thumbnail_url = f"https://nextstore-iumj.onrender.com{file.thumbnail.url}"
+                    thumbnail_url = f"{backend_url}{file.thumbnail.url}"
 
         return {
             "id": reply.id,
@@ -830,7 +838,7 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             "sender_username": reply.sender.username,
             "text": reply.text,
             "file_type": file.type if file else None,
-            "file_name": file_name,  # 🔥 Теперь при ответе на документ тоже будет видно его имя
+            "file_name": file_name,
             "file_url": file_url,
             "thumbnail": thumbnail_url,
         }
@@ -847,9 +855,9 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         )
 
         files = request.FILES.getlist("files")
-        thumbnails = request.FILES.getlist("thumbnails") # 🔥 БЕРЕМ МИНИАТЮРЫ ИЗ ЗАПРОСА
+        thumbnails = request.FILES.getlist("thumbnails")
 
-        thumb_index = 0 # Счетчик для миниатюр
+        thumb_index = 0
         
         for f in files:
             content_type = f.content_type or ""
@@ -863,7 +871,6 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
             else:
                 file_type = "document" 
 
-            # Создаем объект файла
             msg_file = PrivateMessageFile(
                 message=message,
                 file=f,
@@ -876,14 +883,19 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
                 msg_file.thumbnail = thumbnails[thumb_index]
                 thumb_index += 1
 
-            msg_file.save() # Сохраняем в базу
+            msg_file.save() # Сначала сохраняем файл на диск
+
+            # 🔥 АВТОМАТИЧЕСКИЙ РАСЧЕТ ДЛИТЕЛЬНОСТИ АУДИО
+            if file_type == "audio" and msg_file.file:
+                try:
+                    audio_info = MutagenFile(msg_file.file.path)
+                    if audio_info and audio_info.info:
+                        msg_file.duration = round(audio_info.info.length, 1) # Сохраняем в секундах, например 4.5
+                        msg_file.save(update_fields=["duration"])
+                except Exception as e:
+                    print(f"⚠️ Ошибка определения длительности аудио: {e}")
 
         return message
-
-    
-
-
-
 
 
 class GroupCreateSerializer(serializers.ModelSerializer):

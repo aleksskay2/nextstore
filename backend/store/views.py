@@ -1496,51 +1496,7 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         message = serializer.save(sender=self.request.user)
 
-        # message = (
-        #     PrivateMessage.objects
-        #     .prefetch_related("files")
-        #     .get(id=message.id)
-        # )
-
-        # channel_layer = get_channel_layer()
-        # data = self.get_serializer(message).data
-
-        # async_to_sync(channel_layer.group_send)(
-        #     f"chat_{message.target.id}",
-        #     {
-        #         "type": "chat_message",
-        #         "message": data
-        #     }
-        # )
-
-        # async_to_sync(channel_layer.group_send)(
-        #     f"chat_{message.sender.id}",
-        #     {
-        #         "type": "chat_message",
-        #         "message": data
-        #     }
-        # )
-
-        # # ==========================================
-        # # 🔥 2. ОТПРАВЛЯЕМ В ГЛОБАЛЬНЫЙ КЭШ (GlobalSocket)
-        # # ==========================================
-        # async_to_sync(channel_layer.group_send)(
-        #     f"user_{message.target.id}",
-        #     {
-        #         "type": "message", # Должно совпадать с именем функции (async def message) в UserGlobalConsumer
-        #         "message": data
-        #     }
-        # )
-
-        # # Отправляем и себе тоже, чтобы кэш обновился на всех твоих устройствах
-        # async_to_sync(channel_layer.group_send)(
-        #     f"user_{message.sender.id}",
-        #     {
-        #         "type": "message",
-        #         "message": data
-        #     }
-        # )
-
+        
 
         channel_layer = get_channel_layer()
         
