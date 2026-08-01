@@ -1098,7 +1098,7 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
         }))
 
 
-    # 🔥 2. Обновляем trigger_new_message, чтобы передавать полный отсериализованный объект
+   # 🔥 ИСПРАВЛЕННЫЙ trigger_new_message: берет sender_id прямо из модели
     async def trigger_new_message(self, event):
         message_id = event["message_id"]
         target = int(event["target"])
@@ -1108,24 +1108,31 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
 
         def get_fresh_data():
             try:
+                # Берем свежий объект с подтянутыми файлами
                 msg = PrivateMessage.objects.prefetch_related("files").get(id=message_id)
-                return PrivateMessageSerializer(msg).data
+                data = PrivateMessageSerializer(msg).data
+                return data, msg.sender_id
             except PrivateMessage.DoesNotExist:
-                return None
+                return None, None
 
-        serialized = await database_sync_to_async(get_fresh_data)()
+        serialized, sender_id = await database_sync_to_async(get_fresh_data)()
         if not serialized:
             return
 
-        # Рассылаем нормализованный объект в сокеты
+        # 1. Отправляем ПОЛУЧАТЕЛЮ в комнату чата
         await self.channel_layer.group_send(
             f"chat_{target}",
             {"type": "chat_message", "message": serialized}
         )
-        await self.channel_layer.group_send(
-            f"chat_{self.user_id}",
-            {"type": "chat_message", "message": serialized}
-        )
+
+        # 2. Отправляем ОТПРАВИТЕЛЮ в комнату чата (используем sender_id из БД, а не self.user_id!)
+        if sender_id:
+            await self.channel_layer.group_send(
+                f"chat_{sender_id}",
+                {"type": "chat_message", "message": serialized}
+            )
+
+        # 3. Отправляем в глобальный сокет получателя для кэша диалогов
         await self.channel_layer.group_send(
             f"user_{target}",
             {"type": "message", "message": serialized}
