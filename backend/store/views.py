@@ -858,55 +858,53 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Добавляем prefetch_related('files'), чтобы не было N+1 запросов при получении файлов
-        return Message.objects.filter(
-            Q(sender=user) | Q(receiver=user)
-        ).select_related('sender', 'receiver', 'product')\
-         .prefetch_related('files')\
-         .order_by('-created_at')
+        return (
+            Message.objects.filter(Q(sender=user) | Q(receiver=user))
+            .select_related("sender", "receiver", "product")
+            .prefetch_related("files")
+            .order_by("-created_at")
+        )
 
     def create(self, request, *args, **kwargs):
         """
-        Стандартный метод создания сообщения (POST /api/messages/)
+        Стандартный метод создания сообщения (POST /api/messages/).
         Обрабатывает текст, загрузку файлов и трансляцию в WebSocket.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        # 1. Получаем товар и ID получателя из запроса
-        product = serializer.validated_data.get('product')
-        if not product:
-            raise serializers.ValidationError({'product': 'Товар обязателен'})
 
-        # 🔥 ДОСТАЕМ receiver_id из запроса (фронтенд его уже отправляет)
-        receiver_id = request.data.get('receiver_id')
-        
+        # 1. Получаем товар и ID получателя из запроса
+        product = serializer.validated_data.get("product")
+        if not product:
+            raise serializers.ValidationError({"product": "Товар обязателен"})
+
+        receiver_id = request.data.get("receiver_id")
         if not receiver_id:
-            raise serializers.ValidationError({'receiver_id': 'Укажите ID получателя'})
+            raise serializers.ValidationError({"receiver_id": "Укажите ID получателя"})
 
         # Проверка: нельзя писать самому себе
         if str(receiver_id) == str(request.user.id):
-            raise serializers.ValidationError({'detail': 'Нельзя писать сообщение самому себе'})
+            raise serializers.ValidationError({"detail": "Нельзя писать сообщение самому себе"})
 
-        # Пытаемся найти пользователя-получателя в БД
-        from django.contrib.auth import get_user_model
+        # Находим пользователя-получателя в БД
         User = get_user_model()
         try:
             receiver = User.objects.get(id=receiver_id)
         except User.DoesNotExist:
-            raise serializers.ValidationError({'receiver_id': 'Пользователь не найден'})
+            raise serializers.ValidationError({"receiver_id": "Пользователь не найден"})
 
-        # 🔥 (Необязательно) Защита от спамеров: 
-        # Проверяем, что к диалогу причастен либо владелец товара, либо текущий юзер.
+        # Защита: один из участников чата должен быть владельцем товара
         if request.user != product.owner and receiver != product.owner:
-            raise serializers.ValidationError({'detail': 'Один из участников чата должен быть владельцем товара'})
-            
-        # 2. Сохраняем основное сообщение с правильным receiver
+            raise serializers.ValidationError(
+                {"detail": "Один из участников чата должен быть владельцем товара"}
+            )
+
+        # 2. Сохраняем основное сообщение probels
         message = serializer.save(sender=request.user, receiver=receiver)
 
         # 3. Обрабатываем прикрепленные файлы/изображения
-        uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('images')
-        
+        uploaded_files = request.FILES.getlist("files") or request.FILES.getlist("images")
+
         for file_obj in uploaded_files:
             mime_type, _ = mimetypes.guess_type(file_obj.name)
             if mime_type and mime_type.startswith("audio"):
@@ -916,37 +914,28 @@ class MessageViewSet(viewsets.ModelViewSet):
             else:
                 f_type = "image"
 
-            MessageFile.objects.create(
-                message=message,
-                file=file_obj,
-                type=f_type
-            )
+            MessageFile.objects.create(message=message, file=file_obj, type=f_type)
 
-        # 4. Пересобираем данные с учетом только что созданных файлов
-        message = Message.objects.prefetch_related('files').get(pk=message.pk)
+        # 4. Пересобираем данные с учетом файлов
+        message = Message.objects.prefetch_related("files").get(pk=message.pk)
         serialized_data = self.get_serializer(message).data
 
-        # 5. Отправка события в Django Channels (WebSocket)
+        # 5. Отправка события в WebSocket
         channel_layer = get_channel_layer()
-        # 🔥 Формируем правильный chat_id, чтобы сообщения доставлялись обоим
         chat_id = f"product_{product.id}_{request.user.id if request.user.id != product.owner.id else receiver.id}"
-        
-        socket_data = {
-            **serialized_data,
-            "chat_id": chat_id 
-        }
+
+        socket_data = {**serialized_data, "chat_id": chat_id}
 
         async_to_sync(channel_layer.group_send)(
             f"product_chat_{product.id}",
             {
                 "type": "new_message",
                 "message": socket_data,
-            }
+            },
         )
 
         headers = self.get_success_headers(serialized_data)
         return Response(serialized_data, status=status.HTTP_201_CREATED, headers=headers)
-
 
     @action(detail=False, methods=['post'], url_path='mark_as_read')
     def mark_as_read(self, request):
