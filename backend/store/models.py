@@ -572,8 +572,11 @@ class MessageRegionChat(models.Model):
         related_name="replies"
     )
 
-    is_read = models.BooleanField(default=False)
-
+    read_by = models.ManyToManyField(
+            settings.AUTH_USER_MODEL, 
+            related_name='read_region_msgs', 
+            blank=True
+        )
     class Meta:
         ordering = ["created_at"]
         indexes = [

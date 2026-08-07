@@ -503,23 +503,33 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-$t4$hx78_j=x^nbczm3_o
 
 # На боевом сервере VPS выключаем DEBUG (или управляем через env)
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-# 🔥 IP твоего VPS и локальные адреса
-VPS_IP = '201.24.114.212'
+# 🔥 Актуальный домен и IP сервера
+DOMAIN_NAME = 'storechat.online'
+VPS_IP = '201.34.128.249'
 
 ALLOWED_HOSTS = [
+    DOMAIN_NAME,
+    f"www.{DOMAIN_NAME}",
     VPS_IP,
     'localhost',
     '127.0.0.1',
-    '*',  # Оставляем * на время отладки мобильного приложения
+    '*',  # Оставляем на время отладки
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    f"https://{DOMAIN_NAME}",
+    f"https://www.{DOMAIN_NAME}",
+    f"http://{DOMAIN_NAME}",
     f"http://{VPS_IP}",
     f"http://{VPS_IP}:8000",
 ]
 
+# 🚀 Настройки для корректного формирования https:// ссылок через Nginx / Daphne
+USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 
 # --- ССЫЛКИ ДЛЯ ПРИЛОЖЕНИЯ ---
 AUTH_USER_MODEL = 'store.CustomUser'

@@ -550,11 +550,14 @@ class MessageRegionChatSerializer(serializers.ModelSerializer):
     files = MessageRegionFileSerializer(many=True, read_only=True)
     reply_to_details = serializers.SerializerMethodField()
 
+    # 🔥 ДОБАВЛЯЕМ ВЫВОД МАССИВА ID
+    read_by_ids = serializers.PrimaryKeyRelatedField(many=True, read_only=True, source='read_by')
+
     class Meta:
         model = MessageRegionChat
         fields = [
             'id', 'user', 'region', 'text', 'created_at', 
-            'reply_to', 'reply_to_details', 'files', 'is_read'
+            'reply_to', 'reply_to_details', 'files', 'read_by_ids'
         ]
 
     

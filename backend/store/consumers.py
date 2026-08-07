@@ -1635,9 +1635,6 @@ class ProductChatConsumer(AsyncJsonWebsocketConsumer):
 
 
 
-
-
-# consumers.py
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -1677,10 +1674,9 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
     # NOTIFY: NEW MESSAGE
     # ======================
     async def new_message_notify(self, event):
-        # В event["message"] теперь лежит результат работы сериализатора из View
         await self.send_json({
             "type": "new_message",
-            "message": event["message"],  # Это объект со всеми полями (text, user, created_at)
+            "message": event["message"], 
         })
 
     # ======================
@@ -1693,21 +1689,22 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
             self.group_name,
             {
                 "type": "messages_read",
-                "user_id": self.user.id
+                "user_id": self.user.id,
+                "region": self.region_id # 🔥 ИСПРАВЛЕНИЕ 1: Теперь мы передаем регион!
             }
         )
 
     async def messages_read(self, event):
         await self.send_json({
             "type": "messages_read",
-            "user_id": event["user_id"]
+            "user_id": event.get("user_id"),
+            "region": event.get("region") # 🔥 ИСПРАВЛЕНИЕ 2: Прокидываем регион на фронт
         })
 
-    # 🔥 ДОБАВЛЯЕМ ОБРАБОТЧИК ДЛЯ REST API
     async def messages_read_notify(self, event):
         """Ловит сигнал из API (mark-read) и пересылает на фронтенд"""
         await self.send_json({
-            "type": "messages_read", # на фронт отправляем под тем же типом, что и обычно
+            "type": "messages_read", 
             "region": event.get("region")
         })
 
@@ -1717,17 +1714,22 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def mark_region_read(self):
         from .models import MessageRegionChat
-        MessageRegionChat.objects.filter(
-            region_id=self.region_id,
-            is_read=False
-        ).exclude(user=self.user).update(is_read=True)
+        
+        # 🔥 ИСПРАВЛЕНИЕ 3: Используем read_by вместо старого is_read
+        # Находим все сообщения региона, которые не наши и где нас еще нет в списке прочитавших
+        unread_msgs = MessageRegionChat.objects.filter(
+            region_id=self.region_id
+        ).exclude(user=self.user).exclude(read_by=self.user)
+        
+        # Добавляем нас в список прочитавших
+        for msg in unread_msgs:
+            msg.read_by.add(self.user)
 
     # ======================
     # Удаления сообщения
     # ======================
     async def delete_message_notify(self, event):
         """Отправляет клиенту сигнал об удалении сообщения"""
-        # Заменили json.dumps на удобный send_json
         await self.send_json({
             'type': 'message_deleted',
             'message_id': event['message_id']

@@ -873,16 +873,35 @@ class MessageViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # 1. Валидация товара и получателя
+        # 1. Получаем товар и ID получателя из запроса
         product = serializer.validated_data.get('product')
         if not product:
             raise serializers.ValidationError({'product': 'Товар обязателен'})
-            
-        receiver = product.owner
-        if receiver == request.user:
+
+        # 🔥 ДОСТАЕМ receiver_id из запроса (фронтенд его уже отправляет)
+        receiver_id = request.data.get('receiver_id')
+        
+        if not receiver_id:
+            raise serializers.ValidationError({'receiver_id': 'Укажите ID получателя'})
+
+        # Проверка: нельзя писать самому себе
+        if str(receiver_id) == str(request.user.id):
             raise serializers.ValidationError({'detail': 'Нельзя писать сообщение самому себе'})
+
+        # Пытаемся найти пользователя-получателя в БД
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        try:
+            receiver = User.objects.get(id=receiver_id)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({'receiver_id': 'Пользователь не найден'})
+
+        # 🔥 (Необязательно) Защита от спамеров: 
+        # Проверяем, что к диалогу причастен либо владелец товара, либо текущий юзер.
+        if request.user != product.owner and receiver != product.owner:
+            raise serializers.ValidationError({'detail': 'Один из участников чата должен быть владельцем товара'})
             
-        # 2. Сохраняем основное сообщение
+        # 2. Сохраняем основное сообщение с правильным receiver
         message = serializer.save(sender=request.user, receiver=receiver)
 
         # 3. Обрабатываем прикрепленные файлы/изображения
@@ -909,7 +928,8 @@ class MessageViewSet(viewsets.ModelViewSet):
 
         # 5. Отправка события в Django Channels (WebSocket)
         channel_layer = get_channel_layer()
-        chat_id = f"product_{product.id}_{request.user.id if request.user.id != receiver.id else receiver.id}"
+        # 🔥 Формируем правильный chat_id, чтобы сообщения доставлялись обоим
+        chat_id = f"product_{product.id}_{request.user.id if request.user.id != product.owner.id else receiver.id}"
         
         socket_data = {
             **serialized_data,
@@ -926,7 +946,6 @@ class MessageViewSet(viewsets.ModelViewSet):
 
         headers = self.get_success_headers(serialized_data)
         return Response(serialized_data, status=status.HTTP_201_CREATED, headers=headers)
-
 
 
     @action(detail=False, methods=['post'], url_path='mark_as_read')
@@ -1024,65 +1043,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         response_data.sort(key=lambda x: x['last_message_at'], reverse=True)
         return Response(response_data)
 
-    # @action(detail=False, methods=['post'], url_path='send')
-    # def send_message(self, request):
-    #     receiver_id = request.data.get('receiver_id')
-    #     product_id = request.data.get('product')
-    #     text = request.data.get('text', '')
-        
-    #     uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('images')
-
-    #     # Создаем сообщение
-    #     message = Message.objects.create(
-    #         sender=request.user,
-    #         receiver_id=receiver_id,
-    #         product_id=product_id,
-    #         text=text
-    #     )
-
-    #     # Создаем файлы
-    #     import mimetypes
-    #     for file_obj in uploaded_files:
-    #         mime_type, _ = mimetypes.guess_type(file_obj.name)
-    #         if mime_type and mime_type.startswith("audio"):
-    #             f_type = "audio"
-    #         elif mime_type and mime_type.startswith("video"):
-    #             f_type = "video"
-    #         else:
-    #             f_type = "image"
-
-    #         MessageFile.objects.create(
-    #             message=message,
-    #             file=file_obj,
-    #             type=f_type
-    #             # duration и thumbnail подтянутся в .save() модели MessageFile
-    #         )
-
-    #     # Подгружаем связанные данные для сериализации
-    #     message = Message.objects.prefetch_related('files').get(pk=message.pk)
-    #     serialized = MessageSerializer(message, context={'request': request}).data
-
-    #     # 🔥 Отправляем в WebSocket (используем стабильный chat_id в обертке, если нужно)
-    #     channel_layer = get_channel_layer()
-    #     chat_id = f"product_{product_id}_{request.user.id if str(request.user.id) != str(receiver_id) else receiver_id}"
-        
-    #     # Добавляем ID чата в данные для сокета, чтобы фронт знал, какой чат обновить
-    #     socket_data = {
-    #         **serialized,
-    #         "chat_id": chat_id 
-    #     }
-
-    #     async_to_sync(channel_layer.group_send)(
-    #         f"product_chat_{product_id}",
-    #         {
-    #             "type": "new_message",
-    #             "message": socket_data,
-    #         }
-    #     )
-    
-    #     return Response(serialized, status=status.HTTP_201_CREATED)
-
-
+   
 
 
 
@@ -1966,32 +1927,34 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(region_id=region_id)
         
         return queryset.order_by('-created_at')
+
         
     @action(detail=False, methods=["post"], url_path="mark-read")
     def mark_read(self, request):
         region_id = request.data.get("region")
         
-        # Проверяем на None и пустую строку (0 пройдет проверку корректно)
         if region_id is None or region_id == '':
             return Response({"error": "Параметр region обязателен."}, status=status.HTTP_400_BAD_REQUEST)
 
         region_str = str(region_id)
 
-        # 1. Формируем QuerySet непрочитанных сообщений
+        # 1. Находим все сообщения, которые текущий юзер еще НЕ читал
         if region_str == '0':
-            unread_messages = MessageRegionChat.objects.filter(is_read=False)
+            unread_messages = MessageRegionChat.objects.exclude(read_by=request.user)
         else:
-            unread_messages = MessageRegionChat.objects.filter(region_id=region_id, is_read=False)
+            unread_messages = MessageRegionChat.objects.filter(region_id=region_id).exclude(read_by=request.user)
         
-        # Исключаем сообщения самого пользователя
+        # Свои собственные сообщения не помечаем
         unread_messages = unread_messages.exclude(user=request.user)
 
-        # 2. Собираем ID регионов, где есть непрочитанные сообщения ДО их обновления.
-        # Это нужно, чтобы знать, в какие WebSocket-группы отправлять уведомления.
+        # 2. Собираем регионы для сокетов
         regions_to_notify = list(unread_messages.values_list('region_id', flat=True).distinct())
 
-        # 3. Обновляем статус в базе (один быстрый SQL UPDATE запрос)
-        updated_count = unread_messages.update(is_read=True)
+        updated_count = unread_messages.count()
+
+        # 🔥 3. ИСПРАВЛЕНИЕ: Добавляем пользователя в список прочитавших (вместо update)
+        for msg in unread_messages:
+            msg.read_by.add(request.user)
 
         # 4. Рассылаем уведомления по каналам
         channel_layer = get_channel_layer()
