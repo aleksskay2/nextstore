@@ -849,9 +849,6 @@ class BookmarkViewSet(viewsets.ModelViewSet):
 
 
 
-
-
-
 class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]
@@ -899,7 +896,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                 {"detail": "Один из участников чата должен быть владельцем товара"}
             )
 
-        # 2. Сохраняем основное сообщение probels
+        # 2. Сохраняем основное сообщение
         message = serializer.save(sender=request.user, receiver=receiver)
 
         # 3. Обрабатываем прикрепленные файлы/изображения
@@ -963,7 +960,6 @@ class MessageViewSet(viewsets.ModelViewSet):
         ).prefetch_related('files').order_by('-created_at')
 
         total_count = qs.count()
-        # Пагинация и разворот для правильного порядка в чате
         messages = list(qs[offset:offset+limit][::-1])
         serializer = self.get_serializer(messages, many=True)
 
@@ -976,7 +972,6 @@ class MessageViewSet(viewsets.ModelViewSet):
     def chats(self, request):
         user_id = request.user.id
 
-        # Группируем сообщения по товару и собеседнику
         dialogs = (
             Message.objects
             .filter(Q(sender_id=user_id) | Q(receiver_id=user_id))
@@ -1009,7 +1004,6 @@ class MessageViewSet(viewsets.ModelViewSet):
         for d in dialogs:
             msg = messages_map.get(d['last_message_id'])
             if msg:
-                # Формируем текст последнего сообщения (текст или тип файла)
                 last_text = msg.text
                 if not last_text and msg.files.exists():
                     f_type = msg.files.first().type
@@ -1017,7 +1011,6 @@ class MessageViewSet(viewsets.ModelViewSet):
                     last_text = types_map.get(f_type, "📎 Файл")
 
                 response_data.append({
-                    # 🔥 Тот самый стабильный ID для фронтенда
                     'id': f"product_{d['product_id']}_{d['companion_id']}",
                     'type': 'product',
                     'product_id': d['product_id'],
@@ -1031,12 +1024,6 @@ class MessageViewSet(viewsets.ModelViewSet):
 
         response_data.sort(key=lambda x: x['last_message_at'], reverse=True)
         return Response(response_data)
-
-   
-
-
-
-
 
 
 User = get_user_model()
