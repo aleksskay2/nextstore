@@ -879,7 +879,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         if not receiver_id:
             raise serializers.ValidationError({"receiver_id": "Укажите ID получателя"})
 
-        # Проверка: нельзя писать самому себе Probels
+        # Проверка: нельзя писать самому себе Probel
         if str(receiver_id) == str(request.user.id):
             raise serializers.ValidationError({"detail": "Нельзя писать сообщение самому себе"})
 
