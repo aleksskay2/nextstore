@@ -1025,6 +1025,33 @@ class MessageViewSet(viewsets.ModelViewSet):
         response_data.sort(key=lambda x: x['last_message_at'], reverse=True)
         return Response(response_data)
 
+    @action(detail=False, methods=['delete'], url_path=r'delete_chat/(?P<companion_id>\d+)/(?P<product_id>\d+)')
+    def delete_chat(self, request, companion_id=None, product_id=None):
+        """
+        Полностью удаляет чат (все сообщения) по товару между текущим юзером и собеседником.
+        """
+        user = request.user
+
+        # Находим все сообщения между мной и собеседником по этому товару
+        messages_to_delete = Message.objects.filter(
+            Q(sender=user, receiver_id=companion_id, product_id=product_id) |
+            Q(sender_id=companion_id, receiver=user, product_id=product_id)
+        )
+
+        if not messages_to_delete.exists():
+            return Response(
+                {"detail": "Чат не найден или уже удален."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Удаляем сообщения из БД (каскадно удалятся и записи MessageFile)
+        deleted_count, _ = messages_to_delete.delete()
+
+        return Response(
+            {"detail": "Чат успешно удален", "deleted_messages": deleted_count},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
 
 User = get_user_model()
 class ProductReviewViewSet(viewsets.ModelViewSet):
