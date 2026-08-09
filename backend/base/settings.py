@@ -507,7 +507,11 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 # 🔥 Актуальный домен и IP сервера
 DOMAIN_NAME = 'storechat.online'
-VPS_IP = '201.34.128.249'
+VPS_IP = '201.34.128.186'
+
+# ⚠️ КРИТИЧНО ДЛЯ CLOUDFLARE FLEXIBLE:
+# Отключаем внутренний редирект Django, так как SSL управляет Cloudflare
+SECURE_SSL_REDIRECT = False
 
 ALLOWED_HOSTS = [
     DOMAIN_NAME,
