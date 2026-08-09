@@ -534,7 +534,8 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # --- ССЫЛКИ ДЛЯ ПРИЛОЖЕНИЯ ---
 AUTH_USER_MODEL = 'store.CustomUser'
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
-BACKEND_URL = os.environ.get('BACKEND_URL', f"http://{VPS_IP}:8000")
+# ✅ ПРАВИЛЬНО: Все ссылки должны идти через Cloudflare HTTPS
+BACKEND_URL = os.environ.get('BACKEND_URL', f"https://{DOMAIN_NAME}")
 
 # --- CELERY & STORIES ---
 from celery.schedules import crontab
