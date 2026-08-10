@@ -256,7 +256,8 @@ class ProductListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Product
-        fields = ['id', 'productName', 'price', 'is_vip', 'productUser', 'address', 'dateUpdate', 'storeName', 'region'
+        fields = ['id', 'productName', 'price', 'is_vip', 'productUser', 'address', 'dateUpdate', 
+                  'storeName', 'region'
                   , 'category', 'owner_info', 
                    'is_bookmark', 'product_rating','reviews', 
                    'product_reviews_count', 'main_image', 'main_image_webp', 
@@ -351,12 +352,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ['reviewer', 'productUser']
 
-    def get_user_phone(self, obj):
-        if obj.productUser == 'owner' and obj.owner:
-            return obj.owner.phone
-        elif obj.productUser == 'user':
-            return obj.user_phone
-        return None
+    # def get_user_phone(self, obj):
+    #     if obj.productUser == 'owner' and obj.owner:
+    #         return obj.owner.phone
+    #     elif obj.productUser == 'user':
+    #         return obj.user_phone
+    #     return None
 
     def get_avatar(self, obj):
         request = self.context.get("request")
