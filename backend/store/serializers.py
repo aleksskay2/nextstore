@@ -320,7 +320,7 @@ class FeatureProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'feature_template', 'nameFeature', 'valueFeature']
         
 class ProductDetailSerializer(serializers.ModelSerializer):
-    user_phone = serializers.SerializerMethodField()
+    user_phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)    
     avatar = serializers.SerializerMethodField()
     features = FeatureProductSerializer ( many=True, required=False)
     
@@ -352,22 +352,16 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ['reviewer', 'productUser']
 
-    def get_user_phone(self, obj):
-        """
-        Приоритет 1: Возвращаем номер телефона, введенный непосредственно при добавлении товара.
-        Приоритет 2: Если номер товара не указан, берем номер владельца профиля.
-        """
-        # getattr читает напрямую поле user_phone из модели Product в БД
-        phone_from_product = getattr(obj, 'user_phone', None)
+   # 2. Переопределяем вывод ответа (GET-запросы):
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
         
-        if phone_from_product:
-            return phone_from_product
+        # Если при создании товара номер НЕ был введен (user_phone пустой), 
+        # тогда подставляем номер телефона владельца профиля
+        if not data.get('user_phone') and instance.owner:
+            data['user_phone'] = instance.owner.phone
             
-        # Запасной вариант (если при создании товара номер не ввели)
-        if obj.owner:
-            return obj.owner.phone
-            
-        return None
+        return data
 
     def get_avatar(self, obj):
         request = self.context.get("request")
