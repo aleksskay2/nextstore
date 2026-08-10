@@ -352,12 +352,22 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ['reviewer', 'productUser']
 
-    # def get_user_phone(self, obj):
-    #     if obj.productUser == 'owner' and obj.owner:
-    #         return obj.owner.phone
-    #     elif obj.productUser == 'user':
-    #         return obj.user_phone
-    #     return None
+    def get_user_phone(self, obj):
+        """
+        Приоритет 1: Возвращаем номер телефона, введенный непосредственно при добавлении товара.
+        Приоритет 2: Если номер товара не указан, берем номер владельца профиля.
+        """
+        # getattr читает напрямую поле user_phone из модели Product в БД
+        phone_from_product = getattr(obj, 'user_phone', None)
+        
+        if phone_from_product:
+            return phone_from_product
+            
+        # Запасной вариант (если при создании товара номер не ввели)
+        if obj.owner:
+            return obj.owner.phone
+            
+        return None
 
     def get_avatar(self, obj):
         request = self.context.get("request")
