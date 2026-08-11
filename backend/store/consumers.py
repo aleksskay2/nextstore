@@ -1303,13 +1303,6 @@ import uuid
 
 
 
-
-
-
-
-
-
-
 class GroupChatConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         self.group_id = int(self.scope["url_route"]["kwargs"]["group_id"])

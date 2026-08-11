@@ -122,6 +122,47 @@ class SelectionObject(models.Model):
         return self.nameObject
 
 
+
+import tempfile
+from io import BytesIO
+from datetime import timedelta
+from PIL import Image
+
+from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+from django.utils.timezone import now
+
+# Импортируем из moviepy для проверки длины видео
+from moviepy import VideoFileClip
+
+
+# --- Валидатор длительности видео (максимум 30 секунд) ---
+def validate_video_duration(file):
+    max_duration = 30  # секунд
+    try:
+        # Сохраняем во временный файл для вычисления длительности
+        with tempfile.NamedTemporaryFile(delete=True, suffix='.mp4') as temp_file:
+            for chunk in file.chunks():
+                temp_file.write(chunk)
+            temp_file.flush()
+
+            clip = VideoFileClip(temp_file.name)
+            duration = clip.duration
+            clip.close()
+
+            if duration > max_duration:
+                raise ValidationError(
+                    f"Длительность видео не должна превышать {max_duration} секунд. "
+                    f"Текущая длительность: {int(duration)} сек."
+                )
+    except Exception as e:
+        if isinstance(e, ValidationError):
+            raise e
+        raise ValidationError("Не удалось проверить видеофайл или формат не поддерживается.")
+
+
+
 class Product(models.Model):
     PRODUCT_TYPE_CHOICES = (
         ('owner', 'Owner'),
@@ -155,6 +196,17 @@ class Product(models.Model):
     main_image_webp = models.ImageField(upload_to='product/webp', blank=True, null=True)
     main_image_thumb = models.ImageField(upload_to='products/thumbs/', blank=True, null=True)
 
+    # 🔥 НОВОЕ ПОЛЕ: Видео до 30 секунд
+    video = models.FileField(
+        upload_to='products/videos/',
+        null=True,
+        blank=True,
+        validators=[
+            FileExtensionValidator(allowed_extensions=['mp4', 'mov', 'avi', 'mkv', 'webm']),
+            validate_video_duration
+        ]
+    )
+
     productName = models.CharField(max_length=100)
     address = models.CharField(max_length=100)
     dateUpdate = models.DateField(auto_now=True, null=True, blank=True)
@@ -163,58 +215,7 @@ class Product(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True)
     description = models.CharField(max_length=2000, null=True, blank=True )
 
-    # def save(self, *args, **kwargs):
-    #     super().save(*args, **kwargs)
 
-    #     if self.main_image:
-    #         img = Image.open(self.main_image)
-
-    #         img_webp_io = BytesIO()
-    #         img.save(img_webp_io, format='WEBP',   quality=70)
-    #         webp_filename = os.path.splitext(self.main_image.name)[0] + '.webp'
-    #         self.main_image_webp.save(webp_filename,
-    #                                    ContentFile(img_webp_io.getvalue()), save=False)
-
-    #         # создаем thumb
-    #         img_thumb = img.copy()
-    #         img_thumb.thumbnail((300, 300))
-    #         thumb_io = BytesIO()
-    #         img_thumb.save(thumb_io, format='WEBP', quality=70)
-    #         thumb_filename = os.path.splitext(self.main_image.name)[0] + '_thumb.webp'
-    #         self.main_image_thumb.save(thumb_filename, ContentFile(thumb_io.getvalue()), save=False)
-
-    #         super().save(update_fields=['main_image_webp', 'main_image_thumb'])
-
-    # def save(self, *args, **kwargs):
-        # super().save(*args, **kwargs)
-
-        # if self.main_image:
-        #     img_path = self.main_image.path
-
-        #     # Открытие изображения
-        #     with Image.open(img_path) as img:
-        #         # Создаем webp
-        #         img_webp_io = BytesIO()
-        #         img.save(img_webp_io, format="WEBP", quality=70)
-        #         webp_filename = os.path.splitext(self.main_image.name)[0] + ".webp"
-        #         self.main_image_webp.save(webp_filename, ContentFile(img_webp_io.getvalue()), save=False)
-
-        #         # Создаем thumb
-        #         img_thumb = img.copy()
-        #         img_thumb.thumbnail((300, 300))
-        #         thumb_io = BytesIO()
-        #         img_thumb.save(thumb_io, format="WEBP", quality=70)
-        #         thumb_filename = os.path.splitext(self.main_image.name)[0] + "_thumb.webp"
-        #         self.main_image_thumb.save(thumb_filename, ContentFile(thumb_io.getvalue()), save=False)
-
-        #     # Теперь файл закрыт, можно удалять
-        #     if os.path.exists(img_path):
-        #         os.remove(img_path)
-
-        #     # очищаем поле
-        #     self.main_image = None
-
-        #     super().save(update_fields=['main_image_webp', 'main_image_thumb', 'main_image'])
 
     def save(self, *args, **kwargs):
         # сначала обычный save, чтобы получить object id и т.д.
