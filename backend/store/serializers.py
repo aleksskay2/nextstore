@@ -353,6 +353,16 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ['reviewer', 'productUser']
 
+    def get_video(self, obj):
+        request = self.context.get('request')
+        if obj.video:
+            try:
+                url = obj.video.url
+                return request.build_absolute_uri(url) if request else url
+            except Exception:
+                pass
+        return None
+
    # 2. Переопределяем вывод ответа (GET-запросы):
     def to_representation(self, instance):
         data = super().to_representation(instance)
