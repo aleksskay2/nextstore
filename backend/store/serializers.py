@@ -332,6 +332,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     reviews = ProductReviewSerializer(many=True, read_only=True, source='product_reviews')
     images = ProductImagesSerializer(many=True, read_only=True)
     main_image_webp = serializers.SerializerMethodField()
+    video = serializers.SerializerMethodField()  # 🔥 Поле видео
     product_images = serializers.ListField(
         child=serializers.ImageField(), write_only=True, required=False
     )
@@ -356,11 +357,32 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         
-        # Если при создании товара номер НЕ был введен (user_phone пустой), 
-        # тогда подставляем номер телефона владельца профиля
+        # 1. Если user_phone пустой — берем телефон владельца
         if not data.get('user_phone') and instance.owner:
             data['user_phone'] = instance.owner.phone
-            
+
+        # 2. 🔥 ЕДИНЫЙ СПИСОК MEDIA С ВИДЕО НА ПЕРВОМ МЕСТЕ
+        media_list = []
+        video_url = data.get('video')
+
+        # Если есть видео — ставим его СРАЗУ ПЕРВЫМ
+        if video_url:
+            media_list.append({
+                'id': 'video',
+                'type': 'video',
+                'url': video_url
+            })
+
+        # Далее добавляем все фотографии из массива images
+        for img_item in data.get('images', []):
+            media_list.append({
+                'id': img_item.get('id'),
+                'type': 'image',
+                'url': img_item.get('image') or img_item.get('file')
+            })
+
+        data['media'] = media_list  # Поле media вернет фронтенду видео первым, затем фото
+
         return data
 
     def get_avatar(self, obj):

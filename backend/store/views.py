@@ -1235,7 +1235,7 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(instance).data)
 
     def _handle_files_and_features(self, product, request, is_update=False):
-        # 1. Обработка характеристик (логика общая для create и update)
+        # 1. Обработка характеристик
         features_data = request.data.get('features')
         if features_data:
             try:
@@ -1252,33 +1252,34 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 print('Ошибка при обработке характеристик:', e)
 
-        # 2. Обработка главного изображения
-        # В PATCH мы отправляем main_image_webp (как в коде RN)
+        # 2. 🔥 Обработка видеофайла
+        video_file = request.FILES.get('video')
+        if video_file:
+            product.video = video_file
+            product.save(update_fields=['video'])
+
+        # 3. Обработка главного изображения
         main_image = request.FILES.get('main_image_webp') or request.FILES.get('main_image')
-        
         if main_image:
             product.main_image_webp = main_image
-            product.save()
+            product.save(update_fields=['main_image_webp'])
 
-        # 3. Обработка дополнительных изображений
+        # 4. Обработка дополнительных изображений
         uploaded_images = request.FILES.getlist('product_images')
         if uploaded_images:
             if is_update:
                 product.images.all().delete()
 
             for img in uploaded_images:
-                # Чтобы не было ошибки "closed file", если мы захотим использовать файл снова,
-                # можно вызвать img.seek(0), но здесь мы просто создаем объект.
                 ProductImage.objects.create(product=product, image=img)
 
-            # Если главного фото нет, назначаем первое из дополнительных
             if not product.main_image_webp:
                 first_img = uploaded_images[0]
-                # ВАЖНО: возвращаем указатель в начало файла, так как он был вычитан при создании ProductImage
-                first_img.seek(0) 
+                first_img.seek(0)
                 product.main_image_webp = first_img
-                product.save()
+                product.save(update_fields=['main_image_webp'])
 
+                
     @action(detail=False, methods=['get'], url_path='by-user/(?P<user_id>[^/.]+)')
     def get_products_by_user(self, request, user_id=None):
         products = Product.objects.filter(owner_id=user_id, productUser='owner')
