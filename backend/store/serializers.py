@@ -342,7 +342,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = (
                 'id',  'storeName', 'productName', 'price', 'is_vip', 'address', 'region', 'category',
                 'owner_info', 'is_bookmark', 'product_rating', 'avatar',
-                'product_reviews_count', 'owner_phone',
+                'product_reviews_count', 'owner_phone', 'video',
                 'reviews', 'images', 'main_image_webp', 'user_phone','productUser',
                 'product_images', 'description', 'features'  # <-- product_images останется, но только для записи
             )
