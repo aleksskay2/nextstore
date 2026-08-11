@@ -196,6 +196,7 @@ class Product(models.Model):
     main_image_webp = models.ImageField(upload_to='product/webp', blank=True, null=True)
     main_image_thumb = models.ImageField(upload_to='products/thumbs/', blank=True, null=True)
 
+
     # 🔥 НОВОЕ ПОЛЕ: Видео до 30 секунд
     video = models.FileField(
         upload_to='products/videos/',
