@@ -786,39 +786,17 @@ class PrivateMessage(models.Model):
         on_delete=models.SET_NULL
     )
 
+    story = models.ForeignKey(
+        'Story', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='replies'
+    )
 
 
 
 
-# class PrivateMessageFile(models.Model):
-#     message = models.ForeignKey(
-#         PrivateMessage,
-#         related_name="files",
-#         on_delete=models.CASCADE
-#     )
-#     file = models.FileField(upload_to="private_chat/")
-#     type = models.CharField(
-#         max_length=20,
-#         choices=(
-#             ("image", "Image"),
-#             ("video", "Video"),
-#             ("audio", "Audio"),  # 🔥
-#         )
-#     )
-#     duration = models.PositiveIntegerField(null=True, blank=True)  # 🔥 секунды
-
-#     def save(self, *args, **kwargs):
-#         super().save(*args, **kwargs)
-#         if self.type == "audio" or self.type == "video":
-#             from pathlib import Path
-            
-#             try:
-#                 path = str(Path(self.file.path))
-#                 probe = ffmpeg.probe(path)
-#                 self.duration = int(float(probe['format']['duration']))
-#                 super().save(update_fields=["duration"])
-#             except Exception as e:
-#                 print("Ошибка при определении длительности:", e)
 
 
 class PrivateMessageFile(models.Model):

@@ -814,6 +814,140 @@ class PrivateMessageFileSerializer(serializers.ModelSerializer):
         return self._get_absolute_url(obj.thumbnail, request)
 
 
+
+
+
+
+class StoryUserSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", "username", "avatar")
+
+    def get_avatar(self, obj):
+        request = self.context.get("request")
+        if obj.avatar:
+            return request.build_absolute_uri(obj.avatar.url)
+        return None
+
+
+import tempfile
+import os
+from django.conf import settings
+from rest_framework import serializers
+
+class StoryCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Story
+        fields = ("id", "media")
+
+
+        
+    def validate_video(self, media):
+        max_size = settings.STORY_VIDEO_MAX_SIZE_MB * 1024 * 1024
+        if media.size > max_size:
+            raise serializers.ValidationError(
+                f"Видео не должно превышать {settings.STORY_VIDEO_MAX_SIZE_MB} MB"
+            )
+
+        # ===== сохраняем во временный файл =====
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+                for chunk in media.chunks():
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+
+            with VideoFileClip(tmp_path) as clip:
+                duration = clip.duration
+
+        except Exception as e:
+            raise serializers.ValidationError("Не удалось прочитать видео")
+
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+
+        if duration > settings.STORY_VIDEO_MAX_DURATION:
+            raise serializers.ValidationError(
+                f"Видео не должно быть длиннее {settings.STORY_VIDEO_MAX_DURATION} секунд"
+            )
+   
+   
+    def validate_media(self, media):
+        content_type = media.content_type
+
+        # ===== Проверка: это видео? =====
+        if content_type.startswith("video"):
+            self.validate_video(media)
+
+        return media
+
+
+
+# class StoryListSerializer(serializers.ModelSerializer):
+#     media = serializers.SerializerMethodField()
+#     user = StoryUserSerializer()
+
+#     class Meta:
+#         model = Story
+#         fields = (
+#             "id",
+#             "media",
+#             "created_at",
+#             "expires_at",
+#             "user",
+#         )
+
+#     def get_media(self, obj):
+#         request = self.context.get("request")
+#         if obj.media:
+#             return request.build_absolute_uri(obj.media.url)
+#         return None
+
+
+
+# class StoryListSerializer(serializers.ModelSerializer):
+#     media = serializers.SerializerMethodField()
+#     user = StoryUserSerializer()
+
+#     class Meta:
+#         model = Story
+#         fields = ("id", "media", "created_at", "expires_at", "user")
+
+#     def get_media(self, obj):
+#         request = self.context.get("request")
+#         if obj.media:
+#             return request.build_absolute_uri(obj.media.url)
+#         return None
+
+
+
+class StoryListSerializer(serializers.ModelSerializer):
+    media = serializers.SerializerMethodField()
+    user = StoryUserSerializer()
+    is_viewed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Story
+        fields = ("id", "media", "created_at", "expires_at", "user", "is_viewed")
+
+    def get_media(self, obj):
+        request = self.context.get("request")
+        if obj.media:
+            return request.build_absolute_uri(obj.media.url)
+        return None
+
+    def get_is_viewed(self, obj):
+        user = self.context["request"].user
+        return obj.views.filter(user=user).exists()
+
+
+
+
+
 class PrivateMessageSerializer(serializers.ModelSerializer):
     files = PrivateMessageFileSerializer(many=True, read_only=True)
     sender = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -830,12 +964,16 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
     )
     reply_to_data = serializers.SerializerMethodField()
 
+    # 🔥 Добавляем подробную информацию о сторис
+    story_details = StoryUserSerializer(source='story', read_only=True)
+   
+
     class Meta:
         model = PrivateMessage
         fields = [
             "id", "text", "sender", 'target_username', "target", "sender_name",
             "files", "created_at", "is_own", "is_read", "is_delivered", "sender_avatar",
-            "target_avatar", "reply_to", "reply_to_data",
+            "target_avatar", "reply_to", "reply_to_data", "story", "story_details"
         ]
 
     def get_is_own(self, obj):
@@ -1216,134 +1354,6 @@ from django.conf import settings
 
 
 
-
-
-
-class StoryUserSerializer(serializers.ModelSerializer):
-    avatar = serializers.SerializerMethodField()
-
-    class Meta:
-        model = CustomUser
-        fields = ("id", "username", "avatar")
-
-    def get_avatar(self, obj):
-        request = self.context.get("request")
-        if obj.avatar:
-            return request.build_absolute_uri(obj.avatar.url)
-        return None
-
-
-import tempfile
-import os
-from django.conf import settings
-from rest_framework import serializers
-
-class StoryCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Story
-        fields = ("id", "media")
-
-
-        
-    def validate_video(self, media):
-        max_size = settings.STORY_VIDEO_MAX_SIZE_MB * 1024 * 1024
-        if media.size > max_size:
-            raise serializers.ValidationError(
-                f"Видео не должно превышать {settings.STORY_VIDEO_MAX_SIZE_MB} MB"
-            )
-
-        # ===== сохраняем во временный файл =====
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-                for chunk in media.chunks():
-                    tmp.write(chunk)
-                tmp_path = tmp.name
-
-            with VideoFileClip(tmp_path) as clip:
-                duration = clip.duration
-
-        except Exception as e:
-            raise serializers.ValidationError("Не удалось прочитать видео")
-
-        finally:
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
-
-        if duration > settings.STORY_VIDEO_MAX_DURATION:
-            raise serializers.ValidationError(
-                f"Видео не должно быть длиннее {settings.STORY_VIDEO_MAX_DURATION} секунд"
-            )
-   
-   
-    def validate_media(self, media):
-        content_type = media.content_type
-
-        # ===== Проверка: это видео? =====
-        if content_type.startswith("video"):
-            self.validate_video(media)
-
-        return media
-
-
-
-# class StoryListSerializer(serializers.ModelSerializer):
-#     media = serializers.SerializerMethodField()
-#     user = StoryUserSerializer()
-
-#     class Meta:
-#         model = Story
-#         fields = (
-#             "id",
-#             "media",
-#             "created_at",
-#             "expires_at",
-#             "user",
-#         )
-
-#     def get_media(self, obj):
-#         request = self.context.get("request")
-#         if obj.media:
-#             return request.build_absolute_uri(obj.media.url)
-#         return None
-
-
-
-# class StoryListSerializer(serializers.ModelSerializer):
-#     media = serializers.SerializerMethodField()
-#     user = StoryUserSerializer()
-
-#     class Meta:
-#         model = Story
-#         fields = ("id", "media", "created_at", "expires_at", "user")
-
-#     def get_media(self, obj):
-#         request = self.context.get("request")
-#         if obj.media:
-#             return request.build_absolute_uri(obj.media.url)
-#         return None
-
-
-
-class StoryListSerializer(serializers.ModelSerializer):
-    media = serializers.SerializerMethodField()
-    user = StoryUserSerializer()
-    is_viewed = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Story
-        fields = ("id", "media", "created_at", "expires_at", "user", "is_viewed")
-
-    def get_media(self, obj):
-        request = self.context.get("request")
-        if obj.media:
-            return request.build_absolute_uri(obj.media.url)
-        return None
-
-    def get_is_viewed(self, obj):
-        user = self.context["request"].user
-        return obj.views.filter(user=user).exists()
 
 
 
