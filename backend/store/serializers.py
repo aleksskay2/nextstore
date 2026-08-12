@@ -946,6 +946,11 @@ class StoryListSerializer(serializers.ModelSerializer):
 
 
 
+# 🔥 Сериализатор для самой истории (Story)
+class StoryReplySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Story
+        fields = ('id', 'media', 'created_at') # Укажите реальные поля вашей модели Story
 
 
 class PrivateMessageSerializer(serializers.ModelSerializer):
@@ -965,7 +970,7 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
     reply_to_data = serializers.SerializerMethodField()
 
     # 🔥 Добавляем подробную информацию о сторис
-    story_details = StoryUserSerializer(source='story', read_only=True)
+    story_details = StoryReplySerializer(source='story', read_only=True)
    
 
     class Meta:
