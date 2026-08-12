@@ -1459,8 +1459,14 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
 
 
     def perform_create(self, serializer):
-        # 1. Сохраняем сообщение (здесь отрабатывает create() со всем файлами и mutagen)
-        message = serializer.save(sender=self.request.user)
+        story_id = self.request.data.get('story')
+        
+        # Защита от пустых строк
+        if story_id == 'null' or story_id == '':
+            story_id = None
+
+        # 🔥 2. ПРИНУДИТЕЛЬНО сохраняем story_id в базу в обход сериализатора!
+        message = serializer.save(sender=self.request.user, story_id=story_id)
 
         # 2. Сериализуем готовое сообщение С ПЕРЕДАЧЕЙ context={'request': self.request}
         # Теперь и `file`, и `thumbnail`, и `is_own` определятся ИДЕАЛЬНО!
@@ -1598,59 +1604,7 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
         return Response(result)
 
 
-    #  # 👇 УДАЛЕНИЕ СООБЩЕНИЯ У ВСЕХ
-    # @action(detail=True, methods=["DELETE"], url_path="delete-for-all")
-    # def delete_for_all(self, request, pk=None):
-    #     user = request.user
-
-    #     try:
-    #         message = PrivateMessage.objects.get(pk=pk)
-    #     except PrivateMessage.DoesNotExist:
-    #         return Response(
-    #             {"detail": "Сообщение не найдено"},
-    #             status=status.HTTP_404_NOT_FOUND
-    #         )
-
-    #     # ❗️Только отправитель может удалить у всех
-    #     if message.sender != user:
-    #         return Response(
-    #             {"detail": "Вы можете удалить только свои сообщения"},
-    #             status=status.HTTP_403_FORBIDDEN
-    #         )
-
-    #     target_id = message.target_id
-    #     sender_id = message.sender_id
-    #     message_id = message.id
-
-    #     # Удаляем файлы (если есть)
-    #     if hasattr(message, "files"):
-    #         message.files.all().delete()
-
-    #     # Удаляем сообщение
-    #     message.delete()
-
-    #     # 🔥 Уведомляем обоих через WebSocket
-    #     channel_layer = get_channel_layer()
-
-    #     payload = {
-    #         "type": "message_deleted",
-    #         "message_id": message_id
-    #     }
-
-    #     async_to_sync(channel_layer.group_send)(
-    #         f"chat_{sender_id}",
-    #         payload
-    #     )
-
-    #     async_to_sync(channel_layer.group_send)(
-    #         f"chat_{target_id}",
-    #         payload
-    #     )
-
-    #     return Response(
-    #         {"detail": "Сообщение удалено у всех"},
-    #         status=status.HTTP_200_OK
-    #     )
+    
 
 
 
