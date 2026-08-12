@@ -1459,14 +1459,20 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
 
 
     def perform_create(self, serializer):
+        # 1. Извлекаем ID сторис из FormData (бывает строкой '12' или 'null')
         story_id = self.request.data.get('story')
-        
-        # Защита от пустых строк
-        if story_id == 'null' or story_id == '':
+        if story_id in ['null', '', None]:
             story_id = None
 
-        # 🔥 2. ПРИНУДИТЕЛЬНО сохраняем story_id в базу в обход сериализатора!
-        message = serializer.save(sender=self.request.user, story_id=story_id)
+        # 2. Сохраняем сообщение через сериализатор
+        message = serializer.save(sender=self.request.user)
+
+        # 🔥 3. БРОНЕБОЙНЫЙ ХАК: Принудительно связываем со сторис в БД!
+        if story_id:
+            message.story_id = story_id
+            message.save(update_fields=['story'])
+            # Перезагружаем объект из БД, чтобы подтянулся связанный story_details
+            message.refresh_from_db()
 
         # 2. Сериализуем готовое сообщение С ПЕРЕДАЧЕЙ context={'request': self.request}
         # Теперь и `file`, и `thumbnail`, и `is_own` определятся ИДЕАЛЬНО!
