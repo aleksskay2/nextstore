@@ -946,11 +946,16 @@ class StoryListSerializer(serializers.ModelSerializer):
 
 
 
-# 🔥 Сериализатор для самой истории (Story)
+import os
+from django.conf import settings
+from rest_framework import serializers
+from store.models import PrivateMessage, PrivateMessageFile, Story  # пр
+
+# 🔥 1. Сериализатор самой истории (возвращает id, media и время)
 class StoryReplySerializer(serializers.ModelSerializer):
     class Meta:
         model = Story
-        fields = ('id', 'media', 'created_at') # Укажите реальные поля вашей модели Story
+        fields = ('id', 'media', 'created_at')
 
 
 class PrivateMessageSerializer(serializers.ModelSerializer):
@@ -969,9 +974,14 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
     )
     reply_to_data = serializers.SerializerMethodField()
 
-    # 🔥 Добавляем подробную информацию о сторис
+    # 🔥 2. Явно объявляем story для приема ID из POST-запроса
+    story = serializers.PrimaryKeyRelatedField(
+        queryset=Story.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    # 🔥 3. Объявляем story_details для выдачи объекта истории в ответ
     story_details = StoryReplySerializer(source='story', read_only=True)
-   
 
     class Meta:
         model = PrivateMessage
@@ -1030,12 +1040,16 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context["request"]
         reply_to = validated_data.get("reply_to", None)
+        
+        # 🔥 ИСПРАВЛЕНИЕ: Извлекаем story из validated_data!
+        story = validated_data.get("story", None)
 
         message = PrivateMessage.objects.create(
             sender=request.user,
             target=validated_data["target"],
             text=validated_data.get("text", ""),
-            reply_to=reply_to 
+            reply_to=reply_to,
+            story=story  # 👈 ВОТ ЗДЕСЬ ТЕПЕРЬ ПЕРЕДАЕТСЯ ИСТОРИЯ В БД!
         )
 
         files = request.FILES.getlist("files")
@@ -1069,14 +1083,13 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
 
             msg_file.save() # Сначала сохраняем файл на диск
 
-         
-           # 🔥 НАДЕЖНЫЙ РАСЧЕТ ДЛИТЕЛЬНОСТИ
+            # 🔥 НАДЕЖНЫЙ РАСЧЕТ ДЛИТЕЛЬНОСТИ
             if file_type == "audio" and msg_file.file:
                 try:
                     duration_sec = 0
                     file_path = msg_file.file.path
 
-                    # 1. Сначала TinyTag (отлично берет m4a, webm, mp3, ogg)
+                    # 1. TinyTag
                     try:
                         from tinytag import TinyTag
                         tag = TinyTag.get(file_path)
@@ -1085,7 +1098,7 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
                     except Exception:
                         pass
 
-                    # 2. Если не вышло — Mutagen
+                    # 2. Mutagen
                     if not duration_sec:
                         try:
                             from mutagen import File as MutagenFile
@@ -1103,8 +1116,7 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
                     print(f"❌ Ошибка вычисления длительности: {e}")
 
         return message
-
-        return message
+      
 
 
 class GroupCreateSerializer(serializers.ModelSerializer):
