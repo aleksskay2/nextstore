@@ -332,7 +332,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     reviews = ProductReviewSerializer(many=True, read_only=True, source='product_reviews')
     images = ProductImagesSerializer(many=True, read_only=True)
     main_image_webp = serializers.SerializerMethodField()
-    video = serializers.SerializerMethodField()  # 🔥 Поле видео
+  # 🔥 1. МЕНЯЕМ SerializerMethodField НА FileField (чтобы принимал файл при POST/PUT)
+    video = serializers.FileField(required=False, allow_null=True)
     product_images = serializers.ListField(
         child=serializers.ImageField(), write_only=True, required=False
     )
@@ -366,16 +367,26 @@ class ProductDetailSerializer(serializers.ModelSerializer):
    # 2. Переопределяем вывод ответа (GET-запросы):
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        request = self.context.get('request')
         
         # 1. Если user_phone пустой — берем телефон владельца
         if not data.get('user_phone') and instance.owner:
             data['user_phone'] = instance.owner.phone
 
-        # 2. 🔥 ЕДИНЫЙ СПИСОК MEDIA С ВИДЕО НА ПЕРВОМ МЕСТЕ
+        # 🔥 2. Формируем абсолютный URL для видео
+        if instance.video:
+            try:
+                url = instance.video.url
+                data['video'] = request.build_absolute_uri(url) if request else url
+            except Exception:
+                data['video'] = None
+        else:
+            data['video'] = None
+
+        # 3. ЕДИНЫЙ СПИСОК MEDIA С ВИДЕО НА ПЕРВОМ МЕСТЕ
         media_list = []
         video_url = data.get('video')
 
-        # Если есть видео — ставим его СРАЗУ ПЕРВЫМ
         if video_url:
             media_list.append({
                 'id': 'video',
@@ -383,7 +394,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 'url': video_url
             })
 
-        # Далее добавляем все фотографии из массива images
         for img_item in data.get('images', []):
             media_list.append({
                 'id': img_item.get('id'),
@@ -391,8 +401,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 'url': img_item.get('image') or img_item.get('file')
             })
 
-        data['media'] = media_list  # Поле media вернет фронтенду видео первым, затем фото
-
+        data['media'] = media_list
         return data
 
     def get_avatar(self, obj):
