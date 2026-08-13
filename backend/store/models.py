@@ -137,51 +137,67 @@ from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from tinytag import TinyTag
 
-
-# --- Валидатор длительности видео (максимум 30 секунд) ---
 def validate_video_duration(file):
+    if not file:
+        return
+
     max_duration = 30  # секунд
     duration = None
+    temp_file_path = None
+    created_temp_file = False
 
     try:
-        # 1. Если Django уже сохранил файл во временную папку (TemporaryUploadedFile)
+        # 1. Получаем путь к файлу
         if hasattr(file, 'temporary_file_path'):
-            tag = TinyTag.get(file.temporary_file_path())
-            duration = tag.duration
+            # Файл уже лежит в /tmp (TemporaryUploadedFile > 2.5MB)
+            temp_file_path = file.temporary_file_path()
         else:
-            # 2. Если файл находится в памяти (InMemoryUploadedFile)
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
+            # Маленький файл в памяти (InMemoryUploadedFile <= 2.5MB)
+            # Создаем отдельную временную копию
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp:
                 for chunk in file.chunks():
-                    temp_file.write(chunk)
-                temp_path = temp_file.name
+                    temp.write(chunk)
+                temp_file_path = temp.name
+                created_temp_file = True
 
-            tag = TinyTag.get(temp_path)
-            duration = tag.duration
+        # 2. Быстрая проверка длительности через ffprobe (системная утилита Linux)
+        try:
+            cmd = [
+                'ffprobe',
+                '-v', 'error',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                temp_file_path
+            ]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            duration = float(result.stdout.strip())
+        except Exception:
+            # Резервный фолбэк на tinytag, если ffprobe не установлен
+            try:
+                from tinytag import TinyTag
+                tag = TinyTag.get(temp_file_path)
+                duration = tag.duration
+            except Exception as e:
+                print(f"⚠️ Ошибка чтения метаданных видео: {e}")
 
-            # Удаляем ТОЛЬКО нашу созданную копию
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-
-        # 🔥 КРИТИЧЕСКИ ВАЖНО: Сбрасываем указатель файла Django обратно на начало!
-        if hasattr(file, 'seek'):
-            file.seek(0)
-
-        # 3. Проверяем длительность
+        # 3. Проверяем лимит длительности
         if duration and duration > max_duration:
             raise ValidationError(
                 f"Длительность видео не должна превышать {max_duration} секунд. "
                 f"Текущая длительность: {int(duration)} сек."
             )
 
-    except ValidationError:
+    finally:
+        # 🔥 1. Удаляем ТОЛЬКО нами созданную копию (для маленьких файлов)
+        if created_temp_file and temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except OSError:
+                pass
+
+        # 🔥 2. КРИТИЧЕСКИ ВАЖНО: Возвращаем указатель файла Django строго в начало!
         if hasattr(file, 'seek'):
             file.seek(0)
-        raise
-    except Exception as e:
-        if hasattr(file, 'seek'):
-            file.seek(0)
-        print(f"⚠️ Ошибка проверки длительности видео: {e}")
-        raise ValidationError("Не удалось проверить видеофайл или формат не поддерживается.")
 
 
 
