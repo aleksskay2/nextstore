@@ -133,32 +133,54 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.timezone import now
 
-# Импортируем из moviepy для проверки длины видео
-from moviepy import VideoFileClip
+
+from django.core.exceptions import ValidationError
+from tinytag import TinyTag
 
 
 # --- Валидатор длительности видео (максимум 30 секунд) ---
 def validate_video_duration(file):
     max_duration = 30  # секунд
+    duration = None
+
     try:
-        # Сохраняем во временный файл для вычисления длительности
-        with tempfile.NamedTemporaryFile(delete=True, suffix='.mp4') as temp_file:
-            for chunk in file.chunks():
-                temp_file.write(chunk)
-            temp_file.flush()
+        # 1. Если Django уже сохранил файл во временную папку (TemporaryUploadedFile)
+        if hasattr(file, 'temporary_file_path'):
+            tag = TinyTag.get(file.temporary_file_path())
+            duration = tag.duration
+        else:
+            # 2. Если файл находится в памяти (InMemoryUploadedFile)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
+                for chunk in file.chunks():
+                    temp_file.write(chunk)
+                temp_path = temp_file.name
 
-            clip = VideoFileClip(temp_file.name)
-            duration = clip.duration
-            clip.close()
+            tag = TinyTag.get(temp_path)
+            duration = tag.duration
 
-            if duration > max_duration:
-                raise ValidationError(
-                    f"Длительность видео не должна превышать {max_duration} секунд. "
-                    f"Текущая длительность: {int(duration)} сек."
-                )
+            # Удаляем ТОЛЬКО нашу созданную копию
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+        # 🔥 КРИТИЧЕСКИ ВАЖНО: Сбрасываем указатель файла Django обратно на начало!
+        if hasattr(file, 'seek'):
+            file.seek(0)
+
+        # 3. Проверяем длительность
+        if duration and duration > max_duration:
+            raise ValidationError(
+                f"Длительность видео не должна превышать {max_duration} секунд. "
+                f"Текущая длительность: {int(duration)} сек."
+            )
+
+    except ValidationError:
+        if hasattr(file, 'seek'):
+            file.seek(0)
+        raise
     except Exception as e:
-        if isinstance(e, ValidationError):
-            raise e
+        if hasattr(file, 'seek'):
+            file.seek(0)
+        print(f"⚠️ Ошибка проверки длительности видео: {e}")
         raise ValidationError("Не удалось проверить видеофайл или формат не поддерживается.")
 
 
