@@ -137,30 +137,28 @@ from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from tinytag import TinyTag
 
+import os
+import subprocess
+import tempfile
+from django.core.exceptions import ValidationError
+
 def validate_video_duration(file):
     if not file:
         return
 
     max_duration = 30  # секунд
     duration = None
-    temp_file_path = None
-    created_temp_file = False
+    
+    # 🔥 СОЗДАЕМ СОБСТВЕННУЮ НЕЗАВИСИМУЮ КОПИЮ ФАЙЛА
+    # Это гарантирует, что мы не сломаем внутренние механизмы Django
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
+        # Читаем данные из исходного файла
+        for chunk in file.chunks():
+            temp_file.write(chunk)
+        temp_file_path = temp_file.name
 
     try:
-        # 1. Получаем путь к файлу
-        if hasattr(file, 'temporary_file_path'):
-            # Файл уже лежит в /tmp (TemporaryUploadedFile > 2.5MB)
-            temp_file_path = file.temporary_file_path()
-        else:
-            # Маленький файл в памяти (InMemoryUploadedFile <= 2.5MB)
-            # Создаем отдельную временную копию
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp:
-                for chunk in file.chunks():
-                    temp.write(chunk)
-                temp_file_path = temp.name
-                created_temp_file = True
-
-        # 2. Быстрая проверка длительности через ffprobe (системная утилита Linux)
+        # 1. Сначала пробуем быструю проверку через ffprobe
         try:
             cmd = [
                 'ffprobe',
@@ -172,7 +170,7 @@ def validate_video_duration(file):
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
             duration = float(result.stdout.strip())
         except Exception:
-            # Резервный фолбэк на tinytag, если ffprobe не установлен
+            # 2. Фолбэк на tinytag, если ffprobe не сработал
             try:
                 from tinytag import TinyTag
                 tag = TinyTag.get(temp_file_path)
@@ -188,14 +186,15 @@ def validate_video_duration(file):
             )
 
     finally:
-        # 🔥 1. Удаляем ТОЛЬКО нами созданную копию (для маленьких файлов)
-        if created_temp_file and temp_file_path and os.path.exists(temp_file_path):
+        # 🔥 1. Удаляем ТОЛЬКО НАШУ созданную копию
+        if temp_file_path and os.path.exists(temp_file_path):
             try:
                 os.remove(temp_file_path)
             except OSError:
                 pass
 
-        # 🔥 2. КРИТИЧЕСКИ ВАЖНО: Возвращаем указатель файла Django строго в начало!
+        # 🔥 2. Сбрасываем каретку исходного файла Django обратно на начало!
+        # Без этого Django сохранит пустой (или битый) файл в базу.
         if hasattr(file, 'seek'):
             file.seek(0)
 
