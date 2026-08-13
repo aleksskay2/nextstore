@@ -1206,7 +1206,7 @@ class DeleteUserProductView(APIView):
 
 #         return Response(self.get_serializer(instance).data)
 
-
+import json
 class OwnerProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.filter(productUser='owner')
     serializer_class = ProductDetailSerializer
@@ -1252,11 +1252,9 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 print('Ошибка при обработке характеристик:', e)
 
-        # 2. 🔥 Обработка видеофайла
-        video_file = request.FILES.get('video')
-        if video_file:
-            product.video = video_file
-            product.save(update_fields=['video'])
+        # 🔥 ПУНКТ 2 БЫЛ УДАЛЕН 🔥
+        # Видео больше не сохраняем здесь вручную! Сериализатор ProductDetailSerializer 
+        # (в котором мы добавили video = serializers.FileField) уже сделал это за нас.
 
         # 3. Обработка главного изображения
         main_image = request.FILES.get('main_image_webp') or request.FILES.get('main_image')
@@ -1285,10 +1283,6 @@ class OwnerProductViewSet(viewsets.ModelViewSet):
         products = Product.objects.filter(owner_id=user_id, productUser='owner')
         serializer = self.get_serializer(products, many=True)
         return Response(serializer.data)
-
-
-
-
 
 
 class EditUserProductViewSet(viewsets.ModelViewSet):
