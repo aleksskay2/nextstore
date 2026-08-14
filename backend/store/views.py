@@ -1605,10 +1605,11 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
 
 
 
-    @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
-    def mark_audio_listened(self, request):
-        file_id = request.data.get("file_id")
-        
+    @action(detail=False, methods=["POST"], url_path=r"mark-audio-listened/(?P<file_id>\d+)")
+    def mark_audio_listened(self, request, file_id=None):
+        if not file_id:
+            file_id = request.data.get("file_id")
+            
         if not file_id:
             return Response(
                 {"detail": "Параметр file_id обязателен"}, 
@@ -1623,22 +1624,18 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Проверяем, что запрос делает участник этого диалога
         if request.user not in [msg_file.message.sender, msg_file.message.target]:
             return Response(
                 {"detail": "Нет доступа к этому сообщению"}, 
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Если файл еще не был помечен — помечаем и сохраняем
         if not msg_file.is_listened:
             msg_file.is_listened = True
             msg_file.save(update_fields=["is_listened"])
             print(f"✅ [AUDIO LISTENED] Файл #{file_id} успешно помечен как прослушанный!")
 
         return Response({"status": "ok", "file_id": file_id, "is_listened": True}, status=status.HTTP_200_OK)
-    
-
 
 
     # 👇 УДАЛЕНИЕ СООБЩЕНИЯ У ВСЕХ
