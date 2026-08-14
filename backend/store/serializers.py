@@ -1245,7 +1245,6 @@ class GroupMessageFileSerializer(serializers.ModelSerializer):
         backend_url = getattr(settings, 'BACKEND_URL', 'http://127.0.0.1:8000')
         return f"{backend_url}{obj.file.url}"
 
-
 class GroupMessageSerializer(serializers.ModelSerializer):
     sender_username = serializers.CharField(source="sender.username", read_only=True)
     files = GroupMessageFileSerializer(many=True, read_only=True)
@@ -1253,34 +1252,51 @@ class GroupMessageSerializer(serializers.ModelSerializer):
         many=True, source="read_by", read_only=True
     )
     read_by_users = serializers.SerializerMethodField()
-   
+
     reply_to = serializers.PrimaryKeyRelatedField(
         queryset=GroupMessage.objects.all(),
         required=False,
         allow_null=True
     )
 
-    # 🔥 Убрал дублирующийся reply_to_data
     reply_to_data = serializers.SerializerMethodField()
 
     class Meta:
         model = GroupMessage
         fields = [
             "id", "group", "read_by_users", "sender", "sender_username", "text",
-            "files", "created_at", "read_by_ids", 'reply_to', "reply_to_data"
+            "files", "created_at", "read_by_ids", "reply_to", "reply_to_data"
         ]
         read_only_fields = ("sender", "group", "read_by")
 
+    # 🔥 1. ВОЗВРАЩАЕМ СПИСОК ПРОЧИТАВШИХ С РЕАЛЬНЫМИ АВАТАРАМИ
     def get_read_by_users(self, obj):
-        return [user.username for user in obj.read_by.all()]
+        request = self.context.get("request")
+        users_data = []
 
+        for user in obj.read_by.all():
+            avatar_url = None
+            if hasattr(user, "avatar") and user.avatar:
+                try:
+                    avatar_url = request.build_absolute_uri(user.avatar.url) if request else user.avatar.url
+                except Exception:
+                    avatar_url = user.avatar.url
+
+            users_data.append({
+                "id": user.id,
+                "username": user.username,
+                "avatar": avatar_url,
+            })
+
+        return users_data
+
+    # 🔥 2. ДАННЫЕ ЦИТИРУЕМОГО СООБЩЕНИЯ
     def get_reply_to_data(self, obj):
         if not obj.reply_to:
             return None
 
         msg = obj.reply_to
         file = msg.files.first() if hasattr(msg, "files") else None
-        
         request = self.context.get("request")
 
         file_url = None
@@ -1288,34 +1304,36 @@ class GroupMessageSerializer(serializers.ModelSerializer):
         file_name = None
 
         if file:
-            # 🔥 БЕРЕМ КРАСИВОЕ ИМЯ
-            if file.file_name:
+            # Имя файла
+            if getattr(file, "file_name", None):
                 file_name = file.file_name
             elif file.file:
                 file_name = os.path.basename(file.file.name)
 
+            # Ссылка на файл
             if file.file:
-                if request:
-                    file_url = request.build_absolute_uri(file.file.url)
-                else:
-                    file_url = f"https://nextstore-iumj.onrender.com{file.file.url}"
-            
-            # 🔥 БЕРЕМ МИНИАТЮРУ (если это видео)
-            if hasattr(file, 'thumbnail') and file.thumbnail:
-                if request:
-                    thumbnail_url = request.build_absolute_uri(file.thumbnail.url)
-                else:
-                    thumbnail_url = f"https://nextstore-iumj.onrender.com{file.thumbnail.url}"
+                try:
+                    file_url = request.build_absolute_uri(file.file.url) if request else file.file.url
+                except Exception:
+                    file_url = file.file.url
+
+            # Миниатюра видео
+            if getattr(file, "thumbnail", None):
+                try:
+                    thumbnail_url = request.build_absolute_uri(file.thumbnail.url) if request else file.thumbnail.url
+                except Exception:
+                    thumbnail_url = file.thumbnail.url
 
         return {
             "id": msg.id,
             "sender_username": msg.sender.username,
             "text": msg.text,
             "file_type": file.type if file else None,
-            "file_name": file_name,     # 🔥 Добавили в ответ
+            "file_name": file_name,
             "file_url": file_url,
-            "thumbnail": thumbnail_url, # 🔥 Добавили в ответ
+            "thumbnail": thumbnail_url,
         }
+
 
     # # 🔥 САМОЕ ВАЖНОЕ: ДОБАВЛЯЕМ CREATE ДЛЯ СОХРАНЕНИЯ ФАЙЛОВ
     # def create(self, validated_data):

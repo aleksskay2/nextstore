@@ -1708,15 +1708,12 @@ class GroupMessagePagination(PageNumberPagination):
     page_size_query_param = "page_size"
     max_page_size = 50
 
-
 class GroupMessageViewSet(viewsets.ModelViewSet):
     serializer_class = GroupMessageSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = GroupMessagePagination
 
-    
     def get_queryset(self):
-        # если запрос на конкретное сообщение (retrieve / destroy)
         if self.action in ["retrieve", "destroy", "mark_read"]:
             return GroupMessage.objects.all()
 
@@ -1734,16 +1731,13 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
             GroupMessage.objects
             .filter(group_id=group_id)
             .select_related("sender")
-            .prefetch_related("files")
+            .prefetch_related("files", "read_by")  # 🔥 ДОБАВИЛИ "read_by" для быстрой загрузки
             .order_by("-created_at")
         )
 
-
-
-
     @action(detail=True, methods=["post"])
     def mark_read(self, request, pk=None):
-        message = GroupMessage.objects.select_related("sender").get(pk=pk)
+        message = GroupMessage.objects.select_related("sender").prefetch_related("read_by").get(pk=pk)
         user = request.user
 
         # проверка, что пользователь в группе
@@ -1754,55 +1748,62 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
             message.read_by.add(user)
             message.save()
 
-            # 🔔 отправляем через WebSocket обновление прочитавших
+            # 🔥 1. Формируем список прочитавших С АВАТАРКАМИ
+            read_by_users_data = []
+            for u in message.read_by.all():
+                avatar_url = None
+                if u.avatar:
+                    try:
+                        avatar_url = request.build_absolute_uri(u.avatar.url)
+                    except Exception:
+                        avatar_url = u.avatar.url
+
+                read_by_users_data.append({
+                    "id": u.id,
+                    "username": u.username,
+                    "avatar": avatar_url
+                })
+
+            # 🔔 2. Отправляем через WebSocket полный список с аватарами
             channel_layer = get_channel_layer()
-            read_by_usernames = [u.username for u in message.read_by.all()]
             async_to_sync(channel_layer.group_send)(
                 f"group_{message.group.id}",
                 {
                     "type": "messages_read_update",
                     "message_id": message.id,
-                    "read_by": read_by_usernames
+                    "read_by": read_by_users_data  # 🔥 Теперь здесь массив объектов с аватарками
                 }
             )
 
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
-    
-
     def perform_create(self, serializer):
         group_id = self.request.data.get("group")
 
-        # 1. Сначала сохраняем само сообщение
         message = serializer.save(
             sender=self.request.user,
             group_id=group_id
         )
 
-        # 2. Получаем списки файлов и миниатюр
         files = self.request.FILES.getlist("files")
         thumbnails = self.request.FILES.getlist("thumbnails")
 
-        thumb_index = 0 # Счетчик для прохода по списку миниатюр
+        thumb_index = 0
         for f in files:
             file_type = get_file_type(f)
-            
-            # Создаем объект файла
             msg_file = GroupMessageFile(
                 message=message,
                 file=f,
                 type=file_type
             )
 
-            # 🚀 СВЯЗКА ВИДЕО И МИНИАТЮРЫ
-            # Если это видео, берем следующую по порядку миниатюру из списка thumbnails
             if file_type == "video" and thumb_index < len(thumbnails):
                 msg_file.thumbnail = thumbnails[thumb_index]
                 thumb_index += 1
             
             msg_file.save()
 
-        # 3. WebSocket уведомление (теперь сериализатор увидит созданные файлы)
+        # WebSocket уведомление о новом сообщении
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"group_{group_id}",
@@ -1815,7 +1816,7 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
             }
         )
 
-        # 4. Уведомление об ответе (Reply)
+        # Уведомление об ответе (Reply)
         if message.reply_to:
             original_author = message.reply_to.sender
             if original_author != self.request.user:
@@ -1833,16 +1834,10 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-
-
-
-
-      # 🔹 Новый метод удаления
     def destroy(self, request, *args, **kwargs):
         message = self.get_object()
         user = request.user
 
-        # Проверка, что пользователь — отправитель
         if message.sender != user:
             return Response(
                 {"detail": "Вы можете удалить только свои сообщения."},
@@ -1852,7 +1847,6 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
         group_id = message.group.id
         message.delete()
 
-        # 🔔 Уведомляем всех участников через WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"group_{group_id}",
@@ -1864,6 +1858,8 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
 
         return Response({"status": "deleted"}, status=status.HTTP_200_OK)
 
+
+        
 class MessageRegionChatViewSet(viewsets.ModelViewSet):
     serializer_class = MessageRegionChatSerializer
     permission_classes = [permissions.IsAuthenticated]
