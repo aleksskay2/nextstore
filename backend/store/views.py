@@ -1605,7 +1605,7 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
 
 
 
-   @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
+    @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
     def mark_audio_listened(self, request):
         file_id = request.data.get("file_id")
         
