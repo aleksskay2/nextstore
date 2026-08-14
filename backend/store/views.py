@@ -1605,16 +1605,38 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
 
 
 
-    # 🔥 НОВЫЙ ACTION: Отметка голосового сообщения как прослушанного
-    @action(detail=False, methods=["POST"], url_path="mark-audio-listened/(?P<file_id>[^/.]+)")
-    def mark_audio_listened(self, request, file_id=None):
+   @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
+    def mark_audio_listened(self, request):
+        file_id = request.data.get("file_id")
+        
+        if not file_id:
+            return Response(
+                {"detail": "Параметр file_id обязателен"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             msg_file = PrivateMessageFile.objects.select_related("message").get(id=file_id)
         except PrivateMessageFile.DoesNotExist:
             return Response(
-                {"detail": "Файл не найден"}, 
+                {"detail": f"Файл #{file_id} не найден"}, 
                 status=status.HTTP_404_NOT_FOUND
             )
+
+        # Проверяем, что запрос делает участник этого диалога
+        if request.user not in [msg_file.message.sender, msg_file.message.target]:
+            return Response(
+                {"detail": "Нет доступа к этому сообщению"}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Если файл еще не был помечен — помечаем и сохраняем
+        if not msg_file.is_listened:
+            msg_file.is_listened = True
+            msg_file.save(update_fields=["is_listened"])
+            print(f"✅ [AUDIO LISTENED] Файл #{file_id} успешно помечен как прослушанный!")
+
+        return Response({"status": "ok", "file_id": file_id, "is_listened": True}, status=status.HTTP_200_OK)
     
 
 
