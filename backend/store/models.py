@@ -854,6 +854,8 @@ class PrivateMessageFile(models.Model):
         blank=True
     )
 
+
+
     type = models.CharField(
         max_length=20,
         choices=(
@@ -866,6 +868,9 @@ class PrivateMessageFile(models.Model):
 
     duration = models.PositiveIntegerField(null=True, blank=True)
     is_downloaded = models.BooleanField(default=False)
+
+    # 🔥 НОВОЕ ПОЛЕ: Сохраняет статус "прослушано" навсегда в БД
+    is_listened = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None  # 👈 важно

@@ -54,7 +54,7 @@ from rest_framework import viewsets, filters, permissions, serializers
 from .models import  PrivateMessage, MessageRegionFile, Admins, MessageFile, Product, Message, MessageRegionChat, FeatureTemplate, ProductImage, ProductReview, Bookmark,SelectionObject, Regions, Category, FeatureProduct, CustomUser
 from .models import Group, GroupMember,  GroupMessage, GroupMessageFile, Follow
 from .models import Story, StoryView
-from .serializers import AdminsSerializer, StoryViewerSerializer, MessageRegionChatSerializer,  FollowSerializer, GroupUpdateSerializer,GroupDetailSerializer, CustomUserSerializer, GroupCreateSerializer, GroupListSerializer, PrivateMessageSerializer, FeatureTemplateSerializer, ProductListSerializer, ProductDetailSerializer, ProductImagesSerializer, ProductReviewSerializer, MessageSerializer, BookmarkSerializer,  SelectionObjectSerializer, RegionsSerializer
+from .serializers import AdminsSerializer, StoryViewerSerializer,PrivateMessageFile, MessageRegionChatSerializer,  FollowSerializer, GroupUpdateSerializer,GroupDetailSerializer, CustomUserSerializer, GroupCreateSerializer, GroupListSerializer, PrivateMessageSerializer, FeatureTemplateSerializer, ProductListSerializer, ProductDetailSerializer, ProductImagesSerializer, ProductReviewSerializer, MessageSerializer, BookmarkSerializer,  SelectionObjectSerializer, RegionsSerializer
 from .serializers import GroupMemberSerializer
 from .serializers import StoryCreateSerializer, StoryListSerializer
 from .serializers import (
@@ -1604,6 +1604,17 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
         return Response(result)
 
 
+
+    # 🔥 НОВЫЙ ACTION: Отметка голосового сообщения как прослушанного
+    @action(detail=False, methods=["POST"], url_path="mark-audio-listened/(?P<file_id>[^/.]+)")
+    def mark_audio_listened(self, request, file_id=None):
+        try:
+            msg_file = PrivateMessageFile.objects.select_related("message").get(id=file_id)
+        except PrivateMessageFile.DoesNotExist:
+            return Response(
+                {"detail": "Файл не найден"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
     
 
 
@@ -1859,7 +1870,7 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
         return Response({"status": "deleted"}, status=status.HTTP_200_OK)
 
 
-        
+
 class MessageRegionChatViewSet(viewsets.ModelViewSet):
     serializer_class = MessageRegionChatSerializer
     permission_classes = [permissions.IsAuthenticated]

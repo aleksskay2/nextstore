@@ -802,7 +802,7 @@ class PrivateMessageFileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PrivateMessageFile
-        fields = ["id", "file", "file_name", "type", "duration", "thumbnail"] 
+        fields = ["id", "file", "file_name", "type", "duration", "thumbnail", "is_listened"] 
 
     def _get_absolute_url(self, file_field, request):
         """Вспомогательный метод для построения абсолютного URL"""
