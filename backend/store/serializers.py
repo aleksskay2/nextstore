@@ -683,51 +683,7 @@ class SelectionObjectSerializer(serializers.ModelSerializer):
 
 
 
-class MessageFileSerializer(serializers.ModelSerializer):
-    """Сериализатор для оптимизированных файлов и их миниатюр"""
     
-    # 🔥 Переопределяем поля, чтобы вручную контролировать URL
-    file = serializers.SerializerMethodField()
-    thumbnail = serializers.SerializerMethodField()
-
-    class Meta:
-        model = MessageRegionFile
-        fields = [
-            'id', 'file', 'thumbnail', 'type', 
-            'duration', 'width', 'height'
-        ]
-
-    # Единая логика для получения правильного URL
-    def _get_absolute_url(self, file_url):
-        if not file_url:
-            return None
-            
-        request = self.context.get('request')
-        if request:
-            # Если мы в ViewSet (HTTP запрос), DRF сам подставит правильный IP
-            return request.build_absolute_uri(file_url)
-        
-        # Если request нет (отправка через WebSocket)
-        from django.conf import settings
-        
-        # Замени на свой актуальный IP, если BACKEND_URL не настроен в settings.py
-        backend_url = getattr(settings, 'BACKEND_URL', 'http://192.168.42.241:8000') 
-        
-        backend_url = backend_url.rstrip('/')
-        if not file_url.startswith('/'):
-            file_url = f"/{file_url}"
-            
-        return f"{backend_url}{file_url}"
-
-    def get_file(self, obj):
-        if not obj.file:
-            return None
-        return self._get_absolute_url(obj.file.url)
-
-    def get_thumbnail(self, obj):
-        if not obj.thumbnail:
-            return None
-        return self._get_absolute_url(obj.thumbnail.url)
 class MessageFileSerializer(serializers.ModelSerializer):
     file = serializers.SerializerMethodField()
     thumbnail = serializers.SerializerMethodField()
@@ -770,6 +726,43 @@ class MessageFileSerializer(serializers.ModelSerializer):
         return self._get_absolute_url(obj.thumbnail.url)
 
   
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    files = MessageFileSerializer(many=True, read_only=True)
+    
+    sender_name = serializers.CharField(source='sender.username', read_only=True)
+    product_name = serializers.CharField(source='product.productName', read_only=True)
+    
+    # Рекомендую использовать .url для ImageField, если это не делается автоматически
+    product_image = serializers.ImageField(source='product.main_image', read_only=True)
+    is_own = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Message
+        fields = [
+            'id', 
+            'sender', 
+            'receiver', 
+            'sender_name',    # 🔥 Теперь оно здесь, ошибка исчезнет
+            'product', 
+            'product_name', 
+            'product_image', 
+            'text', 
+            'files',        # Вложенные файлы с новыми полями
+            'is_delivered', 
+            'is_read', 
+            'is_own', 
+            'created_at'
+        ]
+        read_only_fields = ['sender', 'receiver', 'created_at']
+
+    def get_is_own(self, obj):
+        request = self.context.get('request')
+        if request and request.user:
+            return obj.sender_id == request.user.id
+        return False
+
 
 
 

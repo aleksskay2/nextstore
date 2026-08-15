@@ -85,7 +85,12 @@ import axios from 'axios';
 const IS_PRODUCTION = true;
 
 const LOCAL_URL = 'http://127.0.0.1:8000/api/';
-const PROD_URL = 'https://storechat.online/api/';
+const PROD_URL = 'https://201.34.128.186.sslip.io/api/';
+
+
+// const PROD_HTTP = 'https://201.34.128.186.sslip.io';
+// const PROD_WS = 'wss://201.34.128.186.sslip.io';
+
 
 
 // --- Боевые настройки (Твой новый VPS Timeweb) ---
