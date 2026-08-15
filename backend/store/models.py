@@ -649,6 +649,13 @@ class MessageRegionFile(models.Model):
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
 
+    # 🔥 НОВОЕ ПОЛЕ: Хранит список пользователей, прослушавших это аудио
+    listened_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="listened_region_files",
+        blank=True
+    )
+
     def save(self, *args, **kwargs):
         is_new = self._state.adding
         

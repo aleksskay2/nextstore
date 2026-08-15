@@ -560,26 +560,34 @@ class BookmarkSerializer(serializers.ModelSerializer, ):
     class Meta:
         model = Bookmark
         fields = ['id', 'product', 'created_at']
+
 class MessageRegionFileSerializer(serializers.ModelSerializer):
     """Сериализатор для оптимизированных файлов и их миниатюр с полными путями"""
-    
+
     file = serializers.SerializerMethodField()
     thumbnail = serializers.SerializerMethodField()
+    # 🔥 Вычисляемое поле статуса прослушивания
+    is_listened = serializers.SerializerMethodField()
 
     class Meta:
         model = MessageRegionFile
         fields = [
             'id', 'file', 'thumbnail', 'type', 
-            'duration', 'width', 'height'
+            'duration', 'width', 'height', 'is_listened' # 🔥 Добавлено поле
         ]
 
-    # 🔥 ИСПРАВЛЕНО: Добавлен request для генерации абсолютного URL
+    def get_is_listened(self, obj):
+        request = self.context.get('request')
+        if request and request.user and request.user.is_authenticated:
+            return obj.listened_by.filter(id=request.user.id).exists()
+        return False
+
     def get_file(self, obj):
         if obj.file:
             request = self.context.get('request')
             if request is not None:
                 return request.build_absolute_uri(obj.file.url)
-            return obj.file.url # Фолбэк, если контекст не передали
+            return obj.file.url
         return None
 
     def get_thumbnail(self, obj):

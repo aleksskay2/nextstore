@@ -1993,6 +1993,40 @@ class MessageRegionChatViewSet(viewsets.ModelViewSet):
         
         return queryset.order_by('-created_at')
 
+    # 🔥 НОВЫЙ ЭНДПОИНТ: Отметка аудио в региональном чате
+    @action(detail=False, methods=['POST', 'GET', 'post'], url_path='mark-audio-listened')
+    def mark_audio_listened(self, request):
+        file_id = request.data.get("file_id") or request.query_params.get("file_id")
+
+        if not file_id:
+            return Response(
+                {"detail": "Параметр file_id обязателен"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            msg_file = MessageRegionFile.objects.select_related("message").get(id=file_id)
+        except MessageRegionFile.DoesNotExist:
+            return Response(
+                {"detail": f"Файл #{file_id} не найден"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 1. Добавляем пользователя в список прослушавших файл
+        if not msg_file.listened_by.filter(id=request.user.id).exists():
+            msg_file.listened_by.add(request.user)
+            print(f"✅ [REGION AUDIO LISTENED] Файл #{file_id} прослушан пользователем {request.user.username}!")
+
+        # 2. Также отмечаем само сообщение как прочитанное
+        if request.user != msg_file.message.user and not msg_file.message.read_by.filter(id=request.user.id).exists():
+            msg_file.message.read_by.add(request.user)
+
+        return Response(
+            {"status": "ok", "file_id": file_id, "is_listened": True}, 
+            status=status.HTTP_200_OK
+        )
+    
+
         
     @action(detail=False, methods=["post"], url_path="mark-read")
     def mark_read(self, request):
