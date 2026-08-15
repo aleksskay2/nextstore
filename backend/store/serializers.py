@@ -1227,6 +1227,8 @@ class GroupMemberSerializer(serializers.ModelSerializer):
 class GroupMessageFileSerializer(serializers.ModelSerializer):
     # 🔥 Делаем абсолютные URL для файлов, как в личных чатах
     file = serializers.SerializerMethodField()
+    # 🔥 Вычисляемое поле для авторизованного пользователя
+    is_listened = serializers.SerializerMethodField()
 
     class Meta:
         model = GroupMessageFile

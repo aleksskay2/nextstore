@@ -1864,6 +1864,45 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
                     }
                 )
 
+    # 🔥 НОВЫЙ ЭНДПОИНТ: Отметка голосового в группе как прослушанного
+    @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
+    def mark_audio_listened(self, request):
+        file_id = request.data.get("file_id")
+
+        if not file_id:
+            return Response(
+                {"detail": "Параметр file_id обязателен"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            msg_file = GroupMessageFile.objects.select_related("message__group").get(id=file_id)
+        except GroupMessageFile.DoesNotExist:
+            return Response(
+                {"detail": f"Файл #{file_id} не найден"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Проверяем, что пользователь состоит в группе
+        if not GroupMember.objects.filter(group=msg_file.message.group, user=request.user).exists():
+            return Response(
+                {"detail": "Вы не являетесь участником этой группы"}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Добавляем пользователя в список прослушавших
+        if not msg_file.listened_by.filter(id=request.user.id).exists():
+            msg_file.listened_by.add(request.user)
+
+        # Заодно помечаем само сообщение как прочитанное этим пользователем
+        if request.user != msg_file.message.sender and not msg_file.message.read_by.filter(id=request.user.id).exists():
+            msg_file.message.read_by.add(request.user)
+
+        return Response(
+            {"status": "ok", "file_id": file_id, "is_listened": True}, 
+            status=status.HTTP_200_OK
+        )
+
     def destroy(self, request, *args, **kwargs):
         message = self.get_object()
         user = request.user

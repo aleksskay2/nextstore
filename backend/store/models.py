@@ -1039,6 +1039,13 @@ class GroupMessageFile(models.Model):
     )
     duration = models.PositiveIntegerField(null=True, blank=True)
 
+    # 🔥 НОВОЕ ПОЛЕ: Хранит пользователей группы, которые прослушали это аудио
+    listened_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="listened_group_files"
+    )
+
     def save(self, *args, **kwargs):
         # 1. Сохраняем файл первый раз, чтобы получить путь на диске
         super().save(*args, **kwargs)
