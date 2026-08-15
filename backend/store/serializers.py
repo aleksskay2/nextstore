@@ -1233,7 +1233,7 @@ class GroupMessageFileSerializer(serializers.ModelSerializer):
     class Meta:
         model = GroupMessageFile
         # 🔥 Явно указываем новые поля, чтобы фронтенд их получил
-        fields = ["id", "file", "file_name", "type", "duration", "thumbnail"]
+        fields = ["id", "file", "file_name", "type", "duration", "thumbnail", "is_listened"]
 
     def get_file(self, obj):
         if not obj.file:
