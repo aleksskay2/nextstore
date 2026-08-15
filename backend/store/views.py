@@ -1025,6 +1025,48 @@ class MessageViewSet(viewsets.ModelViewSet):
         response_data.sort(key=lambda x: x['last_message_at'], reverse=True)
         return Response(response_data)
 
+
+
+    # 🔥 НОВЫЙ ЭНДПОИНТ: Отметка голосового по товарам как прослушанного
+    @action(detail=False, methods=['post'], url_path='mark-audio-listened')
+    def mark_audio_listened(self, request):
+        file_id = request.data.get("file_id")
+
+        if not file_id:
+            return Response(
+                {"detail": "Параметр file_id обязателен"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            msg_file = MessageFile.objects.select_related("message").get(id=file_id)
+        except MessageFile.DoesNotExist:
+            return Response(
+                {"detail": f"Файл #{file_id} не найден"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Проверяем, что запрос делает участник этой переписки (продавец или покупатель)
+        if request.user not in [msg_file.message.sender, msg_file.message.receiver]:
+            return Response(
+                {"detail": "Нет доступа к этому сообщению"}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Помечаем файл как прослушанный
+        if not msg_file.is_listened:
+            msg_file.is_listened = True
+            msg_file.save(update_fields=["is_listened"])
+            print(f"✅ [PRODUCT AUDIO LISTENED] Файл #{file_id} успешно помечен как прослушанный!")
+
+        return Response(
+            {"status": "ok", "file_id": file_id, "is_listened": True}, 
+            status=status.HTTP_200_OK
+        )
+
+
+
+
     @action(detail=False, methods=['delete'], url_path=r'delete_chat/(?P<companion_id>\d+)/(?P<product_id>\d+)')
     def delete_chat(self, request, companion_id=None, product_id=None):
         """

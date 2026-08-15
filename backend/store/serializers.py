@@ -728,43 +728,46 @@ class MessageFileSerializer(serializers.ModelSerializer):
         if not obj.thumbnail:
             return None
         return self._get_absolute_url(obj.thumbnail.url)
-
-class MessageSerializer(serializers.ModelSerializer):
-    files = MessageFileSerializer(many=True, read_only=True)
-    
-    sender_name = serializers.CharField(source='sender.username', read_only=True)
-    product_name = serializers.CharField(source='product.productName', read_only=True)
-    
-    # Рекомендую использовать .url для ImageField, если это не делается автоматически
-    product_image = serializers.ImageField(source='product.main_image', read_only=True)
-    is_own = serializers.SerializerMethodField()
+class MessageFileSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField()
+    thumbnail = serializers.SerializerMethodField()
 
     class Meta:
-        model = Message
+        model = MessageFile
         fields = [
             'id', 
-            'sender', 
-            'receiver', 
-            'sender_name',    # 🔥 Теперь оно здесь, ошибка исчезнет
-            'product', 
-            'product_name', 
-            'product_image', 
-            'text', 
-            'files',        # Вложенные файлы с новыми полями
-            'is_delivered', 
-            'is_read', 
-            'is_own', 
-            'created_at'
+            'file', 
+            'thumbnail', 
+            'type', 
+            'duration', 
+            'is_listened',  # 🔥 ДОБАВЛЕНО ПОЛЕ
         ]
-        read_only_fields = ['sender', 'receiver', 'created_at']
 
-    def get_is_own(self, obj):
+    def _get_absolute_url(self, file_url):
+        if not file_url:
+            return None
+            
         request = self.context.get('request')
-        if request and request.user:
-            return obj.sender_id == request.user.id
-        return False
+        if request:
+            return request.build_absolute_uri(file_url)
+        
+        from django.conf import settings
+        backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online') 
+        backend_url = backend_url.rstrip('/')
+        if not file_url.startswith('/'):
+            file_url = f"/{file_url}"
+            
+        return f"{backend_url}{file_url}"
 
+    def get_file(self, obj):
+        if not obj.file:
+            return None
+        return self._get_absolute_url(obj.file.url)
 
+    def get_thumbnail(self, obj):
+        if not obj.thumbnail:
+            return None
+        return self._get_absolute_url(obj.thumbnail.url)
 
   
 

@@ -370,6 +370,9 @@ class MessageFile(models.Model):
     duration = models.PositiveIntegerField(null=True, blank=True) # для голосовых и видео
     is_downloaded = models.BooleanField(default=False)
 
+    # 🔥 НОВОЕ ПОЛЕ: Хранит статус прослушивания голосового сообщения
+    is_listened = models.BooleanField(default=False)
+
     def __str__(self):
         return f"{self.type} for message {self.message.id}"
 
