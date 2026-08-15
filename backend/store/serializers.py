@@ -1238,9 +1238,8 @@ class GroupMessageFileSerializer(serializers.ModelSerializer):
     def get_is_listened(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            # Если вы автор сообщения — оно для вас всегда белое (прослушано),
-            # либо если вы уже есть в списке прослушавших
-            return obj.message.sender_id == request.user.id or obj.listened_by.filter(id=request.user.id).exists()
+            # 🔥 ИСПРАВЛЕНО: проверяем только реальный факт прослушивания данным юзером
+            return obj.listened_by.filter(id=request.user.id).exists()
         return False
 
     def get_file(self, obj):
