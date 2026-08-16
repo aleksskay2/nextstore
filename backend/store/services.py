@@ -83,10 +83,11 @@ def format_last_message(msg):
 
 # В get_single_chat_summary добавь prefetch_related, чтобы не было 100500 запросов к БД
 from django.db.models import Q
-
-
 def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None, group_id=None):
     try:
+        # ==========================================
+        # 1. ПРИВАТНЫЕ ЧАТЫ
+        # ==========================================
         if chat_type == "private":
             msg = PrivateMessage.objects.filter(
                 (Q(sender=user, target_id=companion_id) | Q(sender_id=companion_id, target=user))
@@ -95,7 +96,8 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
              .prefetch_related("files")\
              .first()
 
-            if not msg: return None
+            if not msg: 
+                return None
             
             companion = msg.target if msg.sender == user else msg.sender
             unread = PrivateMessage.objects.filter(
@@ -115,10 +117,14 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
                 "last_message": format_last_message(msg),
                 "last_message_at": msg.created_at.isoformat(),
                 "unread_count": unread,
-                "is_own": msg.sender == user, # 🔥 ДОБАВЛЕНО: Флаг твоего сообщения
+                "is_own": msg.sender == user,
+                "is_read": bool(msg.is_read),  # 🔥 ВОТ ЭТОГО НЕ ХВАТАЛО: статус из базы данных
                 "link": f"/chat/private/{companion.id}",
             }
 
+        # ==========================================
+        # 2. ЧАТЫ ПО ТОВАРАМ
+        # ==========================================
         if chat_type == "product":
             msg = Message.objects.filter(
                 product_id=product_id
@@ -152,10 +158,14 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
                 "last_message": format_last_message(msg),
                 "last_message_at": msg.created_at.isoformat(),
                 "unread_count": unread,
-                "is_own": msg.sender == user, # 🔥 ДОБАВЛЕНО: Флаг твоего сообщения
+                "is_own": msg.sender == user,
+                "is_read": bool(msg.is_read),  # 🔥 ВОТ ЭТОГО НЕ ХВАТАЛО: статус из базы данных
                 "link": f"/chat/product/{product_id}/{companion_id}",
             }
 
+        # ==========================================
+        # 3. ГРУППОВЫЕ ЧАТЫ
+        # ==========================================
         elif chat_type == "group":
             g = Group.objects.get(id=group_id)
             last_msg = GroupMessage.objects.filter(group=g)\
@@ -163,10 +173,14 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
                 .prefetch_related("files")\
                 .first()
             
-            if not last_msg: return None
+            if not last_msg: 
+                return None
 
             unread = GroupMessage.objects.filter(group=g).exclude(sender=user).exclude(read_by=user).count()
             group_avatar = g.avatar.url if g.avatar else None
+
+            # Проверяем, прочитал ли кто-то в группе, кроме самого автора
+            group_is_read = last_msg.read_by.exclude(id=user.id).exists() if hasattr(last_msg, 'read_by') else False
 
             return {
                 "id": f"{g.id}",
@@ -176,12 +190,13 @@ def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None,
                 "last_message": format_last_message(last_msg),
                 "last_message_at": last_msg.created_at.isoformat(),
                 "unread_count": unread,
-                "is_own": last_msg.sender == user, # 🔥 ДОБАВЛЕНО: Флаг твоего сообщения
+                "is_own": last_msg.sender == user,
+                "is_read": group_is_read,  # 🔥 ВОТ ЭТОГО НЕ ХВАТАЛО
                 "link": f"/groups/{g.id}/chat",
             }
 
     except Exception as e:
         import traceback
-        print(f"❌ Error: {e}")
+        print(f"❌ Error in get_single_chat_summary: {e}")
         traceback.print_exc()
         return None
