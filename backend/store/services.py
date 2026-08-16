@@ -83,6 +83,7 @@ def format_last_message(msg):
 
 # В get_single_chat_summary добавь prefetch_related, чтобы не было 100500 запросов к БД
 from django.db.models import Q
+
 def get_single_chat_summary(user, chat_type, companion_id=None, product_id=None, group_id=None):
     try:
         # ==========================================
