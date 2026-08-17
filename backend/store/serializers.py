@@ -972,39 +972,80 @@ class StoryCreateSerializer(serializers.ModelSerializer):
 #             return request.build_absolute_uri(obj.media.url)
 #         return None
 
+# 1. Сериализатор пользователя для истории
+class StoryUserSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", "username", "avatar")
+
+    def get_avatar(self, obj):
+        if not obj.avatar:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.avatar.url)
+        return obj.avatar.url
 
 
+# 2. Основной сериализатор списка историй (Лента и Мои сторис)
 class StoryListSerializer(serializers.ModelSerializer):
     media = serializers.SerializerMethodField()
-    user = StoryUserSerializer()
+    user = StoryUserSerializer(read_only=True)
     is_viewed = serializers.SerializerMethodField()
 
     class Meta:
         model = Story
-        fields = ("id", "media", "created_at", "expires_at", "user", "is_viewed")
+        fields = (
+            "id",
+            "user",
+            "media",
+            "text",               # 🔥 Добавлено: текст истории
+            "background_color",   # 🔥 Добавлено: цвет фона
+            "created_at",
+            "expires_at",
+            "is_active",
+            "is_viewed",
+        )
 
     def get_media(self, obj):
+        if not obj.media:
+            return None
         request = self.context.get("request")
-        if obj.media:
+        if request:
             return request.build_absolute_uri(obj.media.url)
-        return None
+        return obj.media.url
 
     def get_is_viewed(self, obj):
-        user = self.context["request"].user
-        return obj.views.filter(user=user).exists()
+        request = self.context.get("request")
+        # Безопасная проверка: не падает, если запрос анонимный или вызван из задачи/сокета
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.views.filter(user=request.user).exists()
 
 
-
-import os
-from django.conf import settings
-from rest_framework import serializers
-from store.models import PrivateMessage, PrivateMessageFile, Story  # пр
-
-# 🔥 1. Сериализатор самой истории (возвращает id, media и время)
+# 3. Сериализатор истории при ответе в личных сообщениях (Story Reply в чате)
 class StoryReplySerializer(serializers.ModelSerializer):
+    media = serializers.SerializerMethodField()
+
     class Meta:
         model = Story
-        fields = ('id', 'media', 'created_at')
+        fields = (
+            "id",
+            "media",
+            "text",               # 🔥 Добавлено: чтобы в ответе на текстовую сторис был виден текст
+            "background_color",   # 🔥 Добавлено
+            "created_at",
+        )
+
+    def get_media(self, obj):
+        if not obj.media:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.media.url)
+        return obj.media.url
 
 
 class PrivateMessageSerializer(serializers.ModelSerializer):
