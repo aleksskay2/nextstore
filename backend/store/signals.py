@@ -736,3 +736,43 @@ def send_group_file_chat_update(sender, instance, created, **kwargs):
 
 #     # Ждем завершения транзакции, чтобы данные и файлы были доступны в БД
 #     transaction.on_commit(notify)
+
+
+
+
+import os
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+from .models import PrivateMessageFile, GroupMessageFile, MessageFile, Story
+
+def safe_delete_file(file_field):
+    """Безопасное физическое удаление файла с диска"""
+    if file_field and hasattr(file_field, 'path'):
+        try:
+            if os.path.isfile(file_field.path):
+                os.remove(file_field.path)
+        except Exception as e:
+            print(f"⚠️ Ошибка удаления файла {file_field.path}: {e}")
+
+# 1. Удаление файлов личных сообщений (файл + превью)
+@receiver(post_delete, sender=PrivateMessageFile)
+def delete_private_message_files(sender, instance, **kwargs):
+    safe_delete_file(instance.file)
+    safe_delete_file(instance.thumbnail)
+
+# 2. Удаление файлов групповых сообщений (файл + превью)
+@receiver(post_delete, sender=GroupMessageFile)
+def delete_group_message_files(sender, instance, **kwargs):
+    safe_delete_file(instance.file)
+    safe_delete_file(instance.thumbnail)
+
+# 3. Удаление файлов сообщений по товарам (файл + превью)
+@receiver(post_delete, sender=MessageFile)
+def delete_product_message_files(sender, instance, **kwargs):
+    safe_delete_file(instance.file)
+    safe_delete_file(instance.thumbnail)
+
+# 4. Удаление медиафайлов историй (Stories)
+@receiver(post_delete, sender=Story)
+def delete_story_media(sender, instance, **kwargs):
+    safe_delete_file(instance.media)

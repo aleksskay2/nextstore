@@ -550,9 +550,45 @@ CELERY_BEAT_SCHEDULE = {
 STORY_VIDEO_MAX_SIZE_MB = 50
 STORY_VIDEO_MAX_DURATION = 60
 
-# --- REST FRAMEWORK & JWT ---
+# # --- REST FRAMEWORK & JWT ---
+# REST_FRAMEWORK = {
+#     'DEFAULT_THROTTLE_RATES': {
+#         'resend_activation': '5/hour',
+#     },
+#     'DEFAULT_AUTHENTICATION_CLASSES': (
+#         'rest_framework_simplejwt.authentication.JWTAuthentication',
+#     ),
+#     'DEFAULT_FILTER_BACKENDS': [
+#         'rest_framework.filters.SearchFilter',
+#     ]
+# }
+
+
+
+# --- ВАЛИДАЦИЯ ПАРОЛЕЙ ---
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,  # Минимальная длина пароля — 8 символов
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',  # Запрет паролей из топ-10000 (123456, password и т.д.)
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',  # Запрет паролей только из цифр
+    },
+]
+
+# --- ОГРАНИЧЕНИЕ ЧАСТОТЫ ЗАПРОСОВ (ЗАЩИТА ОТ СПАМА И ПОДБОРА) ---
 REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
+        'anon': '30/minute',          # Общий лимит для неавторизованных
+        'register': '5/minute',       # Не больше 5 попыток регистрации в минуту с 1 IP
         'resend_activation': '5/hour',
     },
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -562,6 +598,17 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
     ]
 }
+
+
+
+
+
+
+
+
+
+
+
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=300),

@@ -491,9 +491,19 @@ class UserInfoView(APIView):
 
 
 
+from rest_framework import generics
+from rest_framework.permissions import AllowAny
+from rest_framework.throttling import ScopedRateThrottle
+
+
+
+
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = RegisterSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'register'
 
 
 

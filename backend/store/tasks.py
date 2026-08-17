@@ -1,11 +1,20 @@
+# store/tasks.py
 from celery import shared_task
 from django.core.management import call_command
+import logging
+
+logger = logging.getLogger(__name__)
 
 @shared_task
 def delete_old_files_task():
-    # Вызываем твою команду management command
-    call_command('clear_old_files')
-
+    try:
+        logger.info("🧹 Запуск плановой очистки старых файлов и историй...")
+        call_command('clear_old_files')
+        logger.info("✅ Плановая очистка завершена.")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Ошибка в delete_old_files_task: {e}")
+        return False
 
 
 

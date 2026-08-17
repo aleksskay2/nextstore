@@ -30,16 +30,23 @@ from django.conf import settings
 
 # 🔥 ИМПОРТИРУЙ ТВОЮ ЗАДАЧУ CELERY (укажи правильный путь к твоему приложению вместо 'your_app')
 from store.tasks import send_verification_email_task 
+import secrets
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
+from rest_framework import serializers
+from store.tasks import send_verification_email_task
 
 User = get_user_model()
+
 class RegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=False, allow_blank=True)
-    
     password = serializers.CharField(
         write_only=True, 
         required=False, 
         allow_blank=True,
-        # validators=[validate_password] # раскомментируй, если используешь
+        style={'input_type': 'password'}
     )
     email = serializers.EmailField(required=False, allow_blank=True)
 
@@ -53,7 +60,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         password = attrs.get('password')
         email = attrs.get('email')
 
-        # Если регистрируются по классическому пути (без телефона)
+        # 1. Нормализуем email (приводим к нижнему регистру и убираем пробелы)
+        if email:
+            email = email.strip().lower()
+            attrs['email'] = email
+
+        # 2. Если регистрация по Email
         if not phone:
             if not username:
                 raise serializers.ValidationError({"username": "Имя пользователя обязательно."})
@@ -62,67 +74,69 @@ class RegisterSerializer(serializers.ModelSerializer):
             if not email:
                 raise serializers.ValidationError({"email": "При регистрации по Email почта обязательна."})
             
-            # Проверяем уникальность email, чтобы избежать ошибок бэкенда при сохранении
-            if User.objects.filter(email=email).exists():
+            # Проверка уникальности Email без учета регистра
+            if User.objects.filter(email__iexact=email).exists():
                 raise serializers.ValidationError({"email": "Пользователь с такой почтой уже зарегистрирован."})
-        
+
+            # 🔥 ПРОВЕРКА СЛОЖНОСТИ ПАРОЛЯ ЧЕРЕЗ DJANGO VALIDATORS
+            user_dummy = User(username=username, email=email)
+            try:
+                validate_password(password, user=user_dummy)
+            except DjangoValidationError as error:
+                raise serializers.ValidationError({"password": list(error.messages)})
+
+        # 3. Если регистрация по Телефону
+        else:
+            phone = phone.strip()
+            attrs['phone'] = phone
+            if User.objects.filter(phone=phone).exists():
+                raise serializers.ValidationError({"phone": "Пользователь с таким номером уже зарегистрирован."})
+
         return attrs
 
-    
     def create(self, validated_data):
-        phone = validated_data.get('phone')
-        
-        # 🔥 ГЛАВНЫЙ ФИКС: Если телефон пришел пустой строкой "", принудительно делаем его None.
-        # Это спасет PostgreSQL от ошибки IntegrityError (duplicate key).
-        if not phone:
-            phone = None
-
+        phone = validated_data.get('phone') or None
         password = validated_data.get('password')
         email = validated_data.get('email', '')
-        
         username = validated_data.get('username')
-        
-        # Безопасная генерация username, если фронтенд его не прислал
+
+        # Генерация username, если не передан
         if not username:
             if phone:
-                username = f"user_{phone[-4:]}"
+                username = f"user_{phone[-4:]}_{secrets.randbelow(9000) + 1000}"
             else:
-                username = f"user_{random.randint(1000, 9999)}"
+                username = f"user_{secrets.randbelow(900000) + 100000}"
 
-        # Безопасный цикл проверки уникальности username (чтобы не упал, если phone == None)
+        # Гарантируем уникальность username
         while User.objects.filter(username=username).exists():
-            if phone:
-                username = f"user_{phone[-4:]}_{random.randint(10, 99)}"
-            else:
-                username = f"user_{random.randint(10000, 99999)}"
+            username = f"user_{secrets.randbelow(9000000) + 1000000}"
 
-        # 1. Генерируем код ЗАРАНЕЕ, если это регистрация по email
+        # 🔥 КРИПТОГРАФИЧЕСКИ СТОЙКИЙ 6-ЗНАЧНЫЙ КОД (от 100000 до 999999)
         verification_code = None
         if not phone and email:
-            verification_code = str(random.randint(100000, 999999))
+            verification_code = str(secrets.randbelow(900000) + 100000)
 
-        # 2. Передаем данные внутрь create_user
+        # Создаем пользователя
         user = User.objects.create_user(
             username=username,
             email=email,
             password=password if password else None,  
-            phone=phone, # Сюда теперь безопасно улетает None
+            phone=phone,
             region=validated_data.get('region', ''),
             is_active=False if not phone else True,  
             verification_code=verification_code,
         )
 
-        # 3. Теперь спокойно запускаем Celery
+        # Отправка письма с кодом через Celery
         if not phone and email and verification_code:
             try:
-                # Отправляем в Celery (раскомментируй таску в своем коде)
                 send_verification_email_task.delay(email, verification_code)
-                print(f"🚀 [Celery Отправка] Задача на отправку кода {verification_code} добавлена в очередь для {email}")
             except Exception as e:
-                print(f"❌ Ошибка при инициализации отправки через Celery: {e}")
+                print(f"❌ Ошибка отправки через Celery: {e}")
 
         return user
 
+    
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):

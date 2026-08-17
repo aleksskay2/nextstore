@@ -1,56 +1,71 @@
-# from django.core.management.base import BaseCommand
-# from django.utils import timezone
-# from datetime import timedelta
+# store/management/commands/clear_old_files.py
+from datetime import timedelta
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+from store.models import (
+    Story,
+    PrivateMessage,
+    PrivateMessageFile,
+    GroupMessage,
+    GroupMessageFile,
+    Message,
+    MessageFile,
+)
 
-# # 🔥 ЗАМЕНИ 'your_app_name' НА НАЗВАНИЕ ТВОЕГО ПРИЛОЖЕНИЯ
-# from store.models import (
-#     MessageFile, 
-#     MessageRegionFile, 
-#     PrivateMessageFile, 
-#     GroupMessageFile
-# )
+class Command(BaseCommand):
+    help = "Очистка устаревших историй (24ч) и старых сообщений с файлами (60 дней)"
 
-# class Command(BaseCommand):
-#     help = 'Удаляет медиафайлы старше 30 дней, оставляя сам текст сообщений'
+    def handle(self, *args, **options):
+        now = timezone.now()
+        self.stdout.write(self.style.NOTICE(f"🕒 Запуск очистки данных: {now.strftime('%Y-%m-%d %H:%M:%S')}"))
 
-#     def handle(self, *args, **kwargs):
-#         # 1. Вычисляем дату отсечения (ровно 30 дней назад от текущей секунды)
-#         cutoff_date = timezone.now() - timedelta(days=30)
-        
-#         self.stdout.write(f"🔍 Ищем файлы, отправленные до: {cutoff_date.strftime('%d.%m.%Y %H:%M')}")
+        # =========================================================================
+        # 1. ИСТОРИИ (Stories): Удаляем все, у которых expires_at уже наступил
+        # =========================================================================
+        expired_stories = Story.objects.filter(expires_at__lte=now)
+        stories_count = expired_stories.count()
 
-#         # Список моделей, которые нужно почистить
-#         file_models = [
-#             MessageFile,
-#             MessageRegionFile,
-#             PrivateMessageFile,
-#             GroupMessageFile
-#         ]
+        # Благодаря сигналам из signals.py файлы удалятся физически с диска
+        for story in expired_stories:
+            story.delete()
 
-#         total_deleted = 0
+        self.stdout.write(self.style.SUCCESS(f"✅ Истории: удалено {stories_count} шт."))
 
-#         for model in file_models:
-#             # 2. Ищем записи файлов, чье родительское сообщение старше 30 дней
-#             old_files = model.objects.filter(message__created_at__lt=cutoff_date)
-#             count = old_files.count()
+        # =========================================================================
+        # 2. ЧАТЫ ПО ТОВАРАМ (Message): Удаляем сообщения старше 60 дней
+        # =========================================================================
+        product_msgs_cutoff = now - timedelta(days=60)
+        old_product_msgs = Message.objects.filter(created_at__lt=product_msgs_cutoff)
+        product_msgs_count = old_product_msgs.count()
 
-#             if count > 0:
-#                 for obj in old_files:
-#                     # 3. Физически удаляем основной файл с жесткого диска
-#                     if obj.file:
-#                         obj.file.delete(save=False)
-                    
-#                     # 4. Физически удаляем thumbnail (миниатюру), если она есть
-#                     if hasattr(obj, 'thumbnail') and obj.thumbnail:
-#                         obj.thumbnail.delete(save=False)
-                    
-#                     # 5. Удаляем саму запись файла из базы данных 
-#                     # (Сам текст сообщения в родительской таблице останется!)
-#                     obj.delete()
+        # Каскадное удаление Message удалит связанные MessageFile и вызовет сигналы удаления файлов с SSD
+        for msg in old_product_msgs:
+            msg.delete()
 
-#                 total_deleted += count
-#                 self.stdout.write(self.style.SUCCESS(f"✅ Удалено {count} файлов из {model.__name__}"))
-#             else:
-#                 self.stdout.write(f"ℹ️ В {model.__name__} старых файлов не найдено.")
+        self.stdout.write(self.style.SUCCESS(f"✅ Чаты по товарам: удалено {product_msgs_count} сообщений."))
 
-#         self.stdout.write(self.style.SUCCESS(f"🚀 Очистка завершена! Всего удалено файлов: {total_deleted}"))
+        # =========================================================================
+        # 3. ПРИВАТНЫЕ СООБЩЕНИЯ (PrivateMessage): Старше 60 дней
+        # =========================================================================
+        pm_cutoff = now - timedelta(days=60)
+        old_pm = PrivateMessage.objects.filter(created_at__lt=pm_cutoff)
+        pm_count = old_pm.count()
+
+        for msg in old_pm:
+            msg.delete()
+
+        self.stdout.write(self.style.SUCCESS(f"✅ Приватные сообщения: удалено {pm_count} сообщений."))
+
+        # =========================================================================
+        # 4. ГРУППОВЫЕ СООБЩЕНИЯ (GroupMessage): Старше 60 дней
+        # =========================================================================
+        group_cutoff = now - timedelta(days=60)
+        old_group_msgs = GroupMessage.objects.filter(created_at__lt=group_cutoff)
+        group_msgs_count = old_group_msgs.count()
+
+        for msg in old_group_msgs:
+            msg.delete()
+
+        self.stdout.write(self.style.SUCCESS(f"✅ Групповые сообщения: удалено {group_msgs_count} сообщений."))
+
+        self.stdout.write(self.style.SUCCESS("🎉 Очистка сервера успешно завершена!"))
