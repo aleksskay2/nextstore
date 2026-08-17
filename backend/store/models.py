@@ -1115,19 +1115,37 @@ class GroupMessageFile(models.Model):
 
 
 # models.py
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
+
 class Story(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL,
-    on_delete=models.CASCADE, related_name="stories")
-    media = models.FileField(upload_to="stories/")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE, 
+        related_name="stories"
+    )
+    # Сделали null=True, blank=True, чтобы можно было создавать текстовые истории без картинок/видео
+    media = models.FileField(upload_to="stories/", null=True, blank=True)
+    
+    # 🔥 Новые поля для текста и стилей
+    text = models.TextField(blank=True, null=True)
+    background_color = models.CharField(max_length=30, default="#000000", blank=True) # Цвет фона для текстовых сторис
+
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(db_index=True)
-
     is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         if not self.expires_at:
             self.expires_at = timezone.now() + timedelta(hours=24)
         super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['-created_at']
+
+        
 
 class StoryView(models.Model):
     story = models.ForeignKey(Story, on_delete=models.CASCADE, related_name="views")

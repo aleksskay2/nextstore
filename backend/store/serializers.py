@@ -841,9 +841,9 @@ class PrivateMessageFileSerializer(serializers.ModelSerializer):
         return self._get_absolute_url(obj.thumbnail, request)
 
 
-
-
-
+import os
+import tempfile
+import ffmpeg
 
 class StoryUserSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
@@ -853,65 +853,87 @@ class StoryUserSerializer(serializers.ModelSerializer):
         fields = ("id", "username", "avatar")
 
     def get_avatar(self, obj):
+        if not obj.avatar:
+            return None
+        
         request = self.context.get("request")
-        if obj.avatar:
+        # 🔥 Безопасное формирование URL (не падает, если request отсутствует)
+        if request:
             return request.build_absolute_uri(obj.avatar.url)
-        return None
+        return obj.avatar.url
 
-
-import tempfile
-import os
-from django.conf import settings
-from rest_framework import serializers
 
 class StoryCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Story
-        fields = ("id", "media")
+        # 🔥 Добавлены text и background_color
+        fields = ("id", "media", "text", "background_color")
+        extra_kwargs = {
+            "media": {"required": False, "allow_null": True},
+            "text": {"required": False, "allow_blank": True, "allow_null": True},
+            "background_color": {"required": False},
+        }
 
-
-        
-    def validate_video(self, media):
-        max_size = settings.STORY_VIDEO_MAX_SIZE_MB * 1024 * 1024
-        if media.size > max_size:
-            raise serializers.ValidationError(
-                f"Видео не должно превышать {settings.STORY_VIDEO_MAX_SIZE_MB} MB"
-            )
-
-        # ===== сохраняем во временный файл =====
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-                for chunk in media.chunks():
-                    tmp.write(chunk)
-                tmp_path = tmp.name
-
-            with VideoFileClip(tmp_path) as clip:
-                duration = clip.duration
-
-        except Exception as e:
-            raise serializers.ValidationError("Не удалось прочитать видео")
-
-        finally:
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
-
-        if duration > settings.STORY_VIDEO_MAX_DURATION:
-            raise serializers.ValidationError(
-                f"Видео не должно быть длиннее {settings.STORY_VIDEO_MAX_DURATION} секунд"
-            )
-   
-   
     def validate_media(self, media):
-        content_type = media.content_type
+        if not media:
+            return media
 
-        # ===== Проверка: это видео? =====
-        if content_type.startswith("video"):
-            self.validate_video(media)
+        max_size_mb = getattr(settings, "STORY_VIDEO_MAX_SIZE_MB", 50)
+        max_size_bytes = max_size_mb * 1024 * 1024
+
+        if media.size > max_size_bytes:
+            raise serializers.ValidationError(
+                f"Файл не должен превышать {max_size_mb} MB"
+            )
+
+        content_type = getattr(media, "content_type", "")
+        file_name = getattr(media, "name", "").lower()
+
+        # 🔥 Проверка: это видеофайл?
+        if content_type.startswith("video") or file_name.endswith((".mp4", ".mov", ".avi", ".webm", ".mkv")):
+            tmp_path = None
+            try:
+                suffix = os.path.splitext(file_name)[1] or ".mp4"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    for chunk in media.chunks():
+                        tmp.write(chunk)
+                    tmp_path = tmp.name
+
+                # Читаем метаданные через быстрый ffmpeg.probe
+                probe = ffmpeg.probe(tmp_path)
+                duration = float(probe.get("format", {}).get("duration", 0))
+
+                max_duration = getattr(settings, "STORY_VIDEO_MAX_DURATION", 60)
+                if duration > max_duration:
+                    raise serializers.ValidationError(
+                        f"Видео не должно быть длиннее {max_duration} секунд (текущая длина: {int(duration)} сек)."
+                    )
+
+            except serializers.ValidationError:
+                raise
+            except Exception:
+                raise serializers.ValidationError("Не удалось прочитать или проверить формат видеофайла.")
+            finally:
+                # Безопасное удаление временного файла
+                if tmp_path and os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
 
         return media
 
+    def validate(self, attrs):
+        media = attrs.get("media")
+        text = attrs.get("text")
+
+        # 🔥 Защита от создания полностью пустой истории
+        if not media and (not text or not text.strip()):
+            raise serializers.ValidationError(
+                "История должна содержать либо медиафайл (фото/видео), либо текст."
+            )
+
+        return attrs
 
 
 # class StoryListSerializer(serializers.ModelSerializer):

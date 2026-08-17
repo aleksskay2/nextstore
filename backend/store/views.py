@@ -2500,56 +2500,42 @@ class ChatSummaryViewSet(viewsets.ViewSet):
 from django.db.models import Prefetch
 
 
-
-
 class StoryViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
-    http_method_names = ["get", "post", "delete"] 
-
-  
+    http_method_names = ["get", "post", "delete"]
 
     def get_queryset(self):
         user = self.request.user
+        now = timezone.now()
 
-        # 1) подписки
+        # 1. ID пользователей, на которых подписан текущий юзер (без лишнего выполнения запроса)
         following_ids = Follow.objects.filter(
             follower=user
         ).values_list("following_id", flat=True)
 
-        # 2) подзапрос: проверяем не просмотренные сторис
-        # 🔥 ИСПРАВЛЕНО: используем user_id=OuterRef("user_id") для стабильности в сложных запросах
+        # 2. Подзапрос: есть ли непросмотренные активные сторис у автора
         unviewed_qs = Story.objects.filter(
             user_id=OuterRef("user_id"),
             is_active=True,
-            expires_at__gt=timezone.now()
+            expires_at__gt=now
         ).exclude(
             views__user=user
         )
 
-        # 3) аннотация: дата последней сторис
-        # 🔥 ИСПРАВЛЕНО: группируем по user_id
-        last_story_at = Story.objects.filter(
+        # 3. Подзапрос: дата самой свежей сторис автора (быстро и без GROUP BY)
+        last_story_subquery = Story.objects.filter(
             user_id=OuterRef("user_id"),
             is_active=True,
-            expires_at__gt=timezone.now()
-        ).values("user_id").annotate(
-            last_at=Max("created_at")
-        ).values("last_at")
+            expires_at__gt=now
+        ).order_by("-created_at").values("created_at")[:1]
 
-        # Базовый кверисет активных сторис
-        queryset = Story.objects.filter(
-            is_active=True,
-            expires_at__gt=timezone.now()
-        )
-
-        # 🔥 ИСПРАВЛЕНО: если подписок нет, не ломаем SQL-запрос тяжелыми аннотациями,
-        # а возвращаем пустой результат или только свои (в зависимости от логики приложения)
-        if not following_ids.exists():
-            return queryset.none()  # Или верни все, если у тебя открытая лента
-
+        # Базовый кверисет активных сторис подписок
         return (
-            queryset
-            .filter(user_id__in=following_ids)
+            Story.objects.filter(
+                user_id__in=following_ids,
+                is_active=True,
+                expires_at__gt=now
+            )
             .select_related("user")
             .prefetch_related(
                 Prefetch(
@@ -2559,29 +2545,10 @@ class StoryViewSet(viewsets.ModelViewSet):
             )
             .annotate(
                 has_unviewed=Exists(unviewed_qs),
-                last_story_at=Subquery(last_story_at)
+                last_story_at=Subquery(last_story_subquery)
             )
             .order_by("-has_unviewed", "-last_story_at", "-created_at", "user_id")
         )
-
-
-
-    @action(detail=False, methods=["get"], url_path="mine")
-    def my_stories(self, request):
-        """Возвращает только сторис текущего пользователя"""
-        user = request.user
-        
-        # 🔥 ИСПРАВЛЕНО: Фильтруем строго по объекту или id, исключая падения
-        stories = Story.objects.filter(
-            user_id=user.id,
-            is_active=True,
-            expires_at__gt=timezone.now()
-        ).order_by("-created_at")
-
-        serializer = StoryListSerializer(stories, many=True, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -2589,10 +2556,10 @@ class StoryViewSet(viewsets.ModelViewSet):
         return StoryListSerializer
 
     def perform_create(self, serializer):
-        story = serializer.save(user=self.request.user)  
+        story = serializer.save(user=self.request.user)
 
+        # WebSocket-уведомление подписчикам о новой сторис
         channel_layer = get_channel_layer()
-
         follower_ids = Follow.objects.filter(
             following=self.request.user
         ).values_list("follower_id", flat=True)
@@ -2607,19 +2574,36 @@ class StoryViewSet(viewsets.ModelViewSet):
                 }
             )
 
-    
-      # ========================== NEW ==========================
-    from django.shortcuts import get_object_or_404
+    @action(detail=False, methods=["get"], url_path="mine")
+    def my_stories(self, request):
+        """Возвращает только активные сторис текущего пользователя"""
+        stories = Story.objects.filter(
+            user=request.user,
+            is_active=True,
+            expires_at__gt=timezone.now()
+        ).order_by("-created_at")
+
+        serializer = StoryListSerializer(stories, many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="view")
     def mark_viewed(self, request, pk=None):
-        story = get_object_or_404(Story, pk=pk)
+        """Отметка о просмотре сторис"""
+        # 🔥 Проверяем, что история активна и не истекла
+        story = get_object_or_404(
+            Story, 
+            pk=pk, 
+            is_active=True, 
+            expires_at__gt=timezone.now()
+        )
 
-        # Не ставим viewed на свои сторис
-        if story.user == request.user:
-            return Response({"status": "cannot_view_own_story"}, status=400)
+        # Не засчитываем просмотр своей собственной истории
+        if story.user_id == request.user.id:
+            return Response(
+                {"status": "cannot_view_own_story"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Проверяем, если уже есть view для этого пользователя
         story_view, created = StoryView.objects.get_or_create(
             story=story,
             user=request.user
@@ -2627,9 +2611,6 @@ class StoryViewSet(viewsets.ModelViewSet):
 
         if created:
             channel_layer = get_channel_layer()
-
-            # 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ: Используем сериализатор 🔥
-            # Обязательно передаем context={"request": request}, чтобы DRF смог собрать полные (абсолютные) URL
             viewer_data = StoryViewerSerializer(story_view, context={"request": request}).data
 
             async_to_sync(channel_layer.group_send)(
@@ -2637,29 +2618,26 @@ class StoryViewSet(viewsets.ModelViewSet):
                 {
                     "type": "story_viewed",
                     "story_id": story.id,
-                    "viewer": viewer_data, # 👈 Отправляем идеально отформатированные данные
+                    "viewer": viewer_data,
                 }
             )
+            return Response({"status": "viewed"}, status=status.HTTP_201_CREATED)
 
-        if created:
-            return Response({"status": "viewed"}, status=201)
-        else:
-            return Response({"status": "already_viewed"}, status=200)
-
-    
+        return Response({"status": "already_viewed"}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="viewers")
     def viewers(self, request, pk=None):
-        # 🔹 разрешаем получить viewers для своих сторис, даже если story не в get_queryset()
-        story = get_object_or_404(Story, pk=pk)
+        """Список зрителей сторис (доступен ТОЛЬКО автору истории)"""
+        # 🔥 Защита: смотрим зрителей только СВОЕЙ истории
+        story = get_object_or_404(Story, pk=pk, user=request.user)
 
         views = StoryView.objects.filter(story=story).select_related("user").order_by("-viewed_at")
         serializer = StoryViewerSerializer(views, many=True, context={"request": request})
-        return Response(serializer.data)
-
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["delete"], url_path="delete")
     def delete_story(self, request, pk=None):
+        """Мягкое удаление своей истории"""
         story = get_object_or_404(
             Story,
             id=pk,
@@ -2667,16 +2645,15 @@ class StoryViewSet(viewsets.ModelViewSet):
             is_active=True
         )
 
-        # soft delete
         story.is_active = False
         story.save(update_fields=["is_active"])
 
-        # 🔥 уведомляем подписчиков
         channel_layer = get_channel_layer()
-
-        follower_ids = Follow.objects.filter(
-            following=request.user
-        ).values_list("follower_id", flat=True)
+        follower_ids = list(
+            Follow.objects.filter(following=request.user).values_list("follower_id", flat=True)
+        )
+        # Добавляем самого автора, чтобы сторис исчезла на всех его открытых вкладках/устройствах
+        follower_ids.append(request.user.id)
 
         for uid in follower_ids:
             async_to_sync(channel_layer.group_send)(
@@ -2688,18 +2665,7 @@ class StoryViewSet(viewsets.ModelViewSet):
                 }
             )
 
-        # 🔥 уведомляем СЕБЯ (чтобы сразу пропало)
-        async_to_sync(channel_layer.group_send)(
-            f"user_{request.user.id}",
-            {
-                "type": "story_deleted",
-                "story_id": story.id,
-                "author_id": request.user.id,
-            }
-        )
-
-        return Response({"status": "deleted"})
-
+        return Response({"status": "deleted"}, status=status.HTTP_200_OK)
 
 
 
