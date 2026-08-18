@@ -1057,6 +1057,7 @@ class StoryReplySerializer(serializers.ModelSerializer):
         return f"{backend_url}{obj.media.url}"
 
     def get_thumbnail(self, obj):
+        print('obj.thumbnail.url --', obj.thumbnail.url)
         # 🔥 Безопасно отдаем thumbnail, если такое поле есть в модели Story и файл существует
         if hasattr(obj, 'thumbnail') and obj.thumbnail:
             request = self.context.get("request")
