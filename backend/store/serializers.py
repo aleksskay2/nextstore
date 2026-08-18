@@ -1063,6 +1063,7 @@ class StoryReplySerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.thumbnail.url)
             backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online')
+            print('obj.thumbnail.url --', obj.thumbnail.url)
             return f"{backend_url}{obj.thumbnail.url}"
         return None
 
