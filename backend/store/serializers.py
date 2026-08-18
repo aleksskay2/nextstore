@@ -1025,67 +1025,38 @@ class StoryListSerializer(serializers.ModelSerializer):
         return obj.views.filter(user=request.user).exists()
 
 
-    
-# 3. Сериализатор истории при ответе в личных сообщениях
-class StoryReplySerializer(serializers.ModelSerializer):
-    media = serializers.SerializerMethodField()
-    thumbnail = serializers.SerializerMethodField()  # 🔥 Добавили извлечение превью
-    file_type = serializers.SerializerMethodField()  # 🔥 Добавили явную передачу типа
-
-    class Meta:
-        model = Story
-        fields = (
-            "id",
-            "media",
-            "thumbnail",          # 🔥 Выводим в JSON
-            "file_type",          # 🔥 Выводим в JSON
-            "text",               
-            "background_color",   
-            "created_at",
-        )
-
-    def get_media(self, obj):
-        if not obj.media:
-            return None
-        request = self.context.get("request")
-        if request:
-            return request.build_absolute_uri(obj.media.url)
-        
-        # 🔥 Если это WebSockets (нет request), используем BACKEND_URL, 
-        # иначе фронт получит просто /media/stories/... и упадет
-        backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online')
-        return f"{backend_url}{obj.media.url}"
-
     def get_thumbnail(self, obj):
-        print ('before')
-        # 🔥 Безопасно отдаем thumbnail, если такое поле есть в модели Story и файл существует
+        print('before')
+        
+        # 1. Если превью есть в БД
         if hasattr(obj, 'thumbnail') and obj.thumbnail:
             request = self.context.get("request")
             print('after')
             if request:
                 return request.build_absolute_uri(obj.thumbnail.url)
-            backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online')
+            backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online').rstrip('/')
             print('obj.thumbnail.url --', obj.thumbnail.url)
             return f"{backend_url}{obj.thumbnail.url}"
-        return None
-
-    def get_file_type(self, obj):
-        # 🔥 Если в модели Story есть поле file_type — отдаем его
-        if hasattr(obj, 'file_type') and obj.file_type:
-            return obj.file_type
         
-        # 🔥 Фолбек: если поля нет, вычисляем по расширению файла.
-        # Это гарантирует, что фронтенд всегда получит "video" или "image"
-        if obj.media:
-            name = str(obj.media.name).lower()
-            if name.endswith(('.mp4', '.mov', '.avi', '.mkv')):
-                return 'video'
-            return 'image'
-        
-        # Если только текст (нет медиа)
-        if obj.text:
-            return 'text'
+        # 2. 🔥 ФОЛБЕК: Если превью в БД НЕТ, но это ВИДЕО
+        file_type = self.get_file_type(obj)
+        if file_type == 'video' and obj.media:
+            request = self.context.get("request")
             
+            # Получаем базовую ссылку на видео
+            if request:
+                media_url = request.build_absolute_uri(obj.media.url)
+            else:
+                backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online').rstrip('/')
+                media_url = f"{backend_url}{obj.media.url}"
+            
+            # Меняем расширение (.mp4, .webm и т.д.) на .jpg
+            base_url, ext = os.path.splitext(media_url)
+            generated_thumb_url = f"{base_url}.jpg"
+            print('Сгенерировали thumbnail из видео:', generated_thumb_url)
+            return generated_thumb_url
+
+        # 3. Если это не видео и превью нет
         return None
 
 
