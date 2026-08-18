@@ -1025,17 +1025,22 @@ class StoryListSerializer(serializers.ModelSerializer):
         return obj.views.filter(user=request.user).exists()
 
 
-# 3. Сериализатор истории при ответе в личных сообщениях (Story Reply в чате)
+    
+# 3. Сериализатор истории при ответе в личных сообщениях
 class StoryReplySerializer(serializers.ModelSerializer):
     media = serializers.SerializerMethodField()
+    thumbnail = serializers.SerializerMethodField()  # 🔥 Добавили извлечение превью
+    file_type = serializers.SerializerMethodField()  # 🔥 Добавили явную передачу типа
 
     class Meta:
         model = Story
         fields = (
             "id",
             "media",
-            "text",               # 🔥 Добавлено: чтобы в ответе на текстовую сторис был виден текст
-            "background_color",   # 🔥 Добавлено
+            "thumbnail",          # 🔥 Выводим в JSON
+            "file_type",          # 🔥 Выводим в JSON
+            "text",               
+            "background_color",   
             "created_at",
         )
 
@@ -1045,7 +1050,40 @@ class StoryReplySerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request:
             return request.build_absolute_uri(obj.media.url)
-        return obj.media.url
+        
+        # 🔥 Если это WebSockets (нет request), используем BACKEND_URL, 
+        # иначе фронт получит просто /media/stories/... и упадет
+        backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online')
+        return f"{backend_url}{obj.media.url}"
+
+    def get_thumbnail(self, obj):
+        # 🔥 Безопасно отдаем thumbnail, если такое поле есть в модели Story и файл существует
+        if hasattr(obj, 'thumbnail') and obj.thumbnail:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.thumbnail.url)
+            backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online')
+            return f"{backend_url}{obj.thumbnail.url}"
+        return None
+
+    def get_file_type(self, obj):
+        # 🔥 Если в модели Story есть поле file_type — отдаем его
+        if hasattr(obj, 'file_type') and obj.file_type:
+            return obj.file_type
+        
+        # 🔥 Фолбек: если поля нет, вычисляем по расширению файла.
+        # Это гарантирует, что фронтенд всегда получит "video" или "image"
+        if obj.media:
+            name = str(obj.media.name).lower()
+            if name.endswith(('.mp4', '.mov', '.avi', '.mkv')):
+                return 'video'
+            return 'image'
+        
+        # Если только текст (нет медиа)
+        if obj.text:
+            return 'text'
+            
+        return None
 
 
 class PrivateMessageSerializer(serializers.ModelSerializer):
