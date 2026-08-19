@@ -1062,55 +1062,63 @@ class StoryReplySerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online').rstrip('/')
         
-        # 1. Если у истории уже есть физически сохраненное превью (база данных)
+        # 1. Проверяем, есть ли превью в БД, И СУЩЕСТВУЕТ ЛИ ФАЙЛ ФИЗИЧЕСКИ
         if hasattr(obj, 'thumbnail') and obj.thumbnail:
-            if request:
-                return request.build_absolute_uri(obj.thumbnail.url)
-            return f"{backend_url}{obj.thumbnail.url}"
+            try:
+                # 🔥 Жесткая проверка: есть ли файл реально на диске сервера?
+                if os.path.exists(obj.thumbnail.path):
+                    if request:
+                        return request.build_absolute_uri(obj.thumbnail.url)
+                    return f"{backend_url}{obj.thumbnail.url}"
+                else:
+                    print(f"⚠️ Файл превью в БД есть, но на диске отсутствует! Будет пересоздан для #{obj.id}")
+            except Exception as e:
+                pass # Если S3 или ошибка пути - идем дальше генерировать
 
-        # 2. Если превью нет, но это видео — ГЕНЕРИРУЕМ ЕГО ФИЗИЧЕСКИ
+        # 2. Если превью нет ИЛИ оно битое, ГЕНЕРИРУЕМ ФИЗИЧЕСКИ (OpenCV)
         file_type = self.get_file_type(obj)
         if file_type == 'video' and obj.media:
             try:
-                # Получаем абсолютный путь к видеофайлу на сервере
                 video_path = obj.media.path
                 
-                # Захватываем видео через OpenCV
+                # Проверяем, что само видео физически существует на сервере
+                if not os.path.exists(video_path):
+                    return None
+                    
                 cap = cv2.VideoCapture(video_path)
                 success, frame = cap.read()
                 
                 if success:
-                    # Конвертируем кадр в JPG
                     ret, buffer = cv2.imencode('.jpg', frame)
-                    
                     if ret:
                         content = ContentFile(buffer.tobytes())
-                        
-                        # Формируем название картинки (напр. video123_thumb.jpg)
                         base_name = os.path.basename(obj.media.name)
+                        # 🔥 Добавляем _thumb.jpg, чтобы точно знать, что сработал этот код
                         thumb_name = f"{os.path.splitext(base_name)[0]}_thumb.jpg"
                         
-                        # 🔥 Физически сохраняем файл в модель (save=True обновит и БД)
+                        # Сохраняем поверх старой битой записи
                         obj.thumbnail.save(thumb_name, content, save=True)
-                        print(f"✅ Успешно сгенерировано превью для истории #{obj.id}")
+                        print(f"✅ Успешно пересоздано превью: {thumb_name}")
                         
-                        # Возвращаем РЕАЛЬНУЮ созданную ссылку
                         if request:
                             return request.build_absolute_uri(obj.thumbnail.url)
                         return f"{backend_url}{obj.thumbnail.url}"
                 
                 cap.release()
             except Exception as e:
-                print(f"❌ Ошибка генерации превью в Serializer: {e}")
-                return None # Возвращаем None, чтобы фронтенд не пытался грузить 404
+                print(f"❌ Ошибка OpenCV при генерации превью: {e}")
+                return None
 
-        # 3. Для изображений без отдельного превью возвращаем саму картинку
+        # 3. Для изображений
         if file_type == 'image' and obj.media:
             if request:
                 return request.build_absolute_uri(obj.media.url)
             return f"{backend_url}{obj.media.url}"
 
+        # Если ничего не помогло (генерация упала) - отдаем null, 
+        # чтобы фронт не пытался грузить 404
         return None
+
 
     def get_file_type(self, obj):
         if hasattr(obj, 'file_type') and obj.file_type:
