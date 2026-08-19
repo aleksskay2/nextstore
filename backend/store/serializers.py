@@ -1023,8 +1023,9 @@ class StoryListSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return obj.views.filter(user=request.user).exists()
-
 import os
+import cv2  # Убедитесь, что установлен opencv-python-headless
+from django.core.files.base import ContentFile
 from rest_framework import serializers
 from django.conf import settings
 
@@ -1034,7 +1035,8 @@ class StoryReplySerializer(serializers.ModelSerializer):
     file_type = serializers.SerializerMethodField()
 
     class Meta:
-        model = Story
+        # Укажите вашу модель Story
+        # model = Story 
         fields = (
             "id",
             "media",
@@ -1060,23 +1062,47 @@ class StoryReplySerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online').rstrip('/')
         
-        # 1. Если у истории явно сохранено превью в модели
+        # 1. Если у истории уже есть физически сохраненное превью (база данных)
         if hasattr(obj, 'thumbnail') and obj.thumbnail:
             if request:
                 return request.build_absolute_uri(obj.thumbnail.url)
             return f"{backend_url}{obj.thumbnail.url}"
 
-        # 2. Если превью нет, но это видео — формируем ссылку на .jpg по аналогии с файлами
+        # 2. Если превью нет, но это видео — ГЕНЕРИРУЕМ ЕГО ФИЗИЧЕСКИ
         file_type = self.get_file_type(obj)
         if file_type == 'video' and obj.media:
-            if request:
-                media_url = request.build_absolute_uri(obj.media.url)
-            else:
-                media_url = f"{backend_url}{obj.media.url}"
-            
-            # Меняем расширение видео на .jpg
-            base_url, _ = os.path.splitext(media_url)
-            return f"{base_url}.jpg"
+            try:
+                # Получаем абсолютный путь к видеофайлу на сервере
+                video_path = obj.media.path
+                
+                # Захватываем видео через OpenCV
+                cap = cv2.VideoCapture(video_path)
+                success, frame = cap.read()
+                
+                if success:
+                    # Конвертируем кадр в JPG
+                    ret, buffer = cv2.imencode('.jpg', frame)
+                    
+                    if ret:
+                        content = ContentFile(buffer.tobytes())
+                        
+                        # Формируем название картинки (напр. video123_thumb.jpg)
+                        base_name = os.path.basename(obj.media.name)
+                        thumb_name = f"{os.path.splitext(base_name)[0]}_thumb.jpg"
+                        
+                        # 🔥 Физически сохраняем файл в модель (save=True обновит и БД)
+                        obj.thumbnail.save(thumb_name, content, save=True)
+                        print(f"✅ Успешно сгенерировано превью для истории #{obj.id}")
+                        
+                        # Возвращаем РЕАЛЬНУЮ созданную ссылку
+                        if request:
+                            return request.build_absolute_uri(obj.thumbnail.url)
+                        return f"{backend_url}{obj.thumbnail.url}"
+                
+                cap.release()
+            except Exception as e:
+                print(f"❌ Ошибка генерации превью в Serializer: {e}")
+                return None # Возвращаем None, чтобы фронтенд не пытался грузить 404
 
         # 3. Для изображений без отдельного превью возвращаем саму картинку
         if file_type == 'image' and obj.media:
@@ -1100,7 +1126,6 @@ class StoryReplySerializer(serializers.ModelSerializer):
             return 'text'
             
         return None
-
 
 class PrivateMessageSerializer(serializers.ModelSerializer):
     files = PrivateMessageFileSerializer(many=True, read_only=True)
