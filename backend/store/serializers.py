@@ -1023,6 +1023,9 @@ class StoryListSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return obj.views.filter(user=request.user).exists()
+
+
+
 import os
 import cv2  # Убедитесь, что установлен opencv-python-headless
 from django.core.files.base import ContentFile
@@ -1036,7 +1039,7 @@ class StoryReplySerializer(serializers.ModelSerializer):
 
     class Meta:
         # Укажите вашу модель Story
-        # model = Story 
+        model = Story 
         fields = (
             "id",
             "media",
