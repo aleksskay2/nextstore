@@ -1119,19 +1119,19 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
-
 class Story(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE, 
         related_name="stories"
     )
-    # Сделали null=True, blank=True, чтобы можно было создавать текстовые истории без картинок/видео
     media = models.FileField(upload_to="stories/", null=True, blank=True)
     
-    # 🔥 Новые поля для текста и стилей
+    # 🔥 Добавьте это поле
+    thumbnail = models.ImageField(upload_to="stories/thumbnails/", null=True, blank=True)
+    
     text = models.TextField(blank=True, null=True)
-    background_color = models.CharField(max_length=30, default="#000000", blank=True) # Цвет фона для текстовых сторис
+    background_color = models.CharField(max_length=30, default="#000000", blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(db_index=True)
@@ -1144,7 +1144,6 @@ class Story(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-
         
 
 class StoryView(models.Model):
