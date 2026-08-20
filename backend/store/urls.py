@@ -40,11 +40,13 @@ router.register(r'webrtc', WebRTCCredentialsViewSet, basename='webrtc')
 
 
 urlpatterns = [
+    path("contacts/sync/", SyncContactsView.as_view(), name="sync-contacts"),
+
     path('register/', RegisterView.as_view()),
     path('firebase-phone/', FirebasePhoneAuthView.as_view(), name='firebase_phone_auth'), # 👈 Добавили сюда
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('user/', UserInfoView.as_view(),  name='user-info'),
-    path("contacts/sync/", SyncContactsView.as_view(), name="sync-contacts"),
+
 
     path('password-reset/request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
