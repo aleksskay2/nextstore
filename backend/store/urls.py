@@ -9,7 +9,7 @@ from .views import FCMDeviceViewSet
 from .consumers import PrivateChatConsumer , ProductChatConsumer
 
 from .views import CustomTokenObtainPairView, MessageRegionChatViewSet, StoryViewSet, ChatSummaryViewSet, SearchUserViewSet, UserInfoView, EditUserProductViewSet
-from .views import CategoryViewSet, ActivateAccountView, WebRTCCredentialsViewSet, PasswordResetConfirmView, PasswordResetRequestView, VerifyEmailView, FollowViewSet, FirebasePhoneAuthView, GroupMessageViewSet, SearchGroupsView, GroupViewSet, CustomUserViewSet, PrivateMessageViewSet, ProductVipViewSet, ResendActivationView, ProductReviewViewSet, CategoryFeaturesView, MessageViewSet, FeatureProductViewSet, BookmarkViewSet, OwnerProductViewSet, MyProductViewSet, LogoutView
+from .views import CategoryViewSet, ActivateAccountView, SyncContactsView, WebRTCCredentialsViewSet, PasswordResetConfirmView, PasswordResetRequestView, VerifyEmailView, FollowViewSet, FirebasePhoneAuthView, GroupMessageViewSet, SearchGroupsView, GroupViewSet, CustomUserViewSet, PrivateMessageViewSet, ProductVipViewSet, ResendActivationView, ProductReviewViewSet, CategoryFeaturesView, MessageViewSet, FeatureProductViewSet, BookmarkViewSet, OwnerProductViewSet, MyProductViewSet, LogoutView
  
 router = DefaultRouter()
 router.register(r'owner-products', OwnerProductViewSet, basename='owner-products')
@@ -44,6 +44,7 @@ urlpatterns = [
     path('firebase-phone/', FirebasePhoneAuthView.as_view(), name='firebase_phone_auth'), # 👈 Добавили сюда
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('user/', UserInfoView.as_view(),  name='user-info'),
+    path("contacts/sync/", SyncContactsView.as_view(), name="sync-contacts"),
 
     path('password-reset/request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),

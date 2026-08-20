@@ -29,6 +29,10 @@ class CustomUser(AbstractUser):
         return self.username
 
 
+
+
+
+
 class FCMDevice(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='devices')
     expo_push_token = models.CharField(max_length=255, unique=True)

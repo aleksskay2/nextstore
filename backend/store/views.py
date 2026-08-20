@@ -54,7 +54,7 @@ from rest_framework import viewsets, filters, permissions, serializers
 from .models import  PrivateMessage, MessageRegionFile, Admins, MessageFile, Product, Message, MessageRegionChat, FeatureTemplate, ProductImage, ProductReview, Bookmark,SelectionObject, Regions, Category, FeatureProduct, CustomUser
 from .models import Group, GroupMember,  GroupMessage, GroupMessageFile, Follow
 from .models import Story, StoryView
-from .serializers import AdminsSerializer, StoryViewerSerializer,PrivateMessageFile, MessageRegionChatSerializer,  FollowSerializer, GroupUpdateSerializer,GroupDetailSerializer, CustomUserSerializer, GroupCreateSerializer, GroupListSerializer, PrivateMessageSerializer, FeatureTemplateSerializer, ProductListSerializer, ProductDetailSerializer, ProductImagesSerializer, ProductReviewSerializer, MessageSerializer, BookmarkSerializer,  SelectionObjectSerializer, RegionsSerializer
+from .serializers import AdminsSerializer, StoryViewerSerializer, UserContactSerializer, PrivateMessageFile, MessageRegionChatSerializer,  FollowSerializer, GroupUpdateSerializer,GroupDetailSerializer, CustomUserSerializer, GroupCreateSerializer, GroupListSerializer, PrivateMessageSerializer, FeatureTemplateSerializer, ProductListSerializer, ProductDetailSerializer, ProductImagesSerializer, ProductReviewSerializer, MessageSerializer, BookmarkSerializer,  SelectionObjectSerializer, RegionsSerializer
 from .serializers import GroupMemberSerializer
 from .serializers import StoryCreateSerializer, StoryListSerializer
 from .serializers import (
@@ -283,6 +283,31 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         cache.set(cache_key, payload, timeout=60)
 
         return Response(payload, status=status.HTTP_200_OK)
+
+
+
+
+
+User = get_user_model()
+
+class SyncContactsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        phone_numbers = request.data.get("phones", [])
+        if not isinstance(phone_numbers, list):
+            return Response({"error": "Ожидается список телефонов"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Поиск зарегистрированных пользователей (исключая себя)
+        registered_users = User.objects.filter(
+            phone__in=phone_numbers
+        ).exclude(id=request.user.id).only("id", "username", "phone", "avatar", "region")
+
+        serializer = UserContactSerializer(registered_users, many=True, context={"request": request})
+        return Response({"registered_contacts": serializer.data}, status=status.HTTP_200_OK)
+
+
+
 
 
 class VerifyEmailView(APIView):

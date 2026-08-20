@@ -164,6 +164,22 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
 
 
+class UserContactSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "phone", "avatar", "region")
+
+    def get_avatar(self, obj):
+        if not obj.avatar:
+            return None
+        request = self.context.get("request")
+        backend_url = getattr(settings, 'BACKEND_URL', 'https://201.34.128.186.sslip.io').rstrip('/')
+        if request:
+            return request.build_absolute_uri(obj.avatar.url)
+        return f"{backend_url}{obj.avatar.url}"
+
 
 
 
