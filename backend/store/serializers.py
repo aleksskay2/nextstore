@@ -1607,10 +1607,11 @@ from django.conf import settings
 class StoryViewerSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username")
     avatar = serializers.SerializerMethodField()
+    is_liked = serializers.BooleanField(read_only=True, default=False) # 🔥 Добавляем поле лайка
 
     class Meta:
         model = StoryView
-        fields = ("id", "username", "avatar", "viewed_at")
+        fields = ("id", "user", "viewed_at", "is_liked", "username", "avatar") # Не забудьте добавить в fields
 
     def get_avatar(self, obj):
         avatar = obj.user.avatar

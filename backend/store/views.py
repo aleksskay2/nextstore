@@ -2730,18 +2730,25 @@ class StoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="viewers")
     def viewers(self, request, pk=None):
-        """Список зрителей сторис (автор исключается из этого списка)"""
+        """Список зрителей сторис с проверкой, кто из них поставил лайк"""
         story = get_object_or_404(Story, pk=pk, user=request.user)
 
-        # ✅ Исключаем самого автора из списка просмотров
+        # ✅ Исключаем самого автора и проверяем наличие лайка от каждого зрителя
         views = (
             StoryView.objects.filter(story=story)
             .exclude(user=request.user)
             .select_related("user")
+            .annotate(
+                is_liked=Exists(
+                    StoryLike.objects.filter(story=story, user=OuterRef("user_id"))
+                )
+            )
             .order_by("-viewed_at")
         )
         serializer = StoryViewerSerializer(views, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 
     @action(detail=True, methods=["delete"], url_path="delete")
     def delete_story(self, request, pk=None):
