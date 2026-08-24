@@ -1814,6 +1814,18 @@ class GroupMessagePagination(PageNumberPagination):
     page_size = 50
     page_size_query_param = "page_size"
     max_page_size = 50
+from django.db.models import Count, Case, When, BooleanField # 🔥 Добавьте эти импорты
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import viewsets, permissions, status
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+class GroupMessagePagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = "page_size"
+    max_page_size = 50
 
 class GroupMessageViewSet(viewsets.ModelViewSet):
     serializer_class = GroupMessageSerializer
@@ -1821,24 +1833,34 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
     pagination_class = GroupMessagePagination
 
     def get_queryset(self):
-        if self.action in ["retrieve", "destroy", "mark_read"]:
+        if self.action in ["retrieve", "destroy", "mark_read", "mark_audio_listened"]:
             return GroupMessage.objects.all()
 
         group_id = self.request.query_params.get("group")
         if not group_id:
             return GroupMessage.objects.none()
 
-        if not GroupMember.objects.filter(
-            group_id=group_id,
-            user=self.request.user
-        ).exists():
+        # 🔥 1. Считаем общее количество участников группы
+        member_count = GroupMember.objects.filter(group_id=group_id).count()
+
+        if member_count == 0 or not GroupMember.objects.filter(group_id=group_id, user=self.request.user).exists():
             return GroupMessage.objects.none()
 
         return (
             GroupMessage.objects
             .filter(group_id=group_id)
             .select_related("sender")
-            .prefetch_related("files", "read_by")  # 🔥 ДОБАВИЛИ "read_by" для быстрой загрузки
+            .prefetch_related("files", "read_by")
+            # 🔥 2. Аннотируем количество прочитавших
+            .annotate(read_count=Count('read_by', distinct=True))
+            # 🔥 3. Динамически создаем поле is_read_by_all (прочитали ли все участники минус сам автор)
+            .annotate(
+                is_read_by_all=Case(
+                    When(read_count__gte=member_count - 1, then=True),
+                    default=False,
+                    output_field=BooleanField()
+                )
+            )
             .order_by("-created_at")
         )
 
@@ -1853,7 +1875,7 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
 
         if user != message.sender and user not in message.read_by.all():
             message.read_by.add(user)
-            message.save()
+            # В M2M-связях метод save() вызывать не обязательно, add() сохраняет сразу
 
             # 🔥 1. Формируем список прочитавших С АВАТАРКАМИ
             read_by_users_data = []
@@ -1871,14 +1893,21 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
                     "avatar": avatar_url
                 })
 
-            # 🔔 2. Отправляем через WebSocket полный список с аватарами
+            # 🔥 2. Считаем, прочитали ли сообщение ВСЕ
+            group_member_count = GroupMember.objects.filter(group=message.group).count()
+            current_read_count = message.read_by.count()
+            # Если кол-во прочитавших равно или больше кол-ва участников группы (без учета отправителя)
+            is_read_by_all = current_read_count >= (group_member_count - 1)
+
+            # 🔔 3. Отправляем через WebSocket полный список с аватарами и статус is_read_by_all
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
                 f"group_{message.group.id}",
                 {
                     "type": "messages_read_update",
                     "message_id": message.id,
-                    "read_by": read_by_users_data  # 🔥 Теперь здесь массив объектов с аватарками
+                    "read_by": read_by_users_data,
+                    "is_read_by_all": is_read_by_all  # 🔥 Фронтенд возьмет это поле для синих галочек!
                 }
             )
 
@@ -1941,7 +1970,6 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-    # 🔥 НОВЫЙ ЭНДПОИНТ: Отметка голосового в группе как прослушанного
     @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
     def mark_audio_listened(self, request):
         file_id = request.data.get("file_id")
@@ -2003,6 +2031,7 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
         )
 
         return Response({"status": "deleted"}, status=status.HTTP_200_OK)
+
 
 
 

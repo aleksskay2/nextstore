@@ -1440,7 +1440,6 @@ class GroupMessageFileSerializer(serializers.ModelSerializer):
         from django.conf import settings
         backend_url = getattr(settings, 'BACKEND_URL', 'http://127.0.0.1:8000')
         return f"{backend_url}{obj.file.url}"
-
 class GroupMessageSerializer(serializers.ModelSerializer):
     sender_username = serializers.CharField(source="sender.username", read_only=True)
     files = GroupMessageFileSerializer(many=True, read_only=True)
@@ -1448,6 +1447,7 @@ class GroupMessageSerializer(serializers.ModelSerializer):
         many=True, source="read_by", read_only=True
     )
     read_by_users = serializers.SerializerMethodField()
+    is_read_by_all = serializers.SerializerMethodField()  # 🔥 Поле статуса прочтения всеми
 
     reply_to = serializers.PrimaryKeyRelatedField(
         queryset=GroupMessage.objects.all(),
@@ -1460,12 +1460,26 @@ class GroupMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = GroupMessage
         fields = [
-            "id", "group", "read_by_users", "sender", "sender_username", "text",
+            "id", "group", "read_by_users", "is_read_by_all", "sender", "sender_username", "text",
             "files", "created_at", "read_by_ids", "reply_to", "reply_to_data"
         ]
         read_only_fields = ("sender", "group", "read_by")
 
-    # 🔥 1. ВОЗВРАЩАЕМ СПИСОК ПРОЧИТАВШИХ С РЕАЛЬНЫМИ АВАТАРАМИ
+    # 🔥 1. ПРОВЕРКА: ПРОЧИТАНО ЛИ ВСЕМИ УЧАСТНИКАМИ (КРОМЕ АВТОРА)
+    def get_is_read_by_all(self, obj):
+        # Если значение уже вычислено через .annotate(is_read_by_all=...) в ViewSet
+        if hasattr(obj, "is_read_by_all"):
+            return bool(obj.is_read_by_all)
+
+        # Фолбэк (для create/отдельных вызовов):
+        member_count = GroupMember.objects.filter(group_id=obj.group_id).count()
+        if member_count <= 1:
+            return True
+
+        read_count = obj.read_by.count()
+        return read_count >= (member_count - 1)
+
+    # 🔥 2. ВОЗВРАЩАЕМ СПИСОК ПРОЧИТАВШИХ С РЕАЛЬНЫМИ АВАТАРАМИ
     def get_read_by_users(self, obj):
         request = self.context.get("request")
         users_data = []
@@ -1486,7 +1500,7 @@ class GroupMessageSerializer(serializers.ModelSerializer):
 
         return users_data
 
-    # 🔥 2. ДАННЫЕ ЦИТИРУЕМОГО СООБЩЕНИЯ
+    # 🔥 3. ДАННЫЕ ЦИТИРУЕМОГО СООБЩЕНИЯ
     def get_reply_to_data(self, obj):
         if not obj.reply_to:
             return None
@@ -1500,20 +1514,17 @@ class GroupMessageSerializer(serializers.ModelSerializer):
         file_name = None
 
         if file:
-            # Имя файла
             if getattr(file, "file_name", None):
                 file_name = file.file_name
             elif file.file:
                 file_name = os.path.basename(file.file.name)
 
-            # Ссылка на файл
             if file.file:
                 try:
                     file_url = request.build_absolute_uri(file.file.url) if request else file.file.url
                 except Exception:
                     file_url = file.file.url
 
-            # Миниатюра видео
             if getattr(file, "thumbnail", None):
                 try:
                     thumbnail_url = request.build_absolute_uri(file.thumbnail.url) if request else file.thumbnail.url
@@ -1530,37 +1541,7 @@ class GroupMessageSerializer(serializers.ModelSerializer):
             "thumbnail": thumbnail_url,
         }
 
-
-    # # 🔥 САМОЕ ВАЖНОЕ: ДОБАВЛЯЕМ CREATE ДЛЯ СОХРАНЕНИЯ ФАЙЛОВ
-    # def create(self, validated_data):
-    #     # 1. Сохраняем само сообщение стандартным способом
-    #     message = super().create(validated_data)
-
-    #     # 2. Перехватываем файлы из запроса и сохраняем их правильно
-    #     request = self.context.get("request")
-    #     if request and hasattr(request, "FILES"):
-    #         files = request.FILES.getlist("files")
-
-    #         for f in files:
-    #             content_type = f.content_type or ""
-
-    #             if content_type.startswith("image/"):
-    #                 file_type = "image"
-    #             elif content_type.startswith("video/"):
-    #                 file_type = "video"
-    #             elif content_type.startswith("audio/"):
-    #                 file_type = "audio"
-    #             else:
-    #                 file_type = "document" # 🔥 ИСПРАВЛЕНО: Теперь тут всегда document!
-
-    #             GroupMessageFile.objects.create(
-    #                 message=message,
-    #                 file=f,
-    #                 file_name=f.name, # 🔥 ЗАПИСЫВАЕМ ИСХОДНОЕ КРАСИВОЕ ИМЯ ФАЙЛА
-    #                 type=file_type
-    #             )
-
-    #     return message
+    
 
 class GroupDetailSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()
