@@ -1011,18 +1011,24 @@ class StoryListSerializer(serializers.ModelSerializer):
     user = StoryUserSerializer(read_only=True)
     is_viewed = serializers.SerializerMethodField()
 
+# 🔥 ДОБАВЛЕНО: Поля для лайков
+    is_liked = serializers.SerializerMethodField()
+    likes_count = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = Story
         fields = (
             "id",
             "user",
             "media",
-            "text",               # 🔥 Добавлено: текст истории
-            "background_color",   # 🔥 Добавлено: цвет фона
+            "text",               
+            "background_color",   
             "created_at",
             "expires_at",
             "is_active",
             "is_viewed",
+            "is_liked",         # 🔥
+            "likes_count",      # 🔥
         )
 
     def get_media(self, obj):
@@ -1039,6 +1045,16 @@ class StoryListSerializer(serializers.ModelSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return obj.views.filter(user=request.user).exists()
+
+    # 🔥 ДОБАВЛЕНО: Метод проверки лайка
+    def get_is_liked(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        # Проверяем предзагруженные данные, чтобы избежать N+1
+        if hasattr(obj, 'user_likes'):
+            return len(obj.user_likes) > 0
+        return obj.likes.filter(user=request.user).exists()
 
 
 

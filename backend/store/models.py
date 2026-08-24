@@ -1123,6 +1123,8 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+
+
 class Story(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1149,6 +1151,16 @@ class Story(models.Model):
     class Meta:
         ordering = ['-created_at']
         
+
+# 🔥 ДОБАВЛЕНО: Модель лайков
+class StoryLike(models.Model):
+    story = models.ForeignKey(Story, on_delete=models.CASCADE, related_name="likes")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("story", "user")
+
 
 class StoryView(models.Model):
     story = models.ForeignKey(Story, on_delete=models.CASCADE, related_name="views")

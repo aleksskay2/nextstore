@@ -2588,17 +2588,29 @@ class StoryViewSet(viewsets.ModelViewSet):
             )
             .select_related("user")
             .prefetch_related(
+                # 🔥 Оптимизация просмотра
                 Prefetch(
                     "views",
                     queryset=StoryView.objects.filter(user=user),
+                    to_attr="user_views"
+                ),
+                # 🔥 Оптимизация лайков (чтобы узнать is_liked)
+                Prefetch(
+                    "likes",
+                    queryset=StoryLike.objects.filter(user=user),
+                    to_attr="user_likes"
                 )
             )
             .annotate(
                 has_unviewed=Exists(unviewed_qs),
-                last_story_at=Subquery(last_story_subquery)
+                last_story_at=Subquery(last_story_subquery),
+                # 🔥 Подсчет лайков
+                likes_count=Count('likes', distinct=True)
             )
             .order_by("-has_unviewed", "-last_story_at", "-created_at", "user_id")
         )
+
+
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -2644,6 +2656,42 @@ class StoryViewSet(viewsets.ModelViewSet):
 
         serializer = StoryListSerializer(stories, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+    # 🔥 ДОБАВЛЕНО: Эндпоинт для постановки/снятия лайка
+    @action(detail=True, methods=["post"], url_path="like")
+    def toggle_like(self, request, pk=None):
+        """Ставит лайк, если его нет, и убирает, если он есть (Toggle)"""
+        story = get_object_or_404(
+            Story, 
+            pk=pk, 
+            is_active=True, 
+            expires_at__gt=timezone.now()
+        )
+
+        like, created = StoryLike.objects.get_or_create(story=story, user=request.user)
+
+        if not created:
+            # Если лайк уже был — удаляем его (снимаем лайк)
+            like.delete()
+            return Response({"status": "unliked"}, status=status.HTTP_200_OK)
+
+        # Если лайк поставили — отправляем WebSocket уведомление автору истории (если это чужая история)
+        if story.user_id != request.user.id:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_{story.user_id}",
+                {
+                    "type": "story_liked",
+                    "story_id": story.id,
+                    "liker_id": request.user.id,
+                    "liker_username": request.user.username,
+                }
+            )
+
+        return Response({"status": "liked"}, status=status.HTTP_200_OK)
+
 
     @action(detail=True, methods=["post"], url_path="view")
     def mark_viewed(self, request, pk=None):
