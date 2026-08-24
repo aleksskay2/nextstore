@@ -51,7 +51,7 @@ from store.tasks import send_verification_email_task
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, permissions, serializers
-from .models import  PrivateMessage, MessageRegionFile, Admins, MessageFile, Product, Message, MessageRegionChat, FeatureTemplate, ProductImage, ProductReview, Bookmark,SelectionObject, Regions, Category, FeatureProduct, CustomUser
+from .models import  PrivateMessage, StoryLike, MessageRegionFile, Admins, MessageFile, Product, Message, MessageRegionChat, FeatureTemplate, ProductImage, ProductReview, Bookmark,SelectionObject, Regions, Category, FeatureProduct, CustomUser
 from .models import Group, GroupMember,  GroupMessage, GroupMessageFile, Follow
 from .models import Story, StoryView
 from .serializers import AdminsSerializer, StoryViewerSerializer, UserContactSerializer, PrivateMessageFile, MessageRegionChatSerializer,  FollowSerializer, GroupUpdateSerializer,GroupDetailSerializer, CustomUserSerializer, GroupCreateSerializer, GroupListSerializer, PrivateMessageSerializer, FeatureTemplateSerializer, ProductListSerializer, ProductDetailSerializer, ProductImagesSerializer, ProductReviewSerializer, MessageSerializer, BookmarkSerializer,  SelectionObjectSerializer, RegionsSerializer
