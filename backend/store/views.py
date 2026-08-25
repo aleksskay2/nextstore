@@ -1530,37 +1530,71 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
 
 
     def perform_create(self, serializer):
-        # 1. Извлекаем ID сторис из FormData (бывает строкой '12' или 'null')
+        # 1. Извлекаем ID сторис
         story_id = self.request.data.get('story')
         if story_id in ['null', '', None]:
             story_id = None
 
-        # 2. Сохраняем сообщение через сериализатор
+        # 2. Сохраняем базовое сообщение через сериализатор
         message = serializer.save(sender=self.request.user)
 
-        # 🔥 3. БРОНЕБОЙНЫЙ ХАК: Принудительно связываем со сторис в БД!
+        # 🔥 3. ЛОГИКА ПЕРЕСЫЛКИ (FORWARD): Копируем текст и файлы из оригинала
+        forwarded_id = self.request.data.get('forwarded_message_id')
+        if forwarded_id and forwarded_id not in ['null', '', None]:
+            try:
+                original_msg = PrivateMessage.objects.get(id=forwarded_id)
+                
+                # Копируем текст, если пересылается текстовое сообщение
+                if not message.text and original_msg.text:
+                    message.text = original_msg.text
+                    message.save(update_fields=['text'])
+                
+                # Копируем прикрепленные файлы (фото, видео, ГС, документы)
+                if hasattr(original_msg, 'files'):
+                    FileModel = original_msg.files.model # Динамически получаем модель файлов (PrivateMessageFile)
+                    
+                    for orig_file in original_msg.files.all():
+                        new_file = FileModel(message=message)
+                        
+                        # Переносим все базовые поля (имя, тип, длительность аудио и т.д.)
+                        for attr in ['file_type', 'type', 'file_name', 'name', 'duration', 'mime_type']:
+                            if hasattr(orig_file, attr):
+                                setattr(new_file, attr, getattr(orig_file, attr))
+                        
+                        # Физически копируем сам файл
+                        if orig_file.file:
+                            new_file.file.save(
+                                orig_file.file.name.split('/')[-1], # Берем имя файла
+                                orig_file.file, # Передаем сам объект файла
+                                save=False
+                            )
+                        new_file.save()
+            except PrivateMessage.DoesNotExist:
+                pass # Если оригинал удален, просто игнорируем
+
+        # 4. Привязываем к сторис, если это ответ на сторис
         if story_id:
             message.story_id = story_id
             message.save(update_fields=['story'])
-            # Перезагружаем объект из БД, чтобы подтянулся связанный story_details
-            message.refresh_from_db()
 
-        # 2. Сериализуем готовое сообщение С ПЕРЕДАЧЕЙ context={'request': self.request}
-        # Теперь и `file`, и `thumbnail`, и `is_own` определятся ИДЕАЛЬНО!
+        # Обязательно обновляем объект из БД после всех изменений (файлов и текста)
+        message.refresh_from_db()
+
+        # 5. Сериализуем готовое сообщение для отправки по сокетам
         serializer_data = PrivateMessageSerializer(message, context={'request': self.request}).data
 
         channel_layer = get_channel_layer()
         
-        # 3. Отправляем в сокет получателю (target)
+        # Отправляем в сокет получателю (target)
         async_to_sync(channel_layer.group_send)(
             f"chat_{message.target.id}",
             {
-                "type": "chat_message", # Или твой экшен отправки
+                "type": "chat_message",
                 "message": serializer_data
             }
         )
 
-        # 4. Отправляем в сокет отправителю (sender)
+        # Отправляем в сокет отправителю (sender)
         async_to_sync(channel_layer.group_send)(
             f"chat_{message.sender.id}",
             {
@@ -1568,7 +1602,6 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
                 "message": serializer_data
             }
         )
-
 
 
 
