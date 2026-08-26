@@ -1954,12 +1954,13 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
             group_id=group_id
         )
 
+        # 1. ОБРАБОТКА ОБЫЧНЫХ ЗАГРУЖЕННЫХ ФАЙЛОВ
         files = self.request.FILES.getlist("files")
         thumbnails = self.request.FILES.getlist("thumbnails")
 
         thumb_index = 0
         for f in files:
-            file_type = get_file_type(f)
+            file_type = get_file_type(f) # Убедитесь, что эта функция у вас импортирована
             msg_file = GroupMessageFile(
                 message=message,
                 file=f,
@@ -1969,8 +1970,55 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
             if file_type == "video" and thumb_index < len(thumbnails):
                 msg_file.thumbnail = thumbnails[thumb_index]
                 thumb_index += 1
-            
+
             msg_file.save()
+
+        # 🔥 2. ЛОГИКА ПЕРЕСЫЛКИ (FORWARD)
+        forwarded_id = self.request.data.get('forwarded_message_id')
+        forwarded_type = self.request.data.get('forwarded_message_type') # 'group', 'private', 'product'
+
+        if forwarded_id and forwarded_id not in ['null', '', None]:
+            original_msg = None
+            try:
+                # В зависимости от типа ищем в нужной таблице
+                if forwarded_type == "private":
+                    from .models import PrivateMessage # 👈 Укажите ваш правильный импорт
+                    original_msg = PrivateMessage.objects.get(id=forwarded_id)
+                elif forwarded_type == "product":
+                    from .models import Message # 👈 Укажите ваш правильный импорт для сообщений по товарам
+                    original_msg = Message.objects.get(id=forwarded_id)
+                else:
+                    # По умолчанию ищем в группах
+                    original_msg = GroupMessage.objects.get(id=forwarded_id)
+                
+                # Копируем текст
+                if not message.text and getattr(original_msg, 'text', None):
+                    message.text = original_msg.text
+                    message.save(update_fields=['text'])
+                
+                # Копируем файлы...
+                if hasattr(original_msg, 'files'):
+                    for orig_file in original_msg.files.all():
+                        new_file = GroupMessageFile(message=message) # Создаем файл для ГРУППЫ
+                        
+                        # Переносим все базовые поля
+                        for attr in ['file_type', 'type', 'file_name', 'name', 'duration', 'mime_type']:
+                            if hasattr(orig_file, attr):
+                                setattr(new_file, attr, getattr(orig_file, attr))
+                        
+                        # Физически копируем сам файл
+                        if orig_file.file:
+                            new_file.file.save(
+                                orig_file.file.name.split('/')[-1], 
+                                orig_file.file, 
+                                save=False
+                            )
+                        new_file.save()
+            except Exception as e:
+                print(f"Ошибка при копировании пересланного сообщения: {e}")
+
+        # ОБЯЗАТЕЛЬНО Обновляем объект, чтобы подтянулись файлы и текст перед сокетами
+        message.refresh_from_db()
 
         # WebSocket уведомление о новом сообщении
         channel_layer = get_channel_layer()
@@ -2002,6 +2050,8 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
                         },
                     }
                 )
+
+
 
     @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
     def mark_audio_listened(self, request):
