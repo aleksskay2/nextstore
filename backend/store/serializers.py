@@ -1200,7 +1200,11 @@ class PrivateMessageSerializer(serializers.ModelSerializer):
         fields = [
             "id", "text", "sender", 'target_username', "target", "sender_name",
             "files", "created_at", "is_own", "is_read", "is_delivered", "sender_avatar",
-            "target_avatar", "reply_to", "reply_to_data", "story", "story_details"
+            "target_avatar", "reply_to", "reply_to_data", "story", "story_details",
+            # 🔥 ОБЯЗАТЕЛЬНО ДОБАВИТЬ ЭТИ 3 ПОЛЯ ДЛЯ ЗВОНКОВ:
+            "message_type",
+            "call_status",
+            "call_duration",
         ]
 
     def get_is_own(self, obj):

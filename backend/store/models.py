@@ -809,8 +809,23 @@ class MessageRegionFile(models.Model):
 #     is_read = models.BooleanField(default=False)
 
 
+from django.db import models
+from django.conf import settings
 
 class PrivateMessage(models.Model):
+    # 🔥 Возможные типы сообщений
+    MESSAGE_TYPES = (
+        ('text', 'Text or Media'),
+        ('call', 'Call'),
+    )
+
+    # 🔥 Статусы звонка (как в Telegram/WhatsApp)
+    CALL_STATUSES = (
+        ('answered', 'Отвечен'),
+        ('missed', 'Пропущен'),
+        ('declined', 'Отклонен'),
+    )
+
     sender = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="sent_dm",
@@ -828,7 +843,7 @@ class PrivateMessage(models.Model):
     is_delivered = models.BooleanField(default=False)
     is_read = models.BooleanField(default=False)
 
-    # 🔥 ОТВЕТ НА СООБЩЕНИЕ
+    # Ответить на сообщение
     reply_to = models.ForeignKey(
         "self",
         null=True,
@@ -845,6 +860,30 @@ class PrivateMessage(models.Model):
         related_name='replies'
     )
 
+    # ==============================================================
+    # 🔥 НОВЫЕ ПОЛЯ ДЛЯ ИСТОРИИ ЗВОНКОВ
+    # ==============================================================
+    message_type = models.CharField(
+        max_length=20, 
+        choices=MESSAGE_TYPES, 
+        default='text'
+    )
+    call_status = models.CharField(
+        max_length=20, 
+        choices=CALL_STATUSES, 
+        blank=True, 
+        null=True
+    )
+    call_duration = models.PositiveIntegerField(
+        blank=True, 
+        null=True,
+        help_text="Длительность звонка в секундах"
+    )
+
+    def __str__(self):
+        if self.message_type == 'call':
+            return f"Звонок: {self.sender} -> {self.target} ({self.call_status})"
+        return f"Сообщение: {self.sender} -> {self.target}"
 
 
 

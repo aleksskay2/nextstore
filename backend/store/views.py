@@ -1616,6 +1616,59 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
         )
 
 
+    # ==============================================================
+    # 🔥 НОВЫЙ ЭНДПОИНТ ДЛЯ СОХРАНЕНИЯ ЗВОНКОВ
+    # ==============================================================
+    @action(detail=False, methods=['POST'], url_path='log-call')
+    def log_call(self, request):
+        target_id = request.data.get("target_id")
+        call_status = request.data.get("call_status") # 'answered', 'missed', 'declined'
+        call_duration = request.data.get("call_duration", 0)
+
+        if not target_id or not call_status:
+            return Response(
+                {"detail": "target_id и call_status обязательны."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            target_user = User.objects.get(id=target_id)
+        except User.DoesNotExist:
+            return Response({"detail": "Пользователь не найден."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 🔥 Если звонок отвечен - он прочитан. Если пропущен - он как новое непрочитанное сообщение!
+        is_call_read = True if call_status == 'answered' else False
+
+        # Создаем системное сообщение-звонок
+        message = PrivateMessage.objects.create(
+            sender=request.user,
+            target=target_user,
+            message_type='call',
+            call_status=call_status,
+            call_duration=int(call_duration),
+            text="",
+            is_read=is_call_read
+        )
+
+        # Сериализуем и отправляем по сокетам
+        serializer_data = self.get_serializer(message, context={'request': request}).data
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{message.target.id}",
+            {"type": "chat_message", "message": serializer_data}
+        )
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{message.sender.id}",
+            {"type": "chat_message", "message": serializer_data}
+        )
+
+        return Response(serializer_data, status=status.HTTP_201_CREATED)
+    # ==============================================================
+
+
+
+
     @action(detail=False, methods=["GET"], url_path="unread-list")
     def unread_list(self, request):
         """
@@ -1675,7 +1728,7 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
     def unread_summary(self, request):
         user = request.user
 
-        # Берём статистику по диалогам
+        # 1. Берём статистику по диалогам
         stats = (
             PrivateMessage.objects
             .filter(Q(sender=user) | Q(target=user))
@@ -1690,41 +1743,84 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
             )
         )
 
-        # Забираем сами сообщения
+        last_msg_ids = [s["last_msg_id"] for s in stats if s["last_msg_id"]]
+        dialog_user_ids = [s["dialog_user"] for s in stats if s["dialog_user"]]
+
+        # 2. Забираем последние сообщения вместе с файлами
         last_message_objs = {
             m.id: m
             for m in PrivateMessage.objects.filter(
-                id__in=[s["last_msg_id"] for s in stats]
-            )
+                id__in=last_msg_ids
+            ).prefetch_related("files")
         }
 
-        # Загружаем данные пользователей (username, avatar)
+        # 3. Загружаем данные пользователей
         users = {
             u.id: u
             for u in User.objects.filter(
-                id__in=[s["dialog_user"] for s in stats]
+                id__in=dialog_user_ids
             )
         }
-        
 
-        # Формируем ответ — last_message теперь НЕ объект
-        # Формируем ответ
+        # 4. Формируем ответ с обработкой звонков и медиа
         result = []
         for s in stats:
             msg_obj = last_message_objs.get(s["last_msg_id"])
             u = users.get(s["dialog_user"])
 
+            last_text = ""
+            if msg_obj:
+                # 🔥 Если последнее сообщение — это звонок
+                if getattr(msg_obj, "message_type", None) == "call":
+                    is_incoming = msg_obj.target_id == user.id
+
+                    if msg_obj.call_status == "missed":
+                        last_text = "📞 Пропущенный звонок" if is_incoming else "📞 Отмененный звонок"
+                    elif msg_obj.call_status == "declined":
+                        last_text = "📞 Отклоненный звонок"
+                    else:
+                        duration = msg_obj.call_duration or 0
+                        if duration > 0:
+                            m, sec = divmod(duration, 60)
+                            time_str = f"{m}:{sec:02d}"
+                            last_text = f"📞 Звонок ({time_str})"
+                        else:
+                            last_text = "📞 Звонок"
+
+                # 🔥 Если обычное текстовое или медиа-сообщение
+                elif msg_obj.text:
+                    last_text = msg_obj.text
+                elif msg_obj.files.all():
+                    first_file = msg_obj.files.all()[0]
+                    file_type = getattr(first_file, "type", "")
+                    if file_type == "image":
+                        last_text = "📷 Фотография"
+                    elif file_type == "video":
+                        last_text = "🎥 Видео"
+                    elif file_type == "audio":
+                        last_text = "🎤 Голосовое сообщение"
+                    else:
+                        last_text = "📎 Вложение"
+
+            # Безопасное формирование URL аватарки
+            avatar_url = None
+            if u and getattr(u, "avatar", None):
+                try:
+                    avatar_url = request.build_absolute_uri(u.avatar.url)
+                except Exception:
+                    avatar_url = u.avatar.url
+
             result.append({
                 "user_id": s["dialog_user"],
                 "username": u.username if u else "",
-                "avatar": request.build_absolute_uri(u.avatar.url) if (u and u.avatar) else None,
-                "last_message": msg_obj.text if msg_obj else "",
+                "avatar": avatar_url,
+                "last_message": last_text,
                 "unread_count": s["unread_count"],
             })
 
         return Response(result)
 
-
+        
 
     @action(detail=False, methods=["POST"], url_path=r"mark-audio-listened/(?P<file_id>\d+)")
     def mark_audio_listened(self, request, file_id=None):
