@@ -1621,28 +1621,29 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
     # ==============================================================
     @action(detail=False, methods=['POST'], url_path='log-call')
     def log_call(self, request):
-        target_id = request.data.get("target_id")
+        caller_id = request.data.get("caller_id")     # Тот, кто инициировал звонок
+        receiver_id = request.data.get("receiver_id") # Тот, кому звонили
         call_status = request.data.get("call_status") # 'answered', 'missed', 'declined'
         call_duration = request.data.get("call_duration", 0)
 
-        if not target_id or not call_status:
+        if not caller_id or not receiver_id or not call_status:
             return Response(
-                {"detail": "target_id и call_status обязательны."},
+                {"detail": "caller_id, receiver_id и call_status обязательны."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            target_user = User.objects.get(id=target_id)
+            caller = User.objects.get(id=caller_id)
+            receiver = User.objects.get(id=receiver_id)
         except User.DoesNotExist:
             return Response({"detail": "Пользователь не найден."}, status=status.HTTP_404_NOT_FOUND)
 
-        # 🔥 Если звонок отвечен - он прочитан. Если пропущен - он как новое непрочитанное сообщение!
         is_call_read = True if call_status == 'answered' else False
 
-        # Создаем системное сообщение-звонок
+        # 🔥 Создаем системное сообщение-звонок с ПРАВИЛЬНЫМИ ролями
         message = PrivateMessage.objects.create(
-            sender=request.user,
-            target=target_user,
+            sender=caller,      # Строго тот, кто звонил
+            target=receiver,    # Строго тот, кому звонили
             message_type='call',
             call_status=call_status,
             call_duration=int(call_duration),
@@ -1650,7 +1651,6 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
             is_read=is_call_read
         )
 
-        # Сериализуем и отправляем по сокетам
         serializer_data = self.get_serializer(message, context={'request': request}).data
 
         channel_layer = get_channel_layer()
@@ -1664,8 +1664,6 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
         )
 
         return Response(serializer_data, status=status.HTTP_201_CREATED)
-    # ==============================================================
-
 
 
 
@@ -1820,7 +1818,7 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
 
         return Response(result)
 
-        
+
 
     @action(detail=False, methods=["POST"], url_path=r"mark-audio-listened/(?P<file_id>\d+)")
     def mark_audio_listened(self, request, file_id=None):
