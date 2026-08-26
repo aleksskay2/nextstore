@@ -1538,39 +1538,51 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
         # 2. Сохраняем базовое сообщение через сериализатор
         message = serializer.save(sender=self.request.user)
 
-        # 🔥 3. ЛОГИКА ПЕРЕСЫЛКИ (FORWARD): Копируем текст и файлы из оригинала
+        # 🔥 3. ИСПРАВЛЕННАЯ ЛОГИКА ПЕРЕСЫЛКИ: СМОТРИМ НА ТИП ИСТОЧНИКА!
         forwarded_id = self.request.data.get('forwarded_message_id')
+        forwarded_type = self.request.data.get('forwarded_message_type') # 'group', 'private', 'product'
+
         if forwarded_id and forwarded_id not in ['null', '', None]:
+            original_msg = None
             try:
-                original_msg = PrivateMessage.objects.get(id=forwarded_id)
+                # В зависимости от типа ищем сообщение в ПРАВИЛЬНОЙ таблице
+                if forwarded_type == "group":
+                    from .models import GroupMessage # 👈 Проверьте ваш импорт
+                    original_msg = GroupMessage.objects.get(id=forwarded_id)
+                elif forwarded_type == "product":
+                    from .models import Message # 👈 Проверьте ваш импорт
+                    original_msg = Message.objects.get(id=forwarded_id)
+                else:
+                    # По умолчанию считаем, что это личное сообщение
+                    original_msg = PrivateMessage.objects.get(id=forwarded_id)
                 
-                # Копируем текст, если пересылается текстовое сообщение
-                if not message.text and original_msg.text:
+                # Копируем текст
+                if not message.text and getattr(original_msg, 'text', None):
                     message.text = original_msg.text
                     message.save(update_fields=['text'])
                 
-                # Копируем прикрепленные файлы (фото, видео, ГС, документы)
+                # Копируем прикрепленные файлы
                 if hasattr(original_msg, 'files'):
-                    FileModel = original_msg.files.model # Динамически получаем модель файлов (PrivateMessageFile)
+                    FileModel = message.files.model # Модель файлов ТЕКУЩЕГО сообщения (PrivateMessageFile)
                     
                     for orig_file in original_msg.files.all():
                         new_file = FileModel(message=message)
                         
-                        # Переносим все базовые поля (имя, тип, длительность аудио и т.д.)
+                        # Переносим свойства
                         for attr in ['file_type', 'type', 'file_name', 'name', 'duration', 'mime_type']:
                             if hasattr(orig_file, attr):
                                 setattr(new_file, attr, getattr(orig_file, attr))
                         
-                        # Физически копируем сам файл
+                        # Копируем физический файл
                         if orig_file.file:
                             new_file.file.save(
-                                orig_file.file.name.split('/')[-1], # Берем имя файла
-                                orig_file.file, # Передаем сам объект файла
+                                orig_file.file.name.split('/')[-1],
+                                orig_file.file,
                                 save=False
                             )
                         new_file.save()
-            except PrivateMessage.DoesNotExist:
-                pass # Если оригинал удален, просто игнорируем
+            except Exception as e:
+                print(f"Ошибка при копировании пересланного сообщения: {e}")
 
         # 4. Привязываем к сторис, если это ответ на сторис
         if story_id:
@@ -1602,7 +1614,6 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
                 "message": serializer_data
             }
         )
-
 
 
     @action(detail=False, methods=["GET"], url_path="unread-list")
@@ -1947,110 +1958,86 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
-        group_id = self.request.data.get("group")
+        # 1. Извлекаем ID сторис
+        story_id = self.request.data.get('story')
+        if story_id in ['null', '', None]:
+            story_id = None
 
-        message = serializer.save(
-            sender=self.request.user,
-            group_id=group_id
-        )
+        # 2. Сохраняем базовое сообщение через сериализатор
+        message = serializer.save(sender=self.request.user)
 
-        # 1. ОБРАБОТКА ОБЫЧНЫХ ЗАГРУЖЕННЫХ ФАЙЛОВ
-        files = self.request.FILES.getlist("files")
-        thumbnails = self.request.FILES.getlist("thumbnails")
-
-        thumb_index = 0
-        for f in files:
-            file_type = get_file_type(f) # Убедитесь, что эта функция у вас импортирована
-            msg_file = GroupMessageFile(
-                message=message,
-                file=f,
-                type=file_type
-            )
-
-            if file_type == "video" and thumb_index < len(thumbnails):
-                msg_file.thumbnail = thumbnails[thumb_index]
-                thumb_index += 1
-
-            msg_file.save()
-
-        # 🔥 2. ЛОГИКА ПЕРЕСЫЛКИ (FORWARD)
+        # 🔥 3. ИСПРАВЛЕННАЯ ЛОГИКА ПЕРЕСЫЛКИ: СМОТРИМ НА ТИП ИСТОЧНИКА!
         forwarded_id = self.request.data.get('forwarded_message_id')
         forwarded_type = self.request.data.get('forwarded_message_type') # 'group', 'private', 'product'
 
         if forwarded_id and forwarded_id not in ['null', '', None]:
             original_msg = None
             try:
-                # В зависимости от типа ищем в нужной таблице
-                if forwarded_type == "private":
-                    from .models import PrivateMessage # 👈 Укажите ваш правильный импорт
-                    original_msg = PrivateMessage.objects.get(id=forwarded_id)
+                # В зависимости от типа ищем сообщение в ПРАВИЛЬНОЙ таблице
+                if forwarded_type == "group":
+                    from groups.models import GroupMessage # 👈 Проверьте импорт
+                    original_msg = GroupMessage.objects.get(id=forwarded_id)
                 elif forwarded_type == "product":
-                    from .models import Message # 👈 Укажите ваш правильный импорт для сообщений по товарам
+                    from messages.models import Message # 👈 Проверьте импорт
                     original_msg = Message.objects.get(id=forwarded_id)
                 else:
-                    # По умолчанию ищем в группах
-                    original_msg = GroupMessage.objects.get(id=forwarded_id)
+                    # По умолчанию считаем, что это личное сообщение
+                    original_msg = PrivateMessage.objects.get(id=forwarded_id)
                 
                 # Копируем текст
                 if not message.text and getattr(original_msg, 'text', None):
                     message.text = original_msg.text
                     message.save(update_fields=['text'])
                 
-                # Копируем файлы...
+                # Копируем прикрепленные файлы
                 if hasattr(original_msg, 'files'):
+                    FileModel = message.files.model # PrivateMessageFile
+                    
                     for orig_file in original_msg.files.all():
-                        new_file = GroupMessageFile(message=message) # Создаем файл для ГРУППЫ
+                        new_file = FileModel(message=message)
                         
-                        # Переносим все базовые поля
                         for attr in ['file_type', 'type', 'file_name', 'name', 'duration', 'mime_type']:
                             if hasattr(orig_file, attr):
                                 setattr(new_file, attr, getattr(orig_file, attr))
                         
-                        # Физически копируем сам файл
                         if orig_file.file:
                             new_file.file.save(
-                                orig_file.file.name.split('/')[-1], 
-                                orig_file.file, 
+                                orig_file.file.name.split('/')[-1],
+                                orig_file.file,
                                 save=False
                             )
                         new_file.save()
             except Exception as e:
                 print(f"Ошибка при копировании пересланного сообщения: {e}")
 
-        # ОБЯЗАТЕЛЬНО Обновляем объект, чтобы подтянулись файлы и текст перед сокетами
+        # 4. Привязываем к сторис, если это ответ на сторис
+        if story_id:
+            message.story_id = story_id
+            message.save(update_fields=['story'])
+
+        # Обязательно обновляем объект из БД
         message.refresh_from_db()
 
-        # WebSocket уведомление о новом сообщении
+        # 5. Сериализуем готовое сообщение для отправки по сокетам
+        serializer_data = PrivateMessageSerializer(message, context={'request': self.request}).data
+
         channel_layer = get_channel_layer()
+        
         async_to_sync(channel_layer.group_send)(
-            f"group_{group_id}",
+            f"chat_{message.target.id}",
             {
-                "type": "group_message",
-                "message": GroupMessageSerializer(
-                    message, 
-                    context={"request": self.request}
-                ).data
+                "type": "chat_message",
+                "message": serializer_data
             }
         )
 
-        # Уведомление об ответе (Reply)
-        if message.reply_to:
-            original_author = message.reply_to.sender
-            if original_author != self.request.user:
-                async_to_sync(channel_layer.group_send)(
-                    f"user_{original_author.id}",
-                    {
-                        "type": "reply_notification",
-                        "payload": {
-                            "group_id": message.group.id,
-                            "reply_message_id": message.id,
-                            "original_message_id": message.reply_to.id,
-                            "from_user": self.request.user.username,
-                            "text": message.text,
-                        },
-                    }
-                )
-
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{message.sender.id}",
+            {
+                "type": "chat_message",
+                "message": serializer_data
+            }
+        )
 
 
     @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
