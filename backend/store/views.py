@@ -2113,10 +2113,10 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
                     original_msg = GroupMessage.objects.get(id=forwarded_id)
                 elif forwarded_type == "product":
                     # Оставляем локальными только те импорты, которые не используются в конце функции
-                    from messages.models import Message # Убедитесь, что импорт из правильного приложения!
+                    from .models import Message # Убедитесь, что импорт из правильного приложения!
                     original_msg = Message.objects.get(id=forwarded_id)
                 else:
-                    from messages.models import PrivateMessage # Убедитесь, что импорт из правильного приложения!
+                    from .models import PrivateMessage # Убедитесь, что импорт из правильного приложения!
                     original_msg = PrivateMessage.objects.get(id=forwarded_id)
                 
                 if not message.text and getattr(original_msg, 'text', None):
@@ -2165,15 +2165,18 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
 
         serializer_data = GroupMessageSerializer(full_message, context={'request': self.request}).data
 
-        # 6. Отправка в сокет группы
+       # 6. Отправка в сокет группы
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"group_{full_message.group.id}",
             {
-                "type": "chat_message",
+                # 🔥 ВЕРНУЛИ СТАРЫЙ ТИП: теперь ваш старый GroupChatConsumer его поймает
+                "type": "group_message", 
                 "message": serializer_data
             }
         )
+
+
 
     @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
     def mark_audio_listened(self, request):
