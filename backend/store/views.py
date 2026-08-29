@@ -2048,6 +2048,7 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
                     "is_read_by_all": is_read_by_all  # 🔥 Фронтенд возьмет это поле для синих галочек!
                 }
             )
+            
 
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
