@@ -2051,33 +2051,72 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
 
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
+    from django.db.models import Count, Case, When, BooleanField
+
     def perform_create(self, serializer):
-        # 🔥 1. Явно извлекаем ID группы из запроса
         group_id = self.request.data.get('group')
-        
-        # 2. Извлекаем ID сторис
         story_id = self.request.data.get('story')
         if story_id in ['null', '', None]:
             story_id = None
 
-        # 🔥 3. ИСПРАВЛЕНО: Передаем group_id при сохранении, чтобы избежать IntegrityError
+        # 1. Сохраняем сообщение, передавая group_id для избежания IntegrityError
         message = serializer.save(sender=self.request.user, group_id=group_id)
 
-        # 4. Логика пересылки
+        # =================================================================
+        # 🔥 2. ГАРАНТИРОВАННОЕ СОХРАНЕНИЕ ФАЙЛОВ И ГОЛОСОВЫХ 🔥
+        # На случай, если сериализатор DRF игнорирует загрузку файлов
+        # =================================================================
+        from groups.models import GroupMessageFile, GroupMember # Проверьте правильность импорта!
+        
+        files_data = self.request.FILES.getlist('files')
+        thumbnails_data = self.request.FILES.getlist('thumbnails')
+        
+        # Сохраняем обычные файлы (картинки, видео, документы)
+        if files_data and not message.files.exists():
+            for i, file_obj in enumerate(files_data):
+                mime = file_obj.content_type or ''
+                f_type = 'document'
+                if 'image' in mime: f_type = 'image'
+                elif 'video' in mime: f_type = 'video'
+                elif 'audio' in mime: f_type = 'audio'
+                
+                thumb = thumbnails_data[i] if i < len(thumbnails_data) else None
+                
+                new_file = GroupMessageFile(message=message, file=file_obj, thumbnail=thumb)
+                # Подстраховка по названиям полей в вашей БД
+                if hasattr(new_file, 'file_type'): new_file.file_type = f_type
+                if hasattr(new_file, 'type'): new_file.type = f_type
+                if hasattr(new_file, 'mime_type'): new_file.mime_type = mime
+                if hasattr(new_file, 'file_name'): new_file.file_name = file_obj.name
+                if hasattr(new_file, 'name'): new_file.name = file_obj.name
+                new_file.save()
+                
+        # Сохраняем голосовые сообщения (если они приходят в поле 'voice')
+        voice_file = self.request.FILES.get('voice')
+        if voice_file and not message.files.filter(file_type='audio').exists():
+            new_file = GroupMessageFile(message=message, file=voice_file)
+            if hasattr(new_file, 'file_type'): new_file.file_type = 'audio'
+            if hasattr(new_file, 'type'): new_file.type = 'audio'
+            if hasattr(new_file, 'mime_type'): new_file.mime_type = voice_file.content_type
+            if hasattr(new_file, 'file_name'): new_file.file_name = voice_file.name
+            if hasattr(new_file, 'name'): new_file.name = voice_file.name
+            new_file.save()
+
+        # 3. Логика копирования файлов при пересылке (Forward)
         forwarded_id = self.request.data.get('forwarded_message_id')
-        forwarded_type = self.request.data.get('forwarded_message_type') # 'group', 'private', 'product'
+        forwarded_type = self.request.data.get('forwarded_message_type')
 
         if forwarded_id and forwarded_id not in ['null', '', None]:
             original_msg = None
             try:
                 if forwarded_type == "group":
-                    from .models import GroupMessage 
+                    from groups.models import GroupMessage 
                     original_msg = GroupMessage.objects.get(id=forwarded_id)
                 elif forwarded_type == "product":
-                    from .models import Message 
+                    from messages.models import Message 
                     original_msg = Message.objects.get(id=forwarded_id)
                 else:
-                    from .models import PrivateMessage
+                    from messages.models import PrivateMessage
                     original_msg = PrivateMessage.objects.get(id=forwarded_id)
                 
                 if not message.text and getattr(original_msg, 'text', None):
@@ -2085,11 +2124,9 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
                     message.save(update_fields=['text'])
                 
                 if hasattr(original_msg, 'files'):
-                    FileModel = message.files.model # Для групп это автоматически будет GroupMessageFile
-                    
+                    FileModel = message.files.model
                     for orig_file in original_msg.files.all():
                         new_file = FileModel(message=message)
-                        
                         for attr in ['file_type', 'type', 'file_name', 'name', 'duration', 'mime_type']:
                             if hasattr(orig_file, attr):
                                 setattr(new_file, attr, getattr(orig_file, attr))
@@ -2108,19 +2145,34 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
             message.story_id = story_id
             message.save(update_fields=['story'])
 
-        # Обязательно обновляем объект из БД
-        message.refresh_from_db()
+        # =================================================================
+        # 🔥 4. ПРАВИЛЬНАЯ ПОДГОТОВКА ДАННЫХ ДЛЯ WEBSOCKET 🔥
+        # Вместо простого refresh_from_db(), собираем сообщение со ВСЕМИ файлами
+        # и нужными аннотациями, как это делает метод get_queryset().
+        # =================================================================
+        member_count = GroupMember.objects.filter(group_id=group_id).count()
 
-        # 🔥 5. ИСПРАВЛЕНА ЛОГИКА СОКЕТОВ (Заменили PrivateMessage на GroupMessage)
-        serializer_data = GroupMessageSerializer(message, context={'request': self.request}).data
+        full_message = GroupMessage.objects.select_related("sender").prefetch_related(
+            "files", "read_by"
+        ).annotate(
+            read_count=Count('read_by', distinct=True)
+        ).annotate(
+            is_read_by_all=Case(
+                When(read_count__gte=member_count - 1, then=True),
+                default=False,
+                output_field=BooleanField()
+            )
+        ).get(id=message.id)
 
+        # Теперь сериализатор получит файлы и вернет их на фронтенд
+        serializer_data = GroupMessageSerializer(full_message, context={'request': self.request}).data
+
+        # 5. Отправка в сокет группы
         channel_layer = get_channel_layer()
-        
-        # Отправляем сообщение в комнату группы
         async_to_sync(channel_layer.group_send)(
-            f"group_{message.group.id}",
+            f"group_{full_message.group.id}",
             {
-                "type": "chat_message", # Убедитесь, что ваш консьюмер (consumer) слушает тип 'chat_message'
+                "type": "chat_message",
                 "message": serializer_data
             }
         )
