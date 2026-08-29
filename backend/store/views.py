@@ -2052,40 +2052,40 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
         return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
-        # 1. Извлекаем ID сторис
+        # 🔥 1. Явно извлекаем ID группы из запроса
+        group_id = self.request.data.get('group')
+        
+        # 2. Извлекаем ID сторис
         story_id = self.request.data.get('story')
         if story_id in ['null', '', None]:
             story_id = None
 
-        # 2. Сохраняем базовое сообщение через сериализатор
-        message = serializer.save(sender=self.request.user)
+        # 🔥 3. ИСПРАВЛЕНО: Передаем group_id при сохранении, чтобы избежать IntegrityError
+        message = serializer.save(sender=self.request.user, group_id=group_id)
 
-        # 🔥 3. ИСПРАВЛЕННАЯ ЛОГИКА ПЕРЕСЫЛКИ: СМОТРИМ НА ТИП ИСТОЧНИКА!
+        # 4. Логика пересылки
         forwarded_id = self.request.data.get('forwarded_message_id')
         forwarded_type = self.request.data.get('forwarded_message_type') # 'group', 'private', 'product'
 
         if forwarded_id and forwarded_id not in ['null', '', None]:
             original_msg = None
             try:
-                # В зависимости от типа ищем сообщение в ПРАВИЛЬНОЙ таблице
                 if forwarded_type == "group":
-                    from groups.models import GroupMessage # 👈 Проверьте импорт
+                    from .models import GroupMessage 
                     original_msg = GroupMessage.objects.get(id=forwarded_id)
                 elif forwarded_type == "product":
-                    from messages.models import Message # 👈 Проверьте импорт
+                    from .models import Message 
                     original_msg = Message.objects.get(id=forwarded_id)
                 else:
-                    # По умолчанию считаем, что это личное сообщение
+                    from .models import PrivateMessage
                     original_msg = PrivateMessage.objects.get(id=forwarded_id)
                 
-                # Копируем текст
                 if not message.text and getattr(original_msg, 'text', None):
                     message.text = original_msg.text
                     message.save(update_fields=['text'])
                 
-                # Копируем прикрепленные файлы
                 if hasattr(original_msg, 'files'):
-                    FileModel = message.files.model # PrivateMessageFile
+                    FileModel = message.files.model # Для групп это автоматически будет GroupMessageFile
                     
                     for orig_file in original_msg.files.all():
                         new_file = FileModel(message=message)
@@ -2104,7 +2104,6 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 print(f"Ошибка при копировании пересланного сообщения: {e}")
 
-        # 4. Привязываем к сторис, если это ответ на сторис
         if story_id:
             message.story_id = story_id
             message.save(update_fields=['story'])
@@ -2112,27 +2111,19 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
         # Обязательно обновляем объект из БД
         message.refresh_from_db()
 
-        # 5. Сериализуем готовое сообщение для отправки по сокетам
-        serializer_data = PrivateMessageSerializer(message, context={'request': self.request}).data
+        # 🔥 5. ИСПРАВЛЕНА ЛОГИКА СОКЕТОВ (Заменили PrivateMessage на GroupMessage)
+        serializer_data = GroupMessageSerializer(message, context={'request': self.request}).data
 
         channel_layer = get_channel_layer()
         
+        # Отправляем сообщение в комнату группы
         async_to_sync(channel_layer.group_send)(
-            f"chat_{message.target.id}",
+            f"group_{message.group.id}",
             {
-                "type": "chat_message",
+                "type": "chat_message", # Убедитесь, что ваш консьюмер (consumer) слушает тип 'chat_message'
                 "message": serializer_data
             }
         )
-
-        async_to_sync(channel_layer.group_send)(
-            f"chat_{message.sender.id}",
-            {
-                "type": "chat_message",
-                "message": serializer_data
-            }
-        )
-
 
     @action(detail=False, methods=["POST"], url_path="mark-audio-listened")
     def mark_audio_listened(self, request):
