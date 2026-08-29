@@ -2066,7 +2066,7 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
         # 🔥 2. ГАРАНТИРОВАННОЕ СОХРАНЕНИЕ ФАЙЛОВ И ГОЛОСОВЫХ 🔥
         # На случай, если сериализатор DRF игнорирует загрузку файлов
         # =================================================================
-        from groups.models import GroupMessageFile, GroupMember # Проверьте правильность импорта!
+        from .models import GroupMessageFile, GroupMember # Проверьте правильность импорта!
         
         files_data = self.request.FILES.getlist('files')
         thumbnails_data = self.request.FILES.getlist('thumbnails')
@@ -2110,13 +2110,13 @@ class GroupMessageViewSet(viewsets.ModelViewSet):
             original_msg = None
             try:
                 if forwarded_type == "group":
-                    from groups.models import GroupMessage 
+                    from .models import GroupMessage 
                     original_msg = GroupMessage.objects.get(id=forwarded_id)
                 elif forwarded_type == "product":
-                    from messages.models import Message 
+                    from .models import Message 
                     original_msg = Message.objects.get(id=forwarded_id)
                 else:
-                    from messages.models import PrivateMessage
+                    from .models import PrivateMessage
                     original_msg = PrivateMessage.objects.get(id=forwarded_id)
                 
                 if not message.text and getattr(original_msg, 'text', None):
