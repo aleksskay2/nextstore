@@ -289,19 +289,40 @@ class CustomUserViewSet(viewsets.ModelViewSet):
 
 
 User = get_user_model()
-
 class SyncContactsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        phone_numbers = request.data.get("phones", [])
-        if not isinstance(phone_numbers, list):
-            return Response({"error": "Ожидается список телефонов"}, status=status.HTTP_400_BAD_REQUEST)
+        # 1. Ждем новый формат: {"contacts": [{"phone": "+79...", "name": "Брат"}, ...]}
+        contacts_data = request.data.get("contacts", [])
+        
+        # Поддержка старого формата (если фронтенд еще не обновлен)
+        phones_only = request.data.get("phones", [])
 
-        # Поиск зарегистрированных пользователей (исключая себя)
-        registered_users = User.objects.filter(
-            phone__in=phone_numbers
-        ).exclude(id=request.user.id).only("id", "username", "phone", "avatar", "region")
+        if contacts_data:
+            # Извлекаем только номера для поиска в БД
+            phone_numbers = [c.get("phone") for c in contacts_data if c.get("phone")]
+            registered_users = User.objects.filter(phone__in=phone_numbers).exclude(id=request.user.id).only("id", "username", "phone", "avatar", "region")
+            
+            # Словарь для быстрого поиска локального имени по телефону
+            phone_to_name = {c.get("phone"): c.get("name") for c in contacts_data}
+
+            # 🔥 СОХРАНЯЕМ ИМЕНА В БАЗУ ДАННЫХ
+            for r_user in registered_users:
+                local_name = phone_to_name.get(r_user.phone) or r_user.username
+                UserContact.objects.update_or_create(
+                    owner=request.user,
+                    contact_user=r_user,
+                    defaults={"local_name": local_name}
+                )
+
+        elif phones_only:
+            # Старая логика (просто поиск без сохранения имен)
+            if not isinstance(phones_only, list):
+                return Response({"error": "Ожидается список"}, status=status.HTTP_400_BAD_REQUEST)
+            registered_users = User.objects.filter(phone__in=phones_only).exclude(id=request.user.id).only("id", "username", "phone", "avatar", "region")
+        else:
+            return Response({"error": "Нет данных контактов"}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = UserContactSerializer(registered_users, many=True, context={"request": request})
         return Response({"registered_contacts": serializer.data}, status=status.HTTP_200_OK)

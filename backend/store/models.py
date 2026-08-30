@@ -30,6 +30,18 @@ class CustomUser(AbstractUser):
 
 
 
+class UserContact(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='saved_contacts', on_delete=models.CASCADE)
+    contact_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='contacted_by', on_delete=models.CASCADE)
+    local_name = models.CharField(max_length=255, help_text="Имя контакта в телефонной книге")
+
+    class Meta:
+        # У одного пользователя не может быть двух одинаковых контактов с одним и тем же юзером
+        unique_together = ('owner', 'contact_user')
+
+    def __str__(self):
+        return f"{self.owner.username} -> {self.local_name}"
+
 
 
 
