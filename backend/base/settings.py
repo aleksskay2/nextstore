@@ -729,3 +729,20 @@ CELERY_TIMEZONE = 'Europe/Moscow'
 METERED_API_KEY = os.environ.get("METERED_API_KEY", "")
 METERED_STATIC_USERNAME = os.environ.get("METERED_STATIC_USERNAME", "")
 METERED_STATIC_CREDENTIAL = os.environ.get("METERED_STATIC_CREDENTIAL", "")
+
+
+import firebase_admin
+from firebase_admin import credentials
+
+FIREBASE_CREDENTIALS_PATH = os.environ.get(
+    'FIREBASE_CREDENTIALS_PATH', 
+    os.path.join(BASE_DIR, 'firebase-adminsdk.json')
+)
+
+if os.path.exists(FIREBASE_CREDENTIALS_PATH):
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+        firebase_admin.initialize_app(cred)
+        print("✅ Firebase Admin SDK успешно инициализирован")
+else:
+    print(f"⚠️ Файл ключа Firebase не найден по пути: {FIREBASE_CREDENTIALS_PATH}")
