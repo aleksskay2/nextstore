@@ -64,8 +64,7 @@ def format_last_message(msg, current_user=None):
 
         if msg.call_status == "missed":
             return "📞 Пропущенный звонок" if is_incoming else "📞 Отмененный звонок"
-        elif msg.call_status == "declined":
-            return "📞 Отклоненный звонок"
+       
         else:
             duration = getattr(msg, "call_duration", 0) or 0
             if duration > 0:
