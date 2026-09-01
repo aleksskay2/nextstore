@@ -53,43 +53,49 @@ def get_full_url(path):
         str_path = f"/{str_path}"
         
     return str_path
-
-def format_last_message(msg):
+def format_last_message(msg, current_user=None):
     if not msg:
         return None
     
-    # 🔥 1. ПРОВЕРКА НА ЗВОНОК (используем ваши поля из БД)
-    message_type = getattr(msg, 'message_type', 'text')
-    
-    if message_type == 'call':
-        call_status = getattr(msg, 'call_status', None)
-        if call_status == 'missed':
-            return "📞 Пропущенный звонок"
-        elif call_status == 'declined':
+    # 🔥 1. ПРОВЕРКА НА ЗВОНОК
+    if getattr(msg, "message_type", None) == "call":
+        # Определяем, входящий или исходящий, если передан пользователь
+        is_incoming = msg.target_id == current_user.id if current_user else False
+
+        if msg.call_status == "missed":
+            return "📞 Пропущенный звонок" if is_incoming else "📞 Отмененный звонок"
+        elif msg.call_status == "declined":
             return "📞 Отклоненный звонок"
         else:
-            return "📞 Звонок"
-            
+            duration = getattr(msg, "call_duration", 0) or 0
+            if duration > 0:
+                m, sec = divmod(duration, 60)
+                time_str = f"{m}:{sec:02d}"
+                return f"📞 Звонок ({time_str})"
+            else:
+                return "📞 Звонок"
+
     # 🔥 2. Если есть текст — приоритет тексту
     if hasattr(msg, 'text') and msg.text and msg.text.strip():
         return msg.text
     
     # 🔥 3. Проверка на файлы
-    # (Оставляем как было, так как у вас PrivateMessageFile привязан через related_name="files")
+    # Используем .first(), так как это безопаснее, чем [0]
     first_file = msg.files.all().first()
     
     if first_file:
-        f_type = getattr(first_file, 'type', None)
-        if f_type == "audio":
-            return "🎤 Голосовое сообщение"
-        elif f_type == "image":
+        file_type = getattr(first_file, "type", "")
+        if file_type == "image":
             return "📷 Фотография"
-        elif f_type == "video":
+        elif file_type == "video":
             return "🎥 Видео"
+        elif file_type == "audio":
+            return "🎤 Голосовое сообщение"
         else:
-            return "📎 Файл"
+            return "📎 Вложение"
             
     return "Сообщение"
+
     # return "Сообщение"
 
 
