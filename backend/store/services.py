@@ -54,18 +54,29 @@ def get_full_url(path):
         
     return str_path
 
-
 def format_last_message(msg):
     if not msg:
         return None
     
-    # 1. Если есть текст — приоритет тексту
+    # 🔥 1. ПРОВЕРКА НА ЗВОНОК (используем ваши поля из БД)
+    message_type = getattr(msg, 'message_type', 'text')
+    
+    if message_type == 'call':
+        call_status = getattr(msg, 'call_status', None)
+        if call_status == 'missed':
+            return "📞 Пропущенный звонок"
+        elif call_status == 'declined':
+            return "📞 Отклоненный звонок"
+        else:
+            return "📞 Звонок"
+            
+    # 🔥 2. Если есть текст — приоритет тексту
     if hasattr(msg, 'text') and msg.text and msg.text.strip():
         return msg.text
     
-    # 2. ПРЯМОЙ запрос к базе (без prefetch), чтобы поймать только что созданный файл
+    # 🔥 3. Проверка на файлы
+    # (Оставляем как было, так как у вас PrivateMessageFile привязан через related_name="files")
     first_file = msg.files.all().first()
-    print('first_file', first_file)
     
     if first_file:
         f_type = getattr(first_file, 'type', None)
@@ -78,6 +89,7 @@ def format_last_message(msg):
         else:
             return "📎 Файл"
             
+    return "Сообщение"
     # return "Сообщение"
 
 
