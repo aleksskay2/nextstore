@@ -39,7 +39,6 @@ from rest_framework import serializers
 from store.tasks import send_verification_email_task
 
 User = get_user_model()
-
 class RegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(
@@ -60,49 +59,60 @@ class RegisterSerializer(serializers.ModelSerializer):
         password = attrs.get('password')
         email = attrs.get('email')
 
-        # 1. Нормализуем email (приводим к нижнему регистру и убираем пробелы)
+        # Очищаем телефон от пробелов и пустых строк
+        if phone:
+            phone = phone.strip()
+            if not phone:
+                phone = None
+        attrs['phone'] = phone
+
+        # 1. Нормализуем email
         if email:
             email = email.strip().lower()
             attrs['email'] = email
 
-        # 2. Если регистрация по Email
-        if not phone:
+        # 🔥 2. РЕЖИМ: РЕГИСТРАЦИЯ ПО EMAIL (даже если есть телефон)
+        if email:
             if not username:
                 raise serializers.ValidationError({"username": "Имя пользователя обязательно."})
             if not password:
                 raise serializers.ValidationError({"password": "При регистрации по Email пароль обязателен."})
-            if not email:
-                raise serializers.ValidationError({"email": "При регистрации по Email почта обязательна."})
             
-            # Проверка уникальности Email без учета регистра
+            # Проверка уникальности Email
             if User.objects.filter(email__iexact=email).exists():
                 raise serializers.ValidationError({"email": "Пользователь с такой почтой уже зарегистрирован."})
 
-            # 🔥 ПРОВЕРКА СЛОЖНОСТИ ПАРОЛЯ ЧЕРЕЗ DJANGO VALIDATORS
+            # 🔥 Если юзер дополнительно ввел телефон — проверяем и его уникальность
+            if phone and User.objects.filter(phone=phone).exists():
+                raise serializers.ValidationError({"phone": "Пользователь с таким номером уже зарегистрирован."})
+
+            # Проверка сложности пароля
             user_dummy = User(username=username, email=email)
             try:
                 validate_password(password, user=user_dummy)
             except DjangoValidationError as error:
                 raise serializers.ValidationError({"password": list(error.messages)})
 
-        # 3. Если регистрация по Телефону
-        else:
-            phone = phone.strip()
-            attrs['phone'] = phone
+        # 🔥 3. РЕЖИМ: РЕГИСТРАЦИЯ ТОЛЬКО ПО ТЕЛЕФОНУ
+        elif phone:
             if User.objects.filter(phone=phone).exists():
                 raise serializers.ValidationError({"phone": "Пользователь с таким номером уже зарегистрирован."})
+        else:
+            raise serializers.ValidationError("Необходимо предоставить Email или номер телефона.")
 
         return attrs
 
     def create(self, validated_data):
-        phone = validated_data.get('phone') or None
+        phone = validated_data.get('phone')
         password = validated_data.get('password')
         email = validated_data.get('email', '')
         username = validated_data.get('username')
 
+        is_email_registration = bool(email)
+
         # Генерация username, если не передан
         if not username:
-            if phone:
+            if phone and not is_email_registration:
                 username = f"user_{phone[-4:]}_{secrets.randbelow(9000) + 1000}"
             else:
                 username = f"user_{secrets.randbelow(900000) + 100000}"
@@ -111,9 +121,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         while User.objects.filter(username=username).exists():
             username = f"user_{secrets.randbelow(9000000) + 1000000}"
 
-        # 🔥 КРИПТОГРАФИЧЕСКИ СТОЙКИЙ 6-ЗНАЧНЫЙ КОД (от 100000 до 999999)
+        # Генерация кода нужна только если это Email-регистрация
         verification_code = None
-        if not phone and email:
+        if is_email_registration:
             verification_code = str(secrets.randbelow(900000) + 100000)
 
         # Создаем пользователя
@@ -123,12 +133,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=password if password else None,  
             phone=phone,
             region=validated_data.get('region', ''),
-            is_active=False if not phone else True,  
+            is_active=False if is_email_registration else True,  
             verification_code=verification_code,
         )
 
-        # Отправка письма с кодом через Celery
-        if not phone and email and verification_code:
+        # Отправка письма с кодом через Celery (если регались по почте)
+        if is_email_registration and verification_code:
             try:
                 send_verification_email_task.delay(email, verification_code)
             except Exception as e:
@@ -136,7 +146,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return user
 
-    
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
@@ -1393,17 +1403,22 @@ class GroupListSerializer(serializers.ModelSerializer):
 
 
 class GroupMemberSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source="user.username")
-    avatar = serializers.ImageField(source="user.avatar")
+    username = serializers.CharField(source="user.username", read_only=True)
+    avatar = serializers.ImageField(source="user.avatar", read_only=True)
+    # 🔥 1. ДОБАВЛЯЕМ ПОЛЕ ДЛЯ ID ПОЛЬЗОВАТЕЛЯ
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
 
     class Meta:
         model = GroupMember
-        fields = ("id", "username", "avatar", "role")
+        # 🔥 2. ОБЯЗАТЕЛЬНО ДОБАВЛЯЕМ 'user_id' В СПИСОК fields
+        fields = ("id", "user_id", "username", "avatar", "role")
 
     def get_avatar(self, obj):
         request = self.context.get('request')
         if obj.user.avatar:
-            return request.build_absolute_uri(obj.user.avatar.uri)
+            # Небольшая правка: у ImageField в Django атрибут называется .url, а не .uri
+            return request.build_absolute_uri(obj.user.avatar.url)
+        return None
 
 # class GroupMessageFileSerializer(serializers.ModelSerializer):
 #     file = serializers.SerializerMethodField()

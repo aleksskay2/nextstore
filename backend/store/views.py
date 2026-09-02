@@ -2588,6 +2588,42 @@ class GroupViewSet(viewsets.ModelViewSet):
         return super().update(request, *args, **kwargs)
 
     
+    @action(detail=True, methods=["post"], url_path="remove-member")
+    def remove_member(self, request, pk=None):
+        group = self.get_object()
+        user_id = request.data.get("user_id")
+
+        if not user_id:
+            return Response({"detail": "Не указан user_id для удаления"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Получаем членство того, кто пытается удалить (текущий юзер)
+        try:
+            remover_membership = GroupMember.objects.get(group=group, user=request.user)
+        except GroupMember.DoesNotExist:
+            return Response({"detail": "Вы не участник группы"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Только владелец или админ могут удалять
+        if remover_membership.role not in ["owner", "admin"]:
+            return Response({"detail": "У вас нет прав для удаления участников"}, status=status.HTTP_403_FORBIDDEN)
+
+        # 2. Получаем членство того, КОГО удаляют
+        try:
+            target_membership = GroupMember.objects.get(group=group, user_id=user_id)
+        except GroupMember.DoesNotExist:
+            return Response({"detail": "Пользователь не найден в группе"}, status=status.HTTP_404_NOT_FOUND)
+
+        # 3. Защита ролей
+        if target_membership.role == "owner":
+            return Response({"detail": "Владельца группы нельзя удалить"}, status=status.HTTP_403_FORBIDDEN)
+
+        if remover_membership.role == "admin" and target_membership.role == "admin":
+            return Response({"detail": "Администратор не может удалить другого администратора"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Удаляем
+        target_membership.delete()
+        return Response({"detail": "Участник успешно удален"}, status=status.HTTP_200_OK)
+
+
     def retrieve(self, request, *args, **kwargs):
         group = self.get_object()
         serializer = self.get_serializer(group)
