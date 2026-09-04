@@ -888,11 +888,14 @@ class StoryUserSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.avatar.url)
         return obj.avatar.url
 
-
+        
 class StoryCreateSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор создания сторис: валидирует длительность и 
+    автоматически генерирует thumbnail для видео при сохранении.
+    """
     class Meta:
         model = Story
-        # 🔥 Добавлены text и background_color
         fields = ("id", "media", "text", "background_color")
         extra_kwargs = {
             "media": {"required": False, "allow_null": True},
@@ -915,7 +918,7 @@ class StoryCreateSerializer(serializers.ModelSerializer):
         content_type = getattr(media, "content_type", "")
         file_name = getattr(media, "name", "").lower()
 
-        # 🔥 Проверка: это видеофайл?
+        # Проверка видеофайла на длительность
         if content_type.startswith("video") or file_name.endswith((".mp4", ".mov", ".avi", ".webm", ".mkv")):
             tmp_path = None
             try:
@@ -925,7 +928,6 @@ class StoryCreateSerializer(serializers.ModelSerializer):
                         tmp.write(chunk)
                     tmp_path = tmp.name
 
-                # Читаем метаданные через быстрый ffmpeg.probe
                 probe = ffmpeg.probe(tmp_path)
                 duration = float(probe.get("format", {}).get("duration", 0))
 
@@ -937,15 +939,19 @@ class StoryCreateSerializer(serializers.ModelSerializer):
 
             except serializers.ValidationError:
                 raise
-            except Exception:
+            except Exception as e:
+                print(f"⚠️ Ошибка проверки видео: {e}")
                 raise serializers.ValidationError("Не удалось прочитать или проверить формат видеофайла.")
             finally:
-                # Безопасное удаление временного файла
                 if tmp_path and os.path.exists(tmp_path):
                     try:
                         os.remove(tmp_path)
                     except OSError:
                         pass
+
+        # Сбрасываем указатель чтения файла обратно на 0 перед записью в БД
+        if hasattr(media, 'seek'):
+            media.seek(0)
 
         return media
 
@@ -953,7 +959,6 @@ class StoryCreateSerializer(serializers.ModelSerializer):
         media = attrs.get("media")
         text = attrs.get("text")
 
-        # 🔥 Защита от создания полностью пустой истории
         if not media and (not text or not text.strip()):
             raise serializers.ValidationError(
                 "История должна содержать либо медиафайл (фото/видео), либо текст."
@@ -961,6 +966,66 @@ class StoryCreateSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    def create(self, validated_data):
+        # 1. Привязываем автора
+        request = self.context.get("request")
+        if request and request.user and request.user.is_authenticated:
+            validated_data["user"] = request.user
+
+        # 2. Сохраняем Story в БД
+        story = super().create(validated_data)
+
+        # 3. Если загружено видео — сразу генерируем thumbnail через ffmpeg
+        if story.media:
+            file_name = story.media.name.lower()
+            if file_name.endswith(('.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v')):
+                self._generate_video_thumbnail(story)
+
+        return story
+
+    def _generate_video_thumbnail(self, story):
+        """Быстрая генерация 1 кадра через ffmpeg прямо в storage Django"""
+        try:
+            video_path = story.media.path
+            if not os.path.exists(video_path):
+                return
+
+            base_stem = Path(video_path).stem
+            thumb_filename = f"thumb_{base_stem}.jpg"
+
+            # Создаем временный файл для захвата кадра
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp_thumb:
+                temp_thumb_path = tmp_thumb.name
+
+            try:
+                # Извлекаем 1-й кадр (или 0-й, если видео супер-короткое)
+                try:
+                    (
+                        ffmpeg
+                        .input(video_path, ss=1)
+                        .output(temp_thumb_path, vframes=1, format='image2')
+                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+                    )
+                except ffmpeg.Error:
+                    (
+                        ffmpeg
+                        .input(video_path, ss=0)
+                        .output(temp_thumb_path, vframes=1, format='image2')
+                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+                    )
+
+                # Сохраняем полученный кадр в поле thumbnail модели Story
+                if os.path.exists(temp_thumb_path) and os.path.getsize(temp_thumb_path) > 0:
+                    with open(temp_thumb_path, 'rb') as f:
+                        story.thumbnail.save(thumb_filename, ContentFile(f.read()), save=True)
+                    print(f"✅ Превью сторис #{story.id} успешно создано: {thumb_filename}")
+
+            finally:
+                if os.path.exists(temp_thumb_path):
+                    os.remove(temp_thumb_path)
+
+        except Exception as e:
+            print(f"⚠️ Ошибка создания превью для сторис #{story.id}: {e}")
 
 # 1. Сериализатор пользователя для истории
 class StoryUserSerializer(serializers.ModelSerializer):
@@ -1033,19 +1098,21 @@ class StoryListSerializer(serializers.ModelSerializer):
 
 
 import os
-import cv2  # Убедитесь, что установлен opencv-python-headless
+
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 from django.conf import settings
-
 class StoryReplySerializer(serializers.ModelSerializer):
+    """
+    Легковесный сериализатор для ответа/цитирования сторис в чате.
+    Только читает данные и строит абсолютные ссылки без блокирующих операций.
+    """
     media = serializers.SerializerMethodField()
     thumbnail = serializers.SerializerMethodField()
     file_type = serializers.SerializerMethodField()
 
     class Meta:
-        # Укажите вашу модель Story
-        model = Story 
+        model = Story
         fields = (
             "id",
             "media",
@@ -1056,92 +1123,42 @@ class StoryReplySerializer(serializers.ModelSerializer):
             "created_at",
         )
 
-    def get_media(self, obj):
-        if not obj.media:
+    def _build_url(self, file_field):
+        if not file_field:
             return None
-            
         request = self.context.get("request")
-        backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online').rstrip('/')
-        
         if request:
-            return request.build_absolute_uri(obj.media.url)
-        return f"{backend_url}{obj.media.url}"
+            return request.build_absolute_uri(file_field.url)
+        backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online').rstrip('/')
+        return f"{backend_url}{file_field.url}"
+
+    def get_media(self, obj):
+        return self._build_url(obj.media)
 
     def get_thumbnail(self, obj):
-        request = self.context.get("request")
-        backend_url = getattr(settings, 'BACKEND_URL', 'https://storechat.online').rstrip('/')
+        # 1. Если есть явно сгенерированный thumbnail (для видео)
+        if obj.thumbnail:
+            return self._build_url(obj.thumbnail)
         
-        # 1. Проверяем, есть ли превью в БД, И СУЩЕСТВУЕТ ЛИ ФАЙЛ ФИЗИЧЕСКИ
-        if hasattr(obj, 'thumbnail') and obj.thumbnail:
-            try:
-                # 🔥 Жесткая проверка: есть ли файл реально на диске сервера?
-                if os.path.exists(obj.thumbnail.path):
-                    if request:
-                        return request.build_absolute_uri(obj.thumbnail.url)
-                    return f"{backend_url}{obj.thumbnail.url}"
-                else:
-                    print(f"⚠️ Файл превью в БД есть, но на диске отсутствует! Будет пересоздан для #{obj.id}")
-            except Exception as e:
-                pass # Если S3 или ошибка пути - идем дальше генерировать
+        # 2. Если история является фотографией — отдаем саму фотографию как превью
+        if self.get_file_type(obj) == 'image' and obj.media:
+            return self._build_url(obj.media)
 
-        # 2. Если превью нет ИЛИ оно битое, ГЕНЕРИРУЕМ ФИЗИЧЕСКИ (OpenCV)
-        file_type = self.get_file_type(obj)
-        if file_type == 'video' and obj.media:
-            try:
-                video_path = obj.media.path
-                
-                # Проверяем, что само видео физически существует на сервере
-                if not os.path.exists(video_path):
-                    return None
-                    
-                cap = cv2.VideoCapture(video_path)
-                success, frame = cap.read()
-                
-                if success:
-                    ret, buffer = cv2.imencode('.jpg', frame)
-                    if ret:
-                        content = ContentFile(buffer.tobytes())
-                        base_name = os.path.basename(obj.media.name)
-                        # 🔥 Добавляем _thumb.jpg, чтобы точно знать, что сработал этот код
-                        thumb_name = f"{os.path.splitext(base_name)[0]}_thumb.jpg"
-                        
-                        # Сохраняем поверх старой битой записи
-                        obj.thumbnail.save(thumb_name, content, save=True)
-                        print(f"✅ Успешно пересоздано превью: {thumb_name}")
-                        
-                        if request:
-                            return request.build_absolute_uri(obj.thumbnail.url)
-                        return f"{backend_url}{obj.thumbnail.url}"
-                
-                cap.release()
-            except Exception as e:
-                print(f"❌ Ошибка OpenCV при генерации превью: {e}")
-                return None
-
-        # 3. Для изображений
-        if file_type == 'image' and obj.media:
-            if request:
-                return request.build_absolute_uri(obj.media.url)
-            return f"{backend_url}{obj.media.url}"
-
-        # Если ничего не помогло (генерация упала) - отдаем null, 
-        # чтобы фронт не пытался грузить 404
         return None
-
 
     def get_file_type(self, obj):
         if hasattr(obj, 'file_type') and obj.file_type:
             return obj.file_type
-            
+
         if obj.media:
             name = str(obj.media.name).lower()
             if name.endswith(('.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v')):
                 return 'video'
             return 'image'
-            
+
         if obj.text:
             return 'text'
-            
+
         return None
 
 class PrivateMessageSerializer(serializers.ModelSerializer):
