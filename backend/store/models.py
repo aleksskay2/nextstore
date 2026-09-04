@@ -11,6 +11,7 @@ from datetime import timedelta
 from django.utils.timezone import now
 from django.core.files.storage import default_storage
 from django.contrib.postgres.fields import ArrayField
+from django.db import transaction
 import ffmpeg
 
 
@@ -643,6 +644,7 @@ class MessageRegionChat(models.Model):
 
     def __str__(self):
         return f"{self.user.username} → {self.region_id}"
+    
 
 
 class MessageRegionFile(models.Model):
@@ -665,7 +667,7 @@ class MessageRegionFile(models.Model):
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
 
-    # 🔥 НОВОЕ ПОЛЕ: Хранит список пользователей, прослушавших это аудио
+    # 🔥 Хранит список пользователей, прослушавших это аудио
     listened_by = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="listened_region_files",
@@ -673,134 +675,23 @@ class MessageRegionFile(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        is_new = self._state.adding
+        is_new = self.pk is None  # Проверяем, создается ли объект впервые
         
+        # 1. Быстро сохраняем запись и файл в БД (занимает < 5 мс)
         super().save(*args, **kwargs)
 
+        # 2. Если это новый файл, передаем обработку в Celery
         if is_new and self.file:
-            if self.type == 'image':
-                self.process_image()
-            elif self.type == 'video':
-                self.process_video()
-            elif self.type == 'audio':  # 🔥 Добавили ветку для аудио
-                self.process_audio()
-
-    def process_image(self):
-        """Сжатие оригинала в WebP и создание миниатюры"""
-        img = Image.open(self.file.path)
-        
-        # Обновляем размеры для БД
-        self.width, self.height = img.size
-
-        # 1. Сжатие основного изображения
-        output = BytesIO()
-        img_copy = img.copy()
-        if img_copy.mode in ("RGBA", "P"):
-            img_copy = img_copy.convert("RGB")
-        
-        img_copy.thumbnail((1280, 1280), Image.LANCZOS)
-        img_copy.save(output, format='WebP', quality=80, optimize=True)
-        
-        name = os.path.splitext(os.path.basename(self.file.name))[0] + ".webp"
-        self.file.save(name, ContentFile(output.getvalue()), save=False)
-
-        # 2. Создание квадратного превью
-        thumb_data = self.make_square_thumb(img)
-        self.thumbnail.save(f"thumb_{name}", thumb_data, save=False)
-        
-        super().save(update_fields=['file', 'thumbnail', 'width', 'height'])
-
-    def process_audio(self):
-        """Извлечение длительности аудио через ffmpeg"""
-        try:
-            import ffmpeg
-            from pathlib import Path
-            
-            file_path = str(Path(self.file.path))
-            probe = ffmpeg.probe(file_path)
-            
-            # Достаем длительность и округляем до целых секунд
-            self.duration = int(float(probe['format']['duration']))
-            super().save(update_fields=['duration'])
-            
-        except Exception as e:
-            print(f"Audio processing error: {e}")
-
-  
-
-    def process_video(self):
-        """Извлечение кадра и длительности видео через ffmpeg (без moviepy!)"""
-        try:
-            import ffmpeg
-            from pathlib import Path
-            import os
-            from PIL import Image
-            
-            file_path = str(Path(self.file.path))
-            
-            # 1. Извлекаем длительность и размеры через ffprobe
-            probe = ffmpeg.probe(file_path)
-            self.duration = int(float(probe['format']['duration']))
-            
-            # Достаем ширину и высоту из видеопотока
-            video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
-            if video_stream:
-                self.width = int(video_stream['width'])
-                self.height = int(video_stream['height'])
-
-            # 2. Создаем временную миниатюру через ffmpeg
-            thumb_dir = os.path.join(os.path.dirname(file_path), "thumbnails")
-            os.makedirs(thumb_dir, exist_ok=True)
-            
-            temp_thumb_path = os.path.join(thumb_dir, f"temp_{Path(file_path).stem}.jpg")
-            
-            # 🎬 Извлекаем 1 кадр на 1-й секунде (или на 0, если видео короче 1 сек)
-            extract_time = min(1, self.duration if self.duration > 0 else 0)
-            (
-                ffmpeg
-                .input(file_path, ss=extract_time)
-                .output(temp_thumb_path, vframes=1)
-                .run(overwrite_output=True, quiet=True)
+            from .tasks import process_chat_media_task
+            # transaction.on_commit гарантирует, что задача уйдет в очередь
+            # ТОЛЬКО после успешной записи в PostgreSQL
+            transaction.on_commit(
+                lambda: process_chat_media_task.delay(
+                    self._meta.app_label, 
+                    self._meta.model_name, 
+                    self.pk
+                )
             )
-
-            # 3. Обрабатываем кадр твоей функцией make_square_thumb
-            if os.path.exists(temp_thumb_path):
-                img = Image.open(temp_thumb_path)
-                
-                thumb_data = self.make_square_thumb(img)
-                name = os.path.splitext(os.path.basename(self.file.name))[0]
-                self.thumbnail.save(f"thumb_{name}.webp", thumb_data, save=False)
-                
-                img.close()
-                os.remove(temp_thumb_path) # Удаляем временный файл
-            
-            # Сохраняем обновленные поля
-            super().save(update_fields=['thumbnail', 'duration', 'width', 'height'])
-            
-        except Exception as e:
-            print(f"Video processing error: {e}")
-
-
-    def make_square_thumb(self, img):
-        """Создает квадратный ContentFile 200x200"""
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        
-        w, h = img.size
-        min_side = min(w, h)
-        left = (w - min_side) / 2
-        top = (h - min_side) / 2
-        img = img.crop((left, top, left + min_side, top + min_side))
-        img.thumbnail((200, 200), Image.LANCZOS)
-        
-        output = BytesIO()
-        img.save(output, format='WebP', quality=70)
-        output.seek(0)
-        return ContentFile(output.read())
-
-
-
-
 
 # class PrivateMessage(models.Model):
 #     sender = models.ForeignKey(
@@ -898,9 +789,6 @@ class PrivateMessage(models.Model):
         return f"Сообщение: {self.sender} -> {self.target}"
 
 
-
-
-
 class PrivateMessageFile(models.Model):
     message = models.ForeignKey(
         PrivateMessage,
@@ -909,17 +797,15 @@ class PrivateMessageFile(models.Model):
     )
     file = models.FileField(upload_to="private_chat/", null=True, blank=True)
 
-    # 🔥 НОВОЕ ПОЛЕ: Храним оригинальное название файла с фронтенда
+    # 🔥 Храним оригинальное название файла с фронтенда
     file_name = models.CharField(max_length=255, blank=True, null=True)
 
-    # 🔥 NEW: thumbnail
+    # 🔥 Thumbnail
     thumbnail = models.ImageField(
         upload_to="private_chat/thumbnails/",
         null=True,
         blank=True
     )
-
-
 
     type = models.CharField(
         max_length=20,
@@ -927,75 +813,33 @@ class PrivateMessageFile(models.Model):
             ("image", "Image"),
             ("video", "Video"),
             ("audio", "Audio"),
-            ("document", "Document"), # 🔥 Заменил "file" на "document", чтобы совпадало с логикой сериализатора
+            ("document", "Document"), 
         )
     )
 
     duration = models.PositiveIntegerField(null=True, blank=True)
     is_downloaded = models.BooleanField(default=False)
 
-    # 🔥 НОВОЕ ПОЛЕ: Сохраняет статус "прослушано" навсегда в БД
+    # 🔥 Сохраняет статус "прослушано" навсегда в БД
     is_listened = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
-        is_new = self.pk is None  # 👈 важно
+        is_new = self.pk is None
+        
+        # 1. Быстро сохраняем в БД
         super().save(*args, **kwargs)
 
-        if not self.file:
-            return
-
-        try:
-            from pathlib import Path
-            import ffmpeg
-            import os
-
-            file_path = str(Path(self.file.path))
-
-            # 🔥 1. ДЛИТЕЛЬНОСТЬ (audio/video)
-            if self.type in ["audio", "video"] and not self.duration:
-                probe = ffmpeg.probe(file_path)
-                duration = int(float(probe['format']['duration']))
-                self.duration = duration
-                super().save(update_fields=["duration"])
-
-           
-           # 🔥 2. THUMBNAIL ТОЛЬКО ДЛЯ ВИДЕО
-            if self.type == "video" and not self.thumbnail:
-                thumb_dir = os.path.join(
-                    os.path.dirname(file_path),
-                    "thumbnails"
+        # 2. Передаем в фоновую задачу Celery
+        if is_new and self.file:
+            from .tasks import process_chat_media_task
+            transaction.on_commit(
+                lambda: process_chat_media_task.delay(
+                    self._meta.app_label, 
+                    self._meta.model_name, 
+                    self.pk
                 )
-                os.makedirs(thumb_dir, exist_ok=True)
+            )
 
-                thumb_filename = f"{Path(file_path).stem}.jpg"
-                thumb_path = os.path.join(thumb_dir, thumb_filename)
-
-                # 🎬 создаём thumbnail (бронебойный вариант)
-                try:
-                    # Пробуем взять кадр на 1-й секунде (ss=1)
-                    # update=1 и format='image2' заставят FFmpeg нормально работать с нейро-видео (MJPEG)
-                    (
-                        ffmpeg
-                        .input(file_path, ss=1)
-                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
-                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-                    )
-                except ffmpeg.Error:
-                    # Если видео короче 1 секунды или сломалось, берем самый первый кадр (ss=0)
-                    (
-                        ffmpeg
-                        .input(file_path, ss=0)
-                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
-                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-                    )
-
-                # сохраняем в модель
-                relative_path = f"private_chat/thumbnails/{thumb_filename}"
-                self.thumbnail = relative_path
-                super().save(update_fields=["thumbnail"])
-
-        except Exception as e:
-            print("Ошибка обработки файла:", e)
 
 
 class Group(models.Model):
@@ -1083,10 +927,10 @@ class GroupMessageFile(models.Model):
     )
     file = models.FileField(upload_to="groups/messages/")
     
-    # 🔥 НОВОЕ ПОЛЕ: Храним оригинальное название файла с фронтенда
+    # 🔥 Храним оригинальное название файла с фронтенда
     file_name = models.CharField(max_length=255, blank=True, null=True)
     
-    # 🔥 NEW: Поле для миниатюры
+    # 🔥 Поле для миниатюры
     thumbnail = models.ImageField(
         upload_to="groups/messages/thumbnails/",
         null=True, 
@@ -1099,12 +943,12 @@ class GroupMessageFile(models.Model):
             ("image", "Image"),
             ("video", "Video"),
             ("audio", "Audio"),
-            ("document", "Document"), # 🔥 ДОБАВЛЕНО: иначе Django не даст сохранить файлы
+            ("document", "Document"), 
         )
     )
     duration = models.PositiveIntegerField(null=True, blank=True)
 
-    # 🔥 НОВОЕ ПОЛЕ: Хранит пользователей группы, которые прослушали это аудио
+    # 🔥 Хранит пользователей группы, которые прослушали это аудио
     listened_by = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         blank=True,
@@ -1112,60 +956,23 @@ class GroupMessageFile(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        # 1. Сохраняем файл первый раз, чтобы получить путь на диске
+        is_new = self.pk is None  # Проверяем, создается ли запись впервые
+        
+        # 1. Быстро сохраняем запись и оригинальный файл в базу данных
         super().save(*args, **kwargs)
 
-        if not self.file:
-            return
-
-        try:
-            import ffmpeg
-            file_path = str(Path(self.file.path))
-
-            # 🔥 2. ДЛИТЕЛЬНОСТЬ (audio/video)
-            if self.type in ["audio", "video"] and not self.duration:
-                probe = ffmpeg.probe(file_path)
-                duration = int(float(probe['format']['duration']))
-                self.duration = duration
-                # Используем update_fields, чтобы не зациклить save()
-                super().save(update_fields=["duration"])
-
-            # 🔥 3. THUMBNAIL ТОЛЬКО ДЛЯ ВИДЕО
-            # 🔥 3. THUMBNAIL ТОЛЬКО ДЛЯ ВИДЕО
-            if self.type == "video" and not self.thumbnail:
-                # Определяем директорию для превью
-                thumb_dir = os.path.join(os.path.dirname(file_path), "thumbnails")
-                os.makedirs(thumb_dir, exist_ok=True)
-
-                thumb_filename = f"thumb_{Path(file_path).stem}.jpg"
-                thumb_path = os.path.join(thumb_dir, thumb_filename)
-
-                # 🎬 создаём thumbnail (бронебойный вариант, как в личных чатах)
-                try:
-                    (
-                        ffmpeg
-                        .input(file_path, ss=1)
-                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
-                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-                    )
-                except ffmpeg.Error:
-                    # Если видео короче 1 секунды, берем нулевой кадр
-                    (
-                        ffmpeg
-                        .input(file_path, ss=0)
-                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
-                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-                    )
-
-                # Сохраняем относительный путь для БД
-                relative_thumb_path = f"groups/messages/thumbnails/{thumb_filename}"
-                self.thumbnail = relative_thumb_path
-                super().save(update_fields=["thumbnail"])
-
-
-        except Exception as e:
-            print(f"❌ Ошибка GroupMessage обработчика: {e}")
-
+        # 2. Если файл новый, отправляем его на фоновую обработку в Celery
+        if is_new and self.file:
+            from .tasks import process_chat_media_task
+            # transaction.on_commit гарантирует, что задача отправится в очередь 
+            # ТОЛЬКО после успешной фиксации данных в PostgreSQL
+            transaction.on_commit(
+                lambda: process_chat_media_task.delay(
+                    self._meta.app_label, 
+                    self._meta.model_name, 
+                    self.pk
+                )
+            )
 
 
 
