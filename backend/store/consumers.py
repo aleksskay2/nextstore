@@ -1503,9 +1503,14 @@ class ProductChatConsumer(AsyncJsonWebsocketConsumer):
 
 
 
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
-from channels.db import database_sync_to_async
-from django.contrib.auth import get_user_model
+
+
+
+
+
+
+
+
 
 class RegionChatConsumer(AsyncJsonWebsocketConsumer):
 
@@ -1544,7 +1549,6 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
         updated_count = await self.mark_region_read_bulk()
 
         if updated_count > 0:
-            # Уведомляем участников текущей комнаты
             await self.channel_layer.group_send(
                 self.group_name,
                 {
@@ -1584,7 +1588,7 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
         })
 
     # ======================
-    # БЫСТРАЯ РАБОТА С БД (Без N+1)
+    # БЫСТРАЯ РАБОТА С БД (Без N+1 и без риска падения реестра)
     # ======================
     @database_sync_to_async
     def mark_region_read_bulk(self) -> int:
@@ -1592,7 +1596,6 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
 
         qs = MessageRegionChat.objects.exclude(user=self.user).exclude(read_by=self.user)
 
-        # Корректная обработка нулевого (общего) региона
         if self.region_id != "0":
             qs = qs.filter(region_id=self.region_id)
 
@@ -1601,14 +1604,20 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
         if not unread_msg_ids:
             return 0
 
-        # Пакетная вставка в промежуточную M2M таблицу одним SQL-запросом
         ThroughModel = MessageRegionChat.read_by.through
+        
+        # Определяем точные имена полей связи в промежуточной M2M-таблице
+        # (чтобы не гадать между customuser_id и user_id)
+        msg_field = ThroughModel._meta.get_field('messageregionchat').attname
+        user_field = ThroughModel._meta.get_field('customuser').attname if hasattr(ThroughModel, 'customuser') else ThroughModel._meta.get_field('user').attname
+
         records = [
-            ThroughModel(
-                messageregionchat_id=m_id,
-                customuser_id=self.user.id
-            )
+            ThroughModel(**{
+                msg_field: m_id,
+                user_field: self.user.id
+            })
             for m_id in unread_msg_ids
         ]
+        
         ThroughModel.objects.bulk_create(records, ignore_conflicts=True)
         return len(records)
