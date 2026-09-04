@@ -1501,15 +1501,9 @@ class ProductChatConsumer(AsyncJsonWebsocketConsumer):
                 }
             )
 
-
-
-
-
-
-
-
-
-
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from channels.db import database_sync_to_async
+# ❌ УБРАНО: from django.contrib.auth import get_user_model
 
 
 class RegionChatConsumer(AsyncJsonWebsocketConsumer):
