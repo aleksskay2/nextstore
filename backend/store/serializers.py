@@ -962,42 +962,6 @@ class StoryCreateSerializer(serializers.ModelSerializer):
         return attrs
 
 
-# class StoryListSerializer(serializers.ModelSerializer):
-#     media = serializers.SerializerMethodField()
-#     user = StoryUserSerializer()
-
-#     class Meta:
-#         model = Story
-#         fields = (
-#             "id",
-#             "media",
-#             "created_at",
-#             "expires_at",
-#             "user",
-#         )
-
-#     def get_media(self, obj):
-#         request = self.context.get("request")
-#         if obj.media:
-#             return request.build_absolute_uri(obj.media.url)
-#         return None
-
-
-
-# class StoryListSerializer(serializers.ModelSerializer):
-#     media = serializers.SerializerMethodField()
-#     user = StoryUserSerializer()
-
-#     class Meta:
-#         model = Story
-#         fields = ("id", "media", "created_at", "expires_at", "user")
-
-#     def get_media(self, obj):
-#         request = self.context.get("request")
-#         if obj.media:
-#             return request.build_absolute_uri(obj.media.url)
-#         return None
-
 # 1. Сериализатор пользователя для истории
 class StoryUserSerializer(serializers.ModelSerializer):
     avatar = serializers.SerializerMethodField()

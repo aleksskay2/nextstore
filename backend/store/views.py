@@ -76,6 +76,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RESEND_COOLDOWN = getattr(settings, 'DEFAULT_RESEND_COOLDOWN', 300)
 
+
+
 class ResendActivationView(APIView):
     throttle_classes = [ResendActivationRateThrottle]
     
@@ -480,7 +482,7 @@ class UpdateUserView(APIView):
     
 class ProductUpdateView(APIView):
     def put(self, request, pk):
-        product = Product.objects.get(id=pk)
+        product = Product.objects.get_object_or_404(id=pk)
         serializer = ProductListSerializer(product, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -718,7 +720,7 @@ class CategoryFeaturesView(APIView):
 
 
 class FeatureTemplateByCategoryView(generics.ListAPIView):
-    serializer_class = FeatureTemplateSerializer,
+    serializer_class = FeatureTemplateSerializer
 
     def get_queryset(self):
         category_id = self.kwargs['category_id']
@@ -3209,67 +3211,67 @@ class FirebasePhoneAuthView(APIView):
 
 import requests
 class WebRTCCredentialsViewSet(viewsets.ViewSet):
-    """
-    ViewSet для безопасной передачи конфигурации WebRTC (STUN/TURN) на фронтенд.
-    """
-    permission_classes = [IsAuthenticated]  # Доступы только для зарегистрированных пользователей
+    permission_classes = [IsAuthenticated]
 
     def list(self, request):
-        # Базовые российские и глобальные STUN-серверы (всегда бесплатные и быстрые)
+        CACHE_KEY = "webrtc_ice_servers_cache"
+        cached_servers = cache.get(CACHE_KEY)
+        
+        # 1. Если данные есть в Redis — отдаем за 1-2 мс без внешних запросов
+        if cached_servers:
+            return Response({"iceServers": cached_servers}, status=status.HTTP_200_OK)
+
+        # 2. Базовые STUN-серверы
         base_stun_servers = [
             {"urls": "stun:stun.yandex.ru:3478"},
             {"urls": "stun:stun.mail.ru:3478"},
             {"urls": "stun:stun.l.google.com:19302"},
         ]
 
-        # 1. Пробуем получить свежие динамические TURN от Metered через API-ключ
-        metered_api_key = getattr(settings, 'METERED_API_KEY', None)
-
-        if metered_api_key:
-            try:
-                # Делаем запрос от имени сервера к API Metered
-                response = requests.get(
-                    f"https://metered.ca/api/v1/turn/credentials?apiKey={metered_api_key}",
-                    timeout=4
-                )
-                if response.status_code == 200:
-                    dynamic_servers = response.json()  # Metered возвращает готовый список iceServers
-                    
-                    return Response({
-                        "iceServers": base_stun_servers + dynamic_servers
-                    }, status=status.HTTP_200_OK)
-            except requests.RequestException:
-                # Если API Metered временно недоступен — плавно падаем на резервную статику ниже
-                pass
-
-        # 2. Фолбек: отдаем статические настройки из settings.py (твои текущие ключи)
-        username = getattr(settings, 'METERED_STATIC_USERNAME', '5a717a75c6fd9d9819a5a163')
-        credential = getattr(settings, 'METERED_STATIC_CREDENTIAL', 'St8H4EWIRDeMrFNj')
-
-        static_turn_servers = [
-            {"urls": "stun:stun.relay.metered.ca:80"},
+        # Локальный TURN-сервер вашего VPS
+        vps_turn_servers = [
             {
-                "urls": "turn:global.relay.metered.ca:80",
-                "username": username,
-                "credential": credential,
+                "urls": "turn:201.34.128.186:3478?transport=udp",
+                "username": "storechatuser",
+                "credential": "turnStoreChat123",
             },
             {
-                "urls": "turn:global.relay.metered.ca:80?transport=tcp",
-                "username": username,
-                "credential": credential,
-            },
-            {
-                "urls": "turn:global.relay.metered.ca:443",
-                "username": username,
-                "credential": credential,
-            },
-            {
-                "urls": "turns:global.relay.metered.ca:443?transport=tcp",
-                "username": username,
-                "credential": credential,
+                "urls": "turn:201.34.128.186:3478?transport=tcp",
+                "username": "storechatuser",
+                "credential": "turnStoreChat123",
             },
         ]
 
-        return Response({
-            "iceServers": base_stun_servers + static_turn_servers
-        }, status=status.HTTP_200_OK)
+        metered_api_key = getattr(settings, 'METERED_API_KEY', None)
+        dynamic_turn_servers = []
+
+        if metered_api_key:
+            try:
+                # Таймаут строго 2 секунды, чтобы не вешать воркер
+                resp = requests.get(
+                    f"https://metered.ca/api/v1/turn/credentials?apiKey={metered_api_key}",
+                    timeout=2
+                )
+                if resp.status_code == 200:
+                    dynamic_turn_servers = resp.json()
+            except requests.RequestException:
+                pass
+
+        # 3. Если динамические серверы не пришли, берем статический фолбэк
+        if not dynamic_turn_servers:
+            username = getattr(settings, 'METERED_STATIC_USERNAME', '5a717a75c6fd9d9819a5a163')
+            credential = getattr(settings, 'METERED_STATIC_CREDENTIAL', 'St8H4EWIRDeMrFNj')
+            dynamic_turn_servers = [
+                {
+                    "urls": "turn:global.relay.metered.ca:443?transport=tcp",
+                    "username": username,
+                    "credential": credential,
+                }
+            ]
+
+        combined_ice_servers = base_stun_servers + vps_turn_servers + dynamic_turn_servers
+
+        # 4. Сохраняем в Redis на 12 часов (43200 секунд)
+        cache.set(CACHE_KEY, combined_ice_servers, timeout=43200)
+
+        return Response({"iceServers": combined_ice_servers}, status=status.HTTP_200_OK)
