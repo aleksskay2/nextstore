@@ -337,7 +337,7 @@ from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
 from django_redis import get_redis_connection
-from rest_framework_simplejwt.tokens import AccessToken
+
 
 # Индивидуальный Set для активных вкладок/соединений юзера
 ONLINE_SET_KEY = "online_channels:user:{user_id}"
@@ -360,6 +360,8 @@ class UserGlobalConsumer(AsyncJsonWebsocketConsumer):
         if not token:
             await self.close(code=4001)
             return
+
+        from rest_framework_simplejwt.tokens import AccessToken  # ❌ УДАЛИТЬ С ВЕРХНЕГО УРОВНЯ
 
         try:
             access = AccessToken(token)
