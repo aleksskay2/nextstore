@@ -380,7 +380,7 @@ class MessageFile(models.Model):
             ("image", "Image"),
             ("video", "Video"),
             ("audio", "Audio"),
-            ("file", "File"), # добавили общий тип файла
+            ("document", "Document"), # 🔥 Заменили "file" на "document" для консистентности с другими чатами
         )
     )
     
@@ -390,62 +390,31 @@ class MessageFile(models.Model):
     # 🔥 НОВОЕ ПОЛЕ: Хранит статус прослушивания голосового сообщения
     is_listened = models.BooleanField(default=False)
 
+    # 🔥 НОВОЕ ПОЛЕ: Храним оригинальное название файла с фронтенда (как в других чатах)
+    file_name = models.CharField(max_length=255, blank=True, null=True)
+
     def __str__(self):
         return f"{self.type} for message {self.message.id}"
 
     def save(self, *args, **kwargs):
-        # Сохраняем сначала, чтобы файл физически появился на диске
+        is_new = self.pk is None  # Проверяем, создается ли объект впервые
+        
+        # 1. Быстро сохраняем запись в БД (занимает < 5 мс)
         super().save(*args, **kwargs)
 
-        if not self.file:
-            return
-
-        try:
-           
+        # 2. Если файл новый, передаем обработку в фоновую очередь Celery
+        if is_new and self.file:
+            from .tasks import process_chat_media_task
             
-            file_path = str(Path(self.file.path))
-
-            # 🔥 1. Извлечение длительности (audio/video)
-            if self.type in ["audio", "video"] and not self.duration:
-                probe = ffmpeg.probe(file_path)
-                duration = int(float(probe['format']['duration']))
-                self.duration = duration
-                super().save(update_fields=["duration"])
-
-            # 🔥 2. Создание превью (только для видео)
-           # 🔥 2. Создание превью (только для видео)
-            if self.type == "video" and not self.thumbnail:
-                # Определяем папку для превью внутри MEDIA_ROOT
-                thumb_relative_dir = "messages/thumbnails"
-                thumb_absolute_dir = os.path.join(settings.MEDIA_ROOT, thumb_relative_dir)
-                os.makedirs(thumb_absolute_dir, exist_ok=True)
-
-                thumb_filename = f"{Path(file_path).stem}_thumb.jpg"
-                thumb_path = os.path.join(thumb_absolute_dir, thumb_filename)
-
-                # 🎬 Создаём thumbnail (бронебойный вариант с поддержкой MJPEG и коротких видео)
-                try:
-                    (
-                        ffmpeg
-                        .input(file_path, ss=1)
-                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
-                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-                    )
-                except ffmpeg.Error:
-                    # Если видео короче 1 секунды или кодек сложный, берем 0-й кадр
-                    (
-                        ffmpeg
-                        .input(file_path, ss=0)
-                        .output(thumb_path, vframes=1, format='image2', **{'update': 1})
-                        .run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-                    )
-
-                # Сохраняем относительный путь в базу
-                self.thumbnail = os.path.join(thumb_relative_dir, thumb_filename)
-                super().save(update_fields=["thumbnail"])
-
-        except Exception as e:
-            print(f"❌ Ошибка обработки MessageFile (id: {self.id}): {e}")
+            # transaction.on_commit гарантирует, что задача отправится в очередь 
+            # ТОЛЬКО после успешной фиксации строки в PostgreSQL
+            transaction.on_commit(
+                lambda: process_chat_media_task.delay(
+                    self._meta.app_label, 
+                    self._meta.model_name, 
+                    self.pk
+                )
+            )
 
 
 
