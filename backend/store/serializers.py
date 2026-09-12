@@ -896,7 +896,8 @@ class StoryCreateSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Story
-        fields = ("id", "media", "text", "background_color")
+       # 🔥 ИСПРАВЛЕНИЕ: Добавили "thumbnail" в разрешенные поля
+        fields = ("id", "media", "thumbnail", "text", "background_color")
         extra_kwargs = {
             "media": {"required": False, "allow_null": True},
             "text": {"required": False, "allow_blank": True, "allow_null": True},
