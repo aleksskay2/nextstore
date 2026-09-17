@@ -1062,11 +1062,12 @@ def get_caller_name(user_id):
         return "Входящий вызов"
         
 
+        
 import json
 import asyncio # 🔥 ДОБАВИТЬ ЭТОТ ИМПОРТ
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-# Ваша функция trigger_call_push остается без изменений
+# Ваша функция trigger_call_push остается без изменений (предполагается, что она импортирована/написана выше)
 
 class CallConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -1093,8 +1094,14 @@ class CallConsumer(AsyncWebsocketConsumer):
             return
 
         msg_type = data.get("type")
-        target = data.get("target")
 
+        # 🔥 1. СЕРДЦЕБИЕНИЕ (Пинг для поддержания VPN-соединения)
+        if msg_type == "ping":
+            await self.send(text_data=json.dumps({"type": "pong"}))
+            return
+
+        # Для всех остальных сообщений (offer, answer, candidate) target обязателен
+        target = data.get("target")
         if not msg_type or not target:
             return
 
@@ -1118,7 +1125,7 @@ class CallConsumer(AsyncWebsocketConsumer):
         if msg_type == "offer":
             asyncio.create_task(trigger_call_push(self.user_id, target))
 
-        # 🔥 ИСПРАВЛЕНИЕ: Обработка ответа на звонок
+        # Обработка ответа на звонок
         if msg_type == "answer":
             client_id = data.get("client_id")
             if client_id:
@@ -1127,8 +1134,8 @@ class CallConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_send(
                     self.group_name, 
                     {
-                        "type": "forward_call_elsewhere", # Используем новый метод фильтрации
-                        "sender_channel_name": self.channel_name, # Передаем текущий канал для исключения
+                        "type": "forward_call_elsewhere",
+                        "sender_channel_name": self.channel_name,
                         "data": { "type": "answered_elsewhere", "client_id": client_id }
                     }
                 )
@@ -1146,16 +1153,13 @@ class CallConsumer(AsyncWebsocketConsumer):
     async def forward_call(self, event):
         await self.send(text_data=json.dumps(event["data"]))
 
-    # 🔥 2. НОВЫЙ МЕТОД: Пересылка всем, КРОМЕ устройства, ответившего на звонок
+    # 2. Пересылка всем, КРОМЕ устройства, ответившего на звонок
     async def forward_call_elsewhere(self, event):
         # Если это тот самый канал, который прислал ответ — игнорируем его
         if self.channel_name == event.get("sender_channel_name"):
             return
             
         await self.send(text_data=json.dumps(event["data"]))
-
-
-
 
 
 
