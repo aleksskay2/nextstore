@@ -270,96 +270,10 @@ def _execute_send_each(messages, tokens):
 
 
 
-# # =========================================================
-# # ОСНОВНАЯ ФУНКЦИЯ (ДОБАВЛЕН ФЛАГ is_call)
-# # =========================================================
-# def send_push_notification(user, title=None, body=None, data=None, is_call=False): # 🔥 Добавили is_call
-#     print(f"🔍 [Utils] Ищем устройства для пользователя: {user.username} (ID: {user.id})")
-    
-#     devices = FCMDevice.objects.filter(user=user)
-#     print(f"📊 [Utils] Найдено устройств в базе FCMDevice: {devices.count()}")
-
-#     tokens = [d.expo_push_token for d in devices if d.expo_push_token]
-    
-#     if not tokens:
-#         print("⚠️ [Utils] FCM Токены не найдены. Отмена отправки.")
-#         return
-
-#     print(f"📲 [Utils] Подготовка к отправке на FCM токены: {tokens}")
-
-#     messages = []
-#     for token in tokens:
-#         safe_data = {str(k): str(v) for k, v in data.items()} if data else {}
-
-#         # Настраиваем конфигурацию Android под конкретный тип сообщения
-
-#         if is_call:
-#             # 🔥 МАКСИМАЛЬНО ЧИСТЫЙ И БЕЗОПАСНЫЙ ВАРИАНТ ДЛЯ СОВМЕСТИМОСТИ
-#             android_config = messaging.AndroidConfig(
-#                 priority='high',
-#                 ttl=0,  # Мгновенная доставка. Принимает int (секунды) или timedelta
-#                 notification=messaging.AndroidNotification(
-#                     channel_id="incoming_calls",
-#                     visibility="public",
-#                     sound="default"
-#                 )
-#             )
-#         else:
-#             android_config = messaging.AndroidConfig(
-#                 priority='high'
-#             )
-
-
-#         message_kwargs = {
-#             "token": token,
-#             "data": safe_data,
-#             "android": android_config,
-#             "apns": messaging.APNSConfig(
-#                 payload=messaging.APNSPayload(
-#                     aps=messaging.Aps(
-#                         content_available=True,
-#                         sound="default"
-#                     )
-#                 )
-#             )
-#         }
-
-#         # 🔥 ГЛАВНЫЙ ФИКС: Если это звонок, мы СТРОГО ЗАПРЕЩАЕМ создавать общий объект "notification".
-#         # Пуш должен уйти как чистый data-message, чтобы разбудить JS-код в фоне на Redmi.
-#         if (title or body) and not is_call:
-#             message_kwargs["notification"] = messaging.Notification(
-#                 title=title,
-#                 body=body
-#             )
-#             message_kwargs["android"].notification = messaging.AndroidNotification(
-#                 channel_id="alerts_v1",
-#                 sound="default"
-#               )
-
-#         messages.append(messaging.Message(**message_kwargs))
-
-#     # Запуск сетевого запроса в изолированном фоновом потоке
-#     push_thread = threading.Thread(
-#         target=_execute_send_each,
-#         args=(messages, tokens)
-#     )
-#     push_thread.daemon = True
-#     push_thread.start()
-
-
-
-
-
-
-import os
-import threading
-import datetime # 🔥 ОБЯЗАТЕЛЬНО ДОБАВИТЬ!
-from firebase_admin import messaging
-
 # =========================================================
-# ОСНОВНАЯ ФУНКЦИЯ
+# ОСНОВНАЯ ФУНКЦИЯ (ДОБАВЛЕН ФЛАГ is_call)
 # =========================================================
-def send_push_notification(user, title=None, body=None, data=None, is_call=False, priority="high", ttl=None):
+def send_push_notification(user, title=None, body=None, data=None, is_call=False): # 🔥 Добавили is_call
     print(f"🔍 [Utils] Ищем устройства для пользователя: {user.username} (ID: {user.id})")
     
     devices = FCMDevice.objects.filter(user=user)
@@ -377,21 +291,24 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
     for token in tokens:
         safe_data = {str(k): str(v) for k, v in data.items()} if data else {}
 
-        # Настраиваем конфигурацию Android
+        # Настраиваем конфигурацию Android под конкретный тип сообщения
+
         if is_call:
-            # 🔥 ДЛЯ ЗВОНКОВ: Максимальный приоритет, мгновенная доставка и ЧИСТЫЙ DATA-MESSAGE
+            # 🔥 МАКСИМАЛЬНО ЧИСТЫЙ И БЕЗОПАСНЫЙ ВАРИАНТ ДЛЯ СОВМЕСТИМОСТИ
             android_config = messaging.AndroidConfig(
                 priority='high',
-                ttl=datetime.timedelta(seconds=0), # 🔥 ФИКС: firebase_admin требует timedelta, иначе будет краш!
-                # 🔥 УБРАЛИ блок notification отсюда. Для звонков он СТРОГО запрещен, 
-                # иначе Android перехватит пуш и не отдаст его в React Native (JS).
+                ttl=0,  # Мгновенная доставка. Принимает int (секунды) или timedelta
+                notification=messaging.AndroidNotification(
+                    channel_id="incoming_calls",
+                    visibility="public",
+                    sound="default"
+                )
             )
         else:
-            # 🔥 ДЛЯ ЧАТОВ: Используем параметры из signals.py (по умолчанию high / ttl=0)
             android_config = messaging.AndroidConfig(
-                priority=priority,
-                ttl=datetime.timedelta(seconds=ttl) if ttl is not None else None
+                priority='high'
             )
+
 
         message_kwargs = {
             "token": token,
@@ -407,7 +324,8 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
             )
         }
 
-        # 🔥 Если это ОБЫЧНОЕ сообщение (не звонок), добавляем визуальное уведомление
+        # 🔥 ГЛАВНЫЙ ФИКС: Если это звонок, мы СТРОГО ЗАПРЕЩАЕМ создавать общий объект "notification".
+        # Пуш должен уйти как чистый data-message, чтобы разбудить JS-код в фоне на Redmi.
         if (title or body) and not is_call:
             message_kwargs["notification"] = messaging.Notification(
                 title=title,
@@ -416,7 +334,7 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
             message_kwargs["android"].notification = messaging.AndroidNotification(
                 channel_id="alerts_v1",
                 sound="default"
-            )
+              )
 
         messages.append(messaging.Message(**message_kwargs))
 
