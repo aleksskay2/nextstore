@@ -1876,7 +1876,8 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
         return Response({"status": "ok", "file_id": file_id, "is_listened": True}, status=status.HTTP_200_OK)
 
 
-    # 👇 УДАЛЕНИЕ СООБЩЕНИЯ У ВСЕХ
+  
+   # 👇 УДАЛЕНИЕ СООБЩЕНИЯ У ВСЕХ (и своих, и чужих в рамках диалога)
     @action(detail=True, methods=["DELETE"], url_path="delete-for-all")
     def delete_for_all(self, request, pk=None):
         user = request.user
@@ -1889,10 +1890,10 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # ❗️Только отправитель может удалить у всех
-        if message.sender != user:
+        # 🔥 ИСПРАВЛЕНИЕ: Разрешаем удалять, если пользователь - участник диалога (отправитель или получатель)
+        if user not in [message.sender, message.target]:
             return Response(
-                {"detail": "Вы можете удалить только свои сообщения"},
+                {"detail": "У вас нет прав на удаление этого сообщения"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -1900,17 +1901,17 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
         sender_id = message.sender_id
         message_id = message.id
 
-        # 🔥 ИСПРАВЛЕНИЕ: Физически удаляем файлы с диска перед удалением из БД
+        # Физически удаляем файлы с диска перед удалением из БД
         if hasattr(message, "files"):
             for msg_file in message.files.all():
                 if msg_file.file:
                     msg_file.file.delete(save=False) # Удаление с диска
                 msg_file.delete() # Удаление записи из БД
 
-        # Удаляем сообщение
+        # Удаляем сообщение из базы
         message.delete()
 
-        # 🔥 Уведомляем обоих через WebSocket
+        # Уведомляем обоих участников диалога через WebSocket об удалении
         channel_layer = get_channel_layer()
         payload = {
             "type": "message_deleted",
@@ -1920,7 +1921,7 @@ class PrivateMessageViewSet(viewsets.ModelViewSet):
         async_to_sync(channel_layer.group_send)(f"chat_{target_id}", payload)
 
         return Response(
-            {"detail": "Сообщение удалено у всех"},
+            {"detail": "Сообщение удалено у всех участников"},
             status=status.HTTP_200_OK
         )
 
