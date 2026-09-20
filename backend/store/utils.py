@@ -349,11 +349,9 @@ def _execute_send_each(messages, tokens):
 
 
 
-
-
 import os
 import threading
-import datetime # 🔥 ОБЯЗАТЕЛЬНО ДОБАВИТЬ!
+import datetime 
 from firebase_admin import messaging
 
 # =========================================================
@@ -362,28 +360,52 @@ from firebase_admin import messaging
 def send_push_notification(user, title=None, body=None, data=None, is_call=False, priority="high", ttl=None):
     print(f"🔍 [Utils] Ищем устройства для пользователя: {user.username} (ID: {user.id})")
     
+    # 🔥 Импортируем модели ВНУТРИ функции, чтобы избежать ошибки циклического импорта
+    from .models import FCMDevice, PrivateMessage, Message
+    
     devices = FCMDevice.objects.filter(user=user)
-    print(f"📊 [Utils] Найдено устройств в базе FCMDevice: {devices.count()}")
-
     tokens = [d.expo_push_token for d in devices if d.expo_push_token]
     
     if not tokens:
         print("⚠️ [Utils] FCM Токены не найдены. Отмена отправки.")
         return
 
-    print(f"📲 [Utils] Подготовка к отправке на FCM токены: {tokens}")
-
-    # 🔥 1. Формируем уникальный идентификатор для конкретного чата
-    # Это позволит склеивать сообщения из одного диалога в одно окно
     chat_type = data.get("type", "general") if data else "general"
     chat_id = (data.get("chat_id") or data.get("group_id") or data.get("product_id") or "0") if data else "0"
     thread_id = f"{chat_type}_{chat_id}"
+
+    # =======================================================
+    # 🔥 1. СЧИТАЕМ НЕПРОЧИТАННЫЕ СООБЩЕНИЯ
+    # =======================================================
+    chat_unread_count = 1
+    total_app_unread = 1
+    
+    if not is_call:
+        try:
+            # А) Считаем сообщения ТОЛЬКО для текущего чата (чтобы написать в уведомлении: "Иван (3 новых)")
+            if chat_type == "private" and str(chat_id).isdigit():
+                chat_unread_count = PrivateMessage.objects.filter(target=user, sender_id=chat_id, is_read=False).count()
+            elif chat_type == "product" and str(chat_id).isdigit():
+                chat_unread_count = Message.objects.filter(receiver=user, product_id=chat_id, is_read=False).count()
+
+            # Б) Считаем ВСЕ непрочитанные сообщения вообще (для красного кружочка на иконке приложения)
+            total_app_unread = (
+                PrivateMessage.objects.filter(target=user, is_read=False).count() +
+                Message.objects.filter(receiver=user, is_read=False).count()
+            )
+        except Exception as e:
+            print(f"Ошибка подсчета непрочитанных: {e}")
+
+    # 🔥 2. ДОБАВЛЯЕМ СЧЕТЧИК К ЗАГОЛОВКУ
+    # Если пришло больше 1 сообщения, заголовок "Иван" превратится в "Иван (3 новых)"
+    display_title = title
+    if chat_unread_count > 1 and display_title:
+        display_title = f"{title} ({chat_unread_count} новых)"
 
     messages = []
     for token in tokens:
         safe_data = {str(k): str(v) for k, v in data.items()} if data else {}
 
-        # Настраиваем конфигурацию Android
         if is_call:
             android_config = messaging.AndroidConfig(
                 priority='high',
@@ -393,7 +415,7 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
             android_config = messaging.AndroidConfig(
                 priority=priority,
                 ttl=datetime.timedelta(seconds=ttl) if ttl is not None else None,
-                collapse_key=thread_id  # 🔥 ФИКС: Схлопывает пуши на Android, если телефон был офлайн
+                collapse_key=thread_id  # Схлопывает пуши на Android, если телефон был офлайн
             )
 
         message_kwargs = {
@@ -405,22 +427,24 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
                     aps=messaging.Aps(
                         content_available=True,
                         sound="default",
-                        thread_id=thread_id  # 🔥 ФИКС: Складывает уведомления в красивую "стопку" на iOS
+                        thread_id=thread_id,
+                        badge=total_app_unread if total_app_unread > 0 else 1 # 🔥 Обновляем счетчик на иконке iOS
                     )
                 )
             )
         }
 
         # Если это ОБЫЧНОЕ сообщение (не звонок), добавляем визуальное уведомление
-        if (title or body) and not is_call:
+        if (display_title or body) and not is_call:
             message_kwargs["notification"] = messaging.Notification(
-                title=title,
+                title=display_title,  # 🔥 ИСПОЛЬЗУЕМ ОБНОВЛЕННЫЙ ЗАГОЛОВОК С КОЛИЧЕСТВОМ
                 body=body
             )
             message_kwargs["android"].notification = messaging.AndroidNotification(
                 channel_id="alerts_v1",
                 sound="default",
-                tag=thread_id  # 🔥 ФИКС: Заменяет предыдущее уведомление от этого же чата новым текстом
+                tag=thread_id,  # Заменяет предыдущее уведомление от этого же чата новым окном
+                notification_count=total_app_unread # 🔥 Обновляем счетчик на иконке Android
             )
 
         messages.append(messaging.Message(**message_kwargs))
