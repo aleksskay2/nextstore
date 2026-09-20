@@ -373,24 +373,27 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
 
     print(f"📲 [Utils] Подготовка к отправке на FCM токены: {tokens}")
 
+    # 🔥 1. Формируем уникальный идентификатор для конкретного чата
+    # Это позволит склеивать сообщения из одного диалога в одно окно
+    chat_type = data.get("type", "general") if data else "general"
+    chat_id = (data.get("chat_id") or data.get("group_id") or data.get("product_id") or "0") if data else "0"
+    thread_id = f"{chat_type}_{chat_id}"
+
     messages = []
     for token in tokens:
         safe_data = {str(k): str(v) for k, v in data.items()} if data else {}
 
         # Настраиваем конфигурацию Android
         if is_call:
-            # 🔥 ДЛЯ ЗВОНКОВ: Максимальный приоритет, мгновенная доставка и ЧИСТЫЙ DATA-MESSAGE
             android_config = messaging.AndroidConfig(
                 priority='high',
-                ttl=datetime.timedelta(seconds=0), # 🔥 ФИКС: firebase_admin требует timedelta, иначе будет краш!
-                # 🔥 УБРАЛИ блок notification отсюда. Для звонков он СТРОГО запрещен, 
-                # иначе Android перехватит пуш и не отдаст его в React Native (JS).
+                ttl=datetime.timedelta(seconds=0), 
             )
         else:
-            # 🔥 ДЛЯ ЧАТОВ: Используем параметры из signals.py (по умолчанию high / ttl=0)
             android_config = messaging.AndroidConfig(
                 priority=priority,
-                ttl=datetime.timedelta(seconds=ttl) if ttl is not None else None
+                ttl=datetime.timedelta(seconds=ttl) if ttl is not None else None,
+                collapse_key=thread_id  # 🔥 ФИКС: Схлопывает пуши на Android, если телефон был офлайн
             )
 
         message_kwargs = {
@@ -401,13 +404,14 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
                 payload=messaging.APNSPayload(
                     aps=messaging.Aps(
                         content_available=True,
-                        sound="default"
+                        sound="default",
+                        thread_id=thread_id  # 🔥 ФИКС: Складывает уведомления в красивую "стопку" на iOS
                     )
                 )
             )
         }
 
-        # 🔥 Если это ОБЫЧНОЕ сообщение (не звонок), добавляем визуальное уведомление
+        # Если это ОБЫЧНОЕ сообщение (не звонок), добавляем визуальное уведомление
         if (title or body) and not is_call:
             message_kwargs["notification"] = messaging.Notification(
                 title=title,
@@ -415,7 +419,8 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
             )
             message_kwargs["android"].notification = messaging.AndroidNotification(
                 channel_id="alerts_v1",
-                sound="default"
+                sound="default",
+                tag=thread_id  # 🔥 ФИКС: Заменяет предыдущее уведомление от этого же чата новым текстом
             )
 
         messages.append(messaging.Message(**message_kwargs))
