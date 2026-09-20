@@ -378,6 +378,14 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
     chat_id = data.get("sender_id") or data.get("sender") or data.get("group_id") or data.get("product_id") or data.get("chat_id") or "0"
     thread_id = f"{chat_type}_{chat_id}"
 
+
+    chat_type = data.get("type", "general")
+    chat_id = data.get("sender_id") or data.get("sender") or data.get("group_id") or data.get("product_id") or data.get("chat_id") or "0"
+    
+    # 🔥 ДОБАВЬТЕ ЭТИ ДВЕ СТРОЧКИ ДЛЯ ПРОВЕРКИ:
+    print(f"🐞 DEBUG DATA: {data}")
+    print(f"🐞 DEBUG CHAT_ID: {chat_id}, CHAT_TYPE: {chat_type}")
+
     # =======================================================
     # 🔥 1. СЧИТАЕМ НЕПРОЧИТАННЫЕ СООБЩЕНИЯ
     # =======================================================
