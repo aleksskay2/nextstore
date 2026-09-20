@@ -180,13 +180,15 @@ if not firebase_admin._apps:
     cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
 
-
 # =========================================================
 # ВНУТРЕННЯЯ ФУНКЦИЯ ДЛЯ СИНХРОННОЙ ОТПРАВКИ
 # =========================================================
 def _execute_send_each(messages, tokens):
     """Выполняет реальный сетевой запрос к Firebase в отдельном потоке"""
     try:
+        # Безопасный импорт внутри потока
+        from .models import FCMDevice
+        
         print("🌐 [Utils - Thread] Отправка запросов напрямую в Firebase...")
         response = messaging.send_each(messages)
         print(f"✅ [Utils - Thread] Успешно отправлено: {response.success_count}, Ошибок: {response.failure_count}")
@@ -198,9 +200,19 @@ def _execute_send_each(messages, tokens):
                 print(f"❌ Ошибка отправки на токен {bad_token}: {error_msg}")
                 
                 # 🔥 МАГИЯ ЗДЕСЬ: Автоочистка базы от мертвых токенов
-                if "Requested entity was not found" in error_msg or "UNREGISTERED" in error_msg or "invalid registration" in error_msg.lower():
-                    FCMDevice.objects.filter(expo_push_token=bad_token).delete()
-                    print(f"🗑️ [Автоочистка] Мертвый токен удален из базы: {bad_token}")
+                # Добавлен "NotRegistered", который был в ваших логах
+                dead_token_errors = [
+                    "NotRegistered", 
+                    "Requested entity was not found", 
+                    "UNREGISTERED", 
+                    "invalid registration"
+                ]
+                
+                # Проверяем, есть ли хотя бы одна из фатальных ошибок в тексте ответа Firebase
+                if any(err.lower() in error_msg.lower() for err in dead_token_errors):
+                    deleted_count, _ = FCMDevice.objects.filter(expo_push_token=bad_token).delete()
+                    if deleted_count > 0:
+                        print(f"🗑️ [Автоочистка] Мертвый токен удален из базы: {bad_token}")
 
     except Exception as e:
         print(f"❌ [Utils - Thread] ОШИБКА при запросе к Firebase: {e}")
@@ -346,9 +358,6 @@ def _execute_send_each(messages, tokens):
 #     push_thread.daemon = True
 #     push_thread.start()
 
-
-
-
 import os
 import threading
 import datetime 
@@ -360,7 +369,6 @@ from firebase_admin import messaging
 def send_push_notification(user, title=None, body=None, data=None, is_call=False, priority="high", ttl=None):
     print(f"🔍 [Utils] Ищем устройства для пользователя: {user.username} (ID: {user.id})")
     
-    # 🔥 Импортируем модели ВНУТРИ функции, чтобы избежать ошибки циклического импорта
     from .models import FCMDevice, PrivateMessage, Message
     
     devices = FCMDevice.objects.filter(user=user)
@@ -370,38 +378,40 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
         print("⚠️ [Utils] FCM Токены не найдены. Отмена отправки.")
         return
 
-    # Защита от пустого data
     data = data or {}
     
     chat_type = data.get("type", "general")
-    # 🔥 ИЩЕМ ID ВЕЗДЕ: sender_id, sender, group_id, product_id, chat_id
     chat_id = data.get("sender_id") or data.get("sender") or data.get("group_id") or data.get("product_id") or data.get("chat_id") or "0"
     thread_id = f"{chat_type}_{chat_id}"
 
-
-    chat_type = data.get("type", "general")
-    chat_id = data.get("sender_id") or data.get("sender") or data.get("group_id") or data.get("product_id") or data.get("chat_id") or "0"
-    
-    # 🔥 ДОБАВЬТЕ ЭТИ ДВЕ СТРОЧКИ ДЛЯ ПРОВЕРКИ:
     print(f"🐞 DEBUG DATA: {data}")
     print(f"🐞 DEBUG CHAT_ID: {chat_id}, CHAT_TYPE: {chat_type}")
 
     # =======================================================
     # 🔥 1. СЧИТАЕМ НЕПРОЧИТАННЫЕ СООБЩЕНИЯ
     # =======================================================
-    chat_unread_count = 0
-    total_app_unread = 0
+    chat_unread_count = 1
+    total_app_unread = 1
     
     if not is_call:
         try:
-            # А) Считаем сообщения ТОЛЬКО для текущего чата
-            # Убрали .isdigit(), чтобы работало даже если ID - это строка или UUID
-            if chat_type == "private":
-                chat_unread_count = PrivateMessage.objects.filter(target=user, sender_id=chat_id, is_read=False).count()
+            # 🔥 ИСПРАВЛЕНО: Учтен формат "private_chat" вместо просто "private"
+            if chat_type in ["private", "private_chat"]:
+                # Если sender_id в data передал ID собеседника, ищем по нему
+                target_sender_id = data.get("sender_id") or chat_id
+                chat_unread_count = PrivateMessage.objects.filter(
+                    target=user, 
+                    sender_id=target_sender_id, 
+                    is_read=False
+                ).count()
             elif chat_type == "product":
-                chat_unread_count = Message.objects.filter(receiver=user, product_id=chat_id, is_read=False).count()
+                chat_unread_count = Message.objects.filter(
+                    receiver=user, 
+                    product_id=chat_id, 
+                    is_read=False
+                ).count()
 
-            # Б) Считаем ВСЕ непрочитанные сообщения вообще
+            # Общее количество непрочитанных для иконки приложения (Badge)
             total_app_unread = (
                 PrivateMessage.objects.filter(target=user, is_read=False).count() +
                 Message.objects.filter(receiver=user, is_read=False).count()
@@ -409,15 +419,17 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
         except Exception as e:
             print(f"❌ Ошибка подсчета непрочитанных: {e}")
 
+    print(f"📊 [Utils] Найдено непрочитанных в этом чате: {chat_unread_count}, всего в приложении: {total_app_unread}")
+
     # 🔥 2. ДОБАВЛЯЕМ СЧЕТЧИК К ЗАГОЛОВКУ
     display_title = title or "Новое сообщение"
     
     if not is_call:
-        # Если БД запаздывает и выдает 0, считаем что как минимум 1 новое есть
-        if chat_unread_count == 0:
+        # Если база вернула 0 (например, сообщение еще пишется в транзакции), ставим минимум 1
+        if chat_unread_count <= 0:
             chat_unread_count = 1
             
-        # Как только набирается 2 и более, приписываем в скобках
+        # Если непрочитанных больше одного, подписываем количество в скобках
         if chat_unread_count > 1:
             display_title = f"{display_title} (+{chat_unread_count})"
 
@@ -434,7 +446,7 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
             android_config = messaging.AndroidConfig(
                 priority=priority,
                 ttl=datetime.timedelta(seconds=ttl) if ttl is not None else None,
-                collapse_key=thread_id  # Схлопывает пуши на Android
+                collapse_key=thread_id  # Схлопывает пуши на Android в одно окно
             )
 
         message_kwargs = {
@@ -453,22 +465,21 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
             )
         }
 
-        # 🔥 Визуальное уведомление (ТОЛЬКО ДЛЯ ТЕКСТА)
         if not is_call:
             message_kwargs["notification"] = messaging.Notification(
-                title=display_title,  # 🔥 ТЕПЕРЬ ТУТ БУДЕТ ЗАГОЛОВОК С ЦИФРОЙ (например: "Иван (+3)")
+                title=display_title,  # 🔥 Заголовок с количеством непрочитанных
                 body=body
             )
             message_kwargs["android"].notification = messaging.AndroidNotification(
                 channel_id="alerts_v1",
                 sound="default",
-                tag=thread_id,  
+                tag=thread_id,  # Заменяет старое уведомление этого же чата новым
                 notification_count=total_app_unread if total_app_unread > 0 else 1 
             )
 
         messages.append(messaging.Message(**message_kwargs))
 
-    # Запуск сетевого запроса в изолированном фоновом потоке
+    # Запуск сетевого запроса в фоновом потоке
     push_thread = threading.Thread(
         target=_execute_send_each,
         args=(messages, tokens)
