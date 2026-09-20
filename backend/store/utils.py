@@ -371,7 +371,9 @@ def send_push_notification(user, title=None, body=None, data=None, is_call=False
         return
 
     chat_type = data.get("type", "general") if data else "general"
-    chat_id = (data.get("chat_id") or data.get("group_id") or data.get("product_id") or "0") if data else "0"
+    
+    # 🔥 ИСПРАВЛЕНИЕ: Добавлен поиск по "sender_id", так как фронтенд ждет именно его для личных чатов!
+    chat_id = (data.get("sender_id") or data.get("group_id") or data.get("product_id") or data.get("chat_id") or "0") if data else "0"
     thread_id = f"{chat_type}_{chat_id}"
 
     # =======================================================
