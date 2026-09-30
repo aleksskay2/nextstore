@@ -974,6 +974,13 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             "message_id": event["message_id"]
         }))
 
+    # 🔥 ДОБАВЛЕННЫЙ ОБРАБОТЧИК: Устраняет ошибку "No handler for message type media_updated"
+    async def media_updated(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "media_updated",
+            "chat_id": event.get("chat_id")
+        }))
+
 
    # 🔥 ИСПРАВЛЕННЫЙ trigger_new_message: берет sender_id прямо из модели
     async def trigger_new_message(self, event):
@@ -1015,6 +1022,9 @@ class PrivateChatConsumer(AsyncWebsocketConsumer):
             f"user_{target}",
             {"type": "message", "message": serialized}
         )
+
+
+
 
 
 
