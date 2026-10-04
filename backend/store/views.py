@@ -2524,21 +2524,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             members_count=Count("members")
         )
 
-    def retrieve(self, request, *args, **kwargs):
-        group = self.get_object()
-
-        # 🔐 приватная группа — только для участников
-        if group.is_private and not GroupMember.objects.filter(
-            group=group,
-            user=request.user
-        ).exists():
-            return Response(
-                {"detail": "Group is private"},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        serializer = self.get_serializer(group)
-        return Response(serializer.data)
+   
 
     @action(detail=True, methods=["post"])
     def join(self, request, pk=None):
@@ -2629,15 +2615,25 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         group = self.get_object()
+        
+        # 1. Проверяем, является ли текущий юзер участником
+        membership = GroupMember.objects.filter(group=group, user=request.user).first()
+        is_member = membership is not None
+
+        # 2. 🔐 приватная группа — только для участников
+        if group.is_private and not is_member:
+            return Response(
+                {"detail": "Group is private"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # 3. Получаем стандартные данные из сериализатора
         serializer = self.get_serializer(group)
         data = serializer.data
 
-        # 🔥 Проверяем права текущего пользователя прямо при загрузке
-        data['can_edit'] = GroupMember.objects.filter(
-            group=group,
-            user=request.user,
-            role__in=["owner", "admin"]
-        ).exists()
+        # 4. 🔥 ГЛАВНЫЙ ФИКС: Сервер сам жестко вписывает флаги участия!
+        data['is_member'] = is_member
+        data['can_edit'] = membership.role in ["owner", "admin"] if membership else False
 
         return Response(data)
 
