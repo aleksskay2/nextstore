@@ -1516,11 +1516,8 @@ class ProductChatConsumer(AsyncJsonWebsocketConsumer):
                     "updated": len([m for m in qs if m.sender_id == sender_id]),
                 }
             )
-
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from channels.db import database_sync_to_async
-# ❌ УБРАНО: from django.contrib.auth import get_user_model
-
 
 class RegionChatConsumer(AsyncJsonWebsocketConsumer):
 
@@ -1589,6 +1586,17 @@ class RegionChatConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({
             "type": "new_message",
             "message": event["message"],
+        })
+
+    # 🔥 ДОБАВЛЕН ОБРАБОТЧИК MEDIA_UPDATED
+    async def media_updated(self, event):
+        """
+        Перехватывает уведомление об успешной загрузке медиа (видео/аудио)
+        и отправляет его клиенту как обновленное сообщение.
+        """
+        await self.send_json({
+            "type": "new_message",
+            "message": event["message"]
         })
 
     async def delete_message_notify(self, event):
